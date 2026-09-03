@@ -1,0 +1,143 @@
+/**
+ * arctic-map-pattern.css
+ *
+ * Colours are pulled from the site's own tokens (index.css: --ink, --ice,
+ * --cyan, --line) rather than the reference's literal hex values, so the
+ * backdrop reads as native to this site instead of a pasted-in swatch.
+ *
+ * Three independent layers, back to front:
+ *   1. ocean-backdrop  — the navy field: a few large soft gradients for
+ *      depth, plus a fine repeating dot grid.
+ *   2. island-backdrop — crisp radial-gradient "landmasses", warped into
+ *      hand-drawn coastlines by the SVG filter (see the .tsx file).
+ *   3. snow             — two dot layers falling at different rates for
+ *      parallax, added on top of both.
+ */
+
+.arctic-pattern-wrapper {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--ink);
+}
+
+/* ---------------------------------------------------------------- ocean */
+
+.arctic-ocean-backdrop {
+  position: absolute;
+  inset: 0;
+  background-color: var(--ink);
+  background-image:
+    /* soft depth shading — a handful of very large, very soft patches */
+    radial-gradient(ellipse 55% 40% at 12% 20%, rgba(15, 42, 74, 0.55), transparent 70%),
+    radial-gradient(ellipse 50% 45% at 82% 15%, rgba(20, 52, 88, 0.45), transparent 70%),
+    radial-gradient(ellipse 60% 50% at 70% 78%, rgba(10, 34, 62, 0.55), transparent 70%),
+    radial-gradient(ellipse 45% 40% at 15% 85%, rgba(18, 48, 82, 0.4), transparent 70%),
+    /* fine dot grid */
+    radial-gradient(circle, rgba(230, 242, 251, 0.16) 1px, transparent 1.4px);
+  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+  background-size: auto, auto, auto, auto, 28px 28px;
+}
+
+/* -------------------------------------------------------------- islands */
+
+.arctic-island-backdrop {
+  position: absolute;
+  inset: 0;
+  /* Every "island" is 1-2 overlapping blob-gradients so the pre-warp shape
+     is already an irregular cluster, not a single perfect circle — the
+     noise filter then roughens the edge rather than inventing the whole
+     silhouette from nothing. Stops: near-white core, pale mid-tone, a thin
+     cyan rim, then transparent — the rim is what survives the warp as the
+     glowing coastline outline in the reference image.
+     Each gradient carries an EXPLICIT pixel radius ("circle 90px", not just
+     "circle"). Left to the default `farthest-corner` sizing, a circle
+     centred near an edge balloons out to reach the far corner of the whole
+     element — every "island" would inflate to cover most of the screen
+     instead of staying a compact blob. And `background-size` is left at its
+     default (the box each layer positions itself in = the full element) —
+     an earlier version constrained it to a small percentage box, which
+     forced EVERY layer's own `at X% Y%` to be read relative to that one
+     small shared tile instead of the whole canvas, collapsing all eleven
+     islands into a single cluster pinned in the top-left corner. */
+  background-image:
+    radial-gradient(circle 95px  at 10% 16%, var(--ice) 0%, var(--ice-dim) 58%, var(--cyan) 90%, transparent 97%),
+    radial-gradient(circle 60px  at 17% 23%, var(--ice) 0%, var(--ice-dim) 58%, var(--cyan) 90%, transparent 97%),
+    radial-gradient(circle 70px  at 30% 9%,  var(--ice) 0%, var(--ice-dim) 58%, var(--cyan) 90%, transparent 97%),
+    radial-gradient(circle 45px  at 36% 17%, var(--ice) 0%, var(--ice-dim) 58%, var(--cyan) 90%, transparent 97%),
+    radial-gradient(circle 40px  at 46% 7%,  var(--ice) 0%, var(--ice-dim) 58%, var(--cyan) 90%, transparent 97%),
+    radial-gradient(circle 55px  at 8% 47%,  var(--ice) 0%, var(--ice-dim) 58%, var(--cyan) 90%, transparent 97%),
+    radial-gradient(circle 80px  at 65% 13%, var(--ice) 0%, var(--ice-dim) 58%, var(--cyan) 90%, transparent 97%),
+    radial-gradient(circle 52px  at 72% 20%, var(--ice) 0%, var(--ice-dim) 58%, var(--cyan) 90%, transparent 97%),
+    radial-gradient(circle 45px  at 89% 9%,  var(--ice) 0%, var(--ice-dim) 58%, var(--cyan) 90%, transparent 97%),
+    radial-gradient(circle 65px  at 80% 44%, var(--ice) 0%, var(--ice-dim) 58%, var(--cyan) 90%, transparent 97%),
+    radial-gradient(circle 42px  at 87% 51%, var(--ice) 0%, var(--ice-dim) 58%, var(--cyan) 90%, transparent 97%),
+    radial-gradient(circle 82px  at 14% 73%, var(--ice) 0%, var(--ice-dim) 58%, var(--cyan) 90%, transparent 97%),
+    radial-gradient(circle 50px  at 22% 81%, var(--ice) 0%, var(--ice-dim) 58%, var(--cyan) 90%, transparent 97%),
+    radial-gradient(circle 60px  at 43% 85%, var(--ice) 0%, var(--ice-dim) 58%, var(--cyan) 90%, transparent 97%),
+    radial-gradient(circle 38px  at 51% 75%, var(--ice) 0%, var(--ice-dim) 58%, var(--cyan) 90%, transparent 97%),
+    radial-gradient(circle 55px  at 67% 91%, var(--ice) 0%, var(--ice-dim) 58%, var(--cyan) 90%, transparent 97%),
+    radial-gradient(circle 35px  at 96% 72%, var(--ice) 0%, var(--ice-dim) 58%, var(--cyan) 90%, transparent 97%);
+  background-repeat: no-repeat;
+  filter: url(#handDrawnNoise);
+  opacity: 0.9;
+}
+
+/* ----------------------------------------------------------------- snow */
+
+.arctic-snow {
+  position: absolute;
+  inset: 0;
+}
+
+.arctic-snow,
+.arctic-snow::after {
+  background-repeat: repeat;
+}
+
+.arctic-snow {
+  background-image:
+    radial-gradient(2.2px 2.2px at 10% 20%, var(--ice) 60%, transparent 65%),
+    radial-gradient(1.8px 1.8px at 35% 65%, var(--ice) 60%, transparent 65%),
+    radial-gradient(2.4px 2.4px at 60% 15%, var(--ice) 60%, transparent 65%),
+    radial-gradient(1.9px 1.9px at 82% 55%, var(--ice) 60%, transparent 65%),
+    radial-gradient(2.1px 2.1px at 20% 85%, var(--ice) 60%, transparent 65%),
+    radial-gradient(1.8px 1.8px at 92% 78%, var(--ice) 60%, transparent 65%),
+    radial-gradient(2px 2px at 48% 40%, var(--ice) 60%, transparent 65%),
+    radial-gradient(1.7px 1.7px at 70% 92%, var(--ice) 60%, transparent 65%);
+  background-size: 220px 300px;
+  opacity: 0.8;
+  animation: arctic-snow-fall-a 9s linear infinite;
+}
+
+.arctic-snow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(3.2px 3.2px at 15% 30%, var(--ice) 60%, transparent 65%),
+    radial-gradient(2.8px 2.8px at 50% 70%, var(--ice) 60%, transparent 65%),
+    radial-gradient(3.4px 3.4px at 75% 20%, var(--ice) 60%, transparent 65%),
+    radial-gradient(2.8px 2.8px at 90% 60%, var(--ice) 60%, transparent 65%),
+    radial-gradient(3px 3px at 30% 88%, var(--ice) 60%, transparent 65%);
+  background-size: 340px 420px;
+  opacity: 0.55;
+  animation: arctic-snow-fall-b 15s linear infinite;
+}
+
+@keyframes arctic-snow-fall-a {
+  to { background-position: 0 300px; }
+}
+
+@keyframes arctic-snow-fall-b {
+  to { background-position: 0 420px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .arctic-snow,
+  .arctic-snow::after {
+    animation: none;
+  }
+}

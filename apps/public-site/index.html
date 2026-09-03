@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>India In Antarctica</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <style>
+      #portrait-lock {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: radial-gradient(120% 100% at 50% -10%, #102a44 0%, #061019 55%, #030810 100%);
+        color: #e6f2fb;
+        z-index: 9999999;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 2rem;
+        font-family: 'Inter', sans-serif;
+      }
+      #portrait-lock svg {
+        width: 64px;
+        height: 64px;
+        margin-bottom: 24px;
+        fill: none;
+        stroke: #5fd9ff;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        animation: rotate-phone 2s ease-in-out infinite alternate;
+      }
+      @keyframes rotate-phone {
+        0% { transform: rotate(-90deg); }
+        20% { transform: rotate(-90deg); }
+        80% { transform: rotate(0deg); }
+        100% { transform: rotate(0deg); }
+      }
+      @media screen and (max-width: 1200px) and (orientation: landscape) and (pointer: coarse) {
+        #portrait-lock {
+          display: flex;
+        }
+        #root {
+          display: none !important;
+        }
+      }
+      @media screen and (max-height: 600px) and (orientation: landscape) {
+        #portrait-lock {
+          display: flex;
+        }
+        #root {
+          display: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="portrait-lock">
+      <svg viewBox="0 0 24 24">
+        <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+        <line x1="12" y1="18" x2="12.01" y2="18"></line>
+      </svg>
+      <h2 style="font-family: 'Barlow Condensed', sans-serif; font-size: 2.5rem; margin: 0 0 1rem 0; font-weight: 700;">Please Rotate Device</h2>
+      <p style="font-size: 1.1rem; line-height: 1.5; color: #a5b6c7; max-width: 400px; margin: 0;">This experience is locked to portrait mode. Please rotate your device vertically to continue exploring.</p>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

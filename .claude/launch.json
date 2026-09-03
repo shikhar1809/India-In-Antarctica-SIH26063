@@ -1,0 +1,26 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "polarquest",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5174,
+      "autoPort": true
+    },
+    {
+      "name": "iia-portal",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "iia-portal", "run", "dev"],
+      "port": 5175,
+      "autoPort": true
+    },
+    {
+      "name": "iia-public",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "iia-public", "run", "dev"],
+      "port": 5176,
+      "autoPort": true
+    }
+  ]
+}

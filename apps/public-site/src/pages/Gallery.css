@@ -1,0 +1,140 @@
+.gal-page {
+  position: relative;
+  height: 100svh;
+  width: 100%;
+  overflow: hidden;
+  background: var(--ink);
+}
+
+.gal-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.gal-header {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  pointer-events: none;
+}
+
+.gal-header > * {
+  pointer-events: auto;
+}
+
+.gal-back {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  color: var(--ice);
+  background: rgba(6, 16, 25, 0.55);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.gal-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.55em;
+  font-family: var(--font-disp);
+  color: var(--ice);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.gal-brand-mark {
+  height: 1.7em;
+  width: 1.7em;
+  object-fit: contain;
+}
+
+.gal-count {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ice-faint);
+  background: rgba(6, 16, 25, 0.55);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.4rem 0.8rem;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Scroll/Swipe switch — a fourth header item that wraps onto its own
+   centered row (flex-basis: 100% forces the break under flex-wrap)
+   instead of squeezing into the back/brand/count row, which has no slack
+   left for it on a phone-width header. */
+.gal-mode-toggle {
+  flex-basis: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 0.6rem;
+}
+
+.gal-mode-toggle-pill {
+  display: inline-flex;
+  background: rgba(6, 16, 25, 0.55);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.25rem;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.gal-mode-toggle-pill button {
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ice-dim);
+  background: none;
+  border: none;
+  border-radius: 999px;
+  /* 44px+ tap target height even though the pill itself reads compact —
+     mobile touch targets need the room, the padding just doesn't show it. */
+  padding: 0.55rem 1.1rem;
+  transition: background 0.2s, color 0.2s;
+}
+
+.gal-mode-toggle-pill button.is-active {
+  background: var(--cyan);
+  color: #06131c;
+}
+
+.gal-mode-toggle-pill button:not(.is-active):hover {
+  color: var(--ice);
+}
+
+.gal-swipe {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6rem 1rem 2rem;
+}
+
+.gal-swipe > div {
+  width: 100%;
+  max-width: 900px;
+}
+
+@media (max-width: 640px) {
+  .gal-header { padding: 0.8rem 1rem; }
+  .gal-brand,
+  .gal-count { font-size: 0.72rem; }
+  .gal-swipe { padding-top: 7.5rem; }
+  .gal-mode-toggle-pill button { padding: 0.6rem 1rem; font-size: 0.8rem; }
+}

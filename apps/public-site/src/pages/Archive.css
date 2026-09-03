@@ -1,0 +1,440 @@
+.arch2-page {
+  background: var(--ink);
+  position: relative;
+}
+
+.arch2-hero {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+}
+
+.arch2-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.55em;
+  font-family: var(--font-disp);
+}
+
+.arch2-brand-mark {
+  height: 1.7em;
+  width: 1.7em;
+  object-fit: contain;
+}
+
+/* --------------------------------------------------------------- menu */
+
+.arch2-menu-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(3, 8, 13, 0.55);
+  border: none;
+  cursor: default;
+  animation: arch2-fade-in 0.15s ease;
+}
+
+.arch2-menu {
+  position: fixed;
+  top: 4.2rem;
+  right: 1.4rem;
+  z-index: 1001;
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  padding: 0.6rem;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+  animation: arch2-menu-in 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.arch2-menu-link,
+.arch2-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-family: var(--font-ui);
+  font-size: 0.88rem;
+  color: var(--ice);
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 0.7rem;
+}
+
+.arch2-menu-link:hover,
+.arch2-menu-item:hover {
+  background: var(--panel-2);
+}
+
+.arch2-menu-item.is-active {
+  color: var(--cyan);
+}
+
+.arch2-menu-divider {
+  height: 1px;
+  background: var(--line);
+  margin: 0.4rem 0.2rem;
+}
+
+.arch2-menu-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+  padding: 0.3rem 0.7rem;
+}
+
+@keyframes arch2-fade-in {
+  from { opacity: 0; }
+}
+
+@keyframes arch2-menu-in {
+  from { opacity: 0; transform: translateY(-6px); }
+}
+
+/* ---------------------------------------------------------------- body */
+
+/* The Arctic map backdrop is `position: fixed` so its islands keep the
+   reference image's proportions instead of stretching over the page's full
+   scroll height. A fixed element with a z-index is promoted into the same
+   paint step as any OTHER positioned descendant (ordered by DOM order
+   within that step) rather than the earlier "static in-flow content" step —
+   so without `.arch2-hero`/`.arch2-body` also being positioned, the fixed
+   backdrop (later in that step) would paint OVER them, not under. */
+.arch2-body {
+  position: relative;
+  z-index: 1;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 2.5rem 1.7rem 5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2.4rem;
+}
+
+/* ------------------------------------------------------------- filters */
+
+.arch2-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 1.4rem;
+}
+
+.arch2-chip {
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  color: var(--ice-dim);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.arch2-chip:hover {
+  color: var(--ice);
+  border-color: var(--line-strong);
+}
+
+.arch2-chip.is-active {
+  color: var(--ink);
+  background: var(--cyan);
+  border-color: var(--cyan);
+}
+
+.arch2-count {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ice-faint);
+}
+
+/* -------------------------------------------------------------- detail */
+
+.arch2-detail {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 2rem;
+}
+
+.arch2-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  margin-bottom: 0.9rem;
+}
+
+.arch2-station,
+.arch2-year {
+  color: var(--ice-faint);
+}
+
+.arch2-station::before,
+.arch2-year::before {
+  content: '·';
+  margin-right: 0.7rem;
+  color: var(--line-strong);
+}
+
+.arch2-detail-title {
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  color: var(--ice);
+  margin-bottom: 1rem;
+  max-width: 32ch;
+}
+
+.arch2-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.6rem;
+}
+
+.arch2-pill {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--ice-dim);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 0.25rem 0.6rem;
+}
+
+.arch2-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.8rem;
+}
+
+.arch2-detail-body p {
+  color: var(--ice-dim);
+  line-height: 1.7;
+  font-size: 0.98rem;
+  margin: 0 0 1.1rem;
+}
+
+.arch2-detail-body p:last-child {
+  margin-bottom: 0;
+}
+
+.arch2-detail-table {
+  align-self: start;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.arch2-detail-table th,
+.arch2-detail-table td {
+  padding: 0.55rem 0.9rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.arch2-detail-table tr:last-child th,
+.arch2-detail-table tr:last-child td {
+  border-bottom: none;
+}
+
+.arch2-detail-table th {
+  color: var(--ice-faint);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.arch2-detail-table td {
+  color: var(--ice);
+}
+
+@media (min-width: 760px) {
+  .arch2-detail-grid {
+    grid-template-columns: 1fr auto;
+  }
+}
+
+/* ---------------------------------------------------------------- list */
+
+.arch2-list-title {
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+  margin-bottom: 1rem;
+}
+
+.arch2-list-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.7rem;
+}
+
+.arch2-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  text-align: left;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.85rem 1rem;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.arch2-row:hover {
+  border-color: var(--line-strong);
+  background: var(--panel-2);
+}
+
+.arch2-row.is-active {
+  border-color: var(--cyan);
+}
+
+.arch2-row-kind {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+
+.arch2-row-title {
+  font-size: 0.94rem;
+  color: var(--ice);
+  line-height: 1.35;
+}
+
+.arch2-row-meta {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ice-faint);
+}
+
+/* ══════════════════════════════════ live repository additions ══════════
+   The archive reads from Firestore now, so it has states the static list
+   never had: loading, unreachable, and genuinely empty. */
+
+.arch2-hero-fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 14px;
+  min-height: 46svh;
+  padding: 48px 6vw;
+  border-bottom: 1px solid var(--line);
+}
+
+.arch2-hero-fallback h1 {
+  margin: 0;
+  font-family: var(--font-disp), system-ui, sans-serif;
+  font-size: clamp(30px, 5vw, 46px);
+  font-weight: 600;
+  color: var(--ice);
+  text-wrap: balance;
+}
+
+.arch2-hero-fallback p {
+  margin: 0;
+  max-width: 52ch;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ice-dim);
+}
+
+/* credit line under the outreach copy */
+.arch2-credit {
+  margin-top: 18px !important;
+  font-size: 12.5px !important;
+  color: var(--ice-faint) !important;
+  font-style: italic;
+}
+
+.arch2-chart { margin-top: 32px; }
+
+.arch2-video {
+  display: block;
+  width: 100%;
+  margin-top: 28px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #000;
+}
+
+/* Citation block — collapsed by default. A general reader doesn't need the
+   datum and the identifier; a researcher citing the record does. */
+.arch2-meta {
+  margin-top: 28px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.arch2-meta summary {
+  padding: 13px 18px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+  list-style: none;
+}
+.arch2-meta summary::-webkit-details-marker { display: none; }
+.arch2-meta summary::before { content: '+ '; color: var(--cyan); }
+.arch2-meta[open] summary::before { content: '– '; }
+.arch2-meta summary:hover { color: var(--ice); }
+
+.arch2-meta dl {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) 1fr;
+  gap: 8px 20px;
+  margin: 0;
+  padding: 4px 18px 18px;
+}
+
+.arch2-meta dt {
+  font-size: 12px;
+  color: var(--ice-faint);
+}
+
+.arch2-meta dd {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ice);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  word-break: break-word;
+}
+
+.arch2-meta-datum { color: var(--ice-faint); }
+
+@media (max-width: 640px) {
+  .arch2-meta dl { grid-template-columns: 1fr; gap: 2px 0; }
+  .arch2-meta dd { margin-bottom: 10px; }
+}
+
+/* The repository-wide chart gets its own heading and framing so it can't be
+   mistaken for a chart belonging to the record above it. */
+.arch2-trend { margin-top: 48px; }
+.arch2-trend-sub {
+  margin: -6px 0 16px;
+  font-size: 13px;
+  color: var(--ice-faint);
+  max-width: 60ch;
+}

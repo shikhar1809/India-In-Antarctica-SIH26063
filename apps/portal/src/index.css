@@ -1,0 +1,59 @@
+:root {
+  --ink: #061019;
+  --ink-2: #0a1a2b;
+  --panel: #0d2033;
+  --panel-2: #0f2740;
+  --line: rgba(150, 200, 240, 0.16);
+  --line-strong: rgba(150, 200, 240, 0.32);
+  --ice: #e6f2fb;
+  --ice-dim: #9fbdd6;
+  --ice-faint: #6c8399;
+  --saffron: #ff9933;
+  --green: #128807;
+  --cyan: #5fd9ff;
+  --warn: #ffcf5c;
+  --danger: #ff6a6a;
+  --r: 12px;
+  --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-disp: 'Barlow Condensed', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: radial-gradient(120% 100% at 50% -10%, #102a44 0%, var(--ink) 55%, #030810 100%);
+  color: var(--ice);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+a { color: inherit; text-decoration: none; }
+
+h1, h2, h3 {
+  font-family: var(--font-disp);
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+button {
+  font-family: var(--font-ui);
+  cursor: pointer;
+}
+
+input, textarea, select {
+  font-family: var(--font-ui);
+}
+
+::selection {
+  background: rgba(95, 217, 255, 0.3);
+}

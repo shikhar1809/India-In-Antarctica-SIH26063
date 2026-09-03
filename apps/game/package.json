@@ -1,0 +1,29 @@
+{
+  "name": "polar-quest",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "PolarQuest - Immersive 3D Antarctic research experience for NCPOR / MoES (SIH PS 26063)",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 4173",
+    "test:unit": "npm --prefix iia-portal run test",
+    "test:api": "node scripts/verify-api.mjs",
+    "test:pipeline": "node scripts/verify-pipeline.mjs",
+    "test:e2e": "node scripts/e2e-repository.mjs",
+    "test:all": "npm run test:unit && npm run test:pipeline && npm run test:api && npm run test:e2e",
+    "seed:historical": "node scripts/seed-historical.mjs",
+    "seed:demo": "node scripts/seed-field-demo.mjs",
+    "seed:deposits": "node scripts/seed-repository-deposits.mjs"
+  },
+  "dependencies": {
+    "firebase": "^12.18.0",
+    "three": "^0.180.0",
+    "three-mesh-bvh": "^0.9.14"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1",
+    "vite": "^7.1.5"
+  }
+}

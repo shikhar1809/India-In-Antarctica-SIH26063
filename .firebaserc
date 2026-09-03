@@ -1,0 +1,24 @@
+{
+  "projects": {
+    "default": "indiainantartica"
+  },
+  "targets": {
+    "indiainantartica": {
+      "hosting": {
+        "portal": [
+          "iia-portal"
+        ],
+        "main": [
+          "iia-public"
+        ],
+        "game": [
+          "iia-game"
+        ],
+        "legacy": [
+          "indiainantarctica"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

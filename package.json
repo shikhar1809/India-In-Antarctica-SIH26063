@@ -1,0 +1,40 @@
+{
+  "name": "iia-polar-outreach",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Integrated Polar Science Outreach, Knowledge Repository and Media Dissemination Portal — SIH PS 26063, NCPOR / Ministry of Earth Sciences",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "install:all": "npm --prefix apps/portal install && npm --prefix apps/public-site install && npm --prefix apps/game install && npm --prefix functions install",
+
+    "dev:portal": "npm --prefix apps/portal run dev",
+    "dev:site": "npm --prefix apps/public-site run dev",
+    "dev:game": "npm --prefix apps/game run dev",
+
+    "build": "npm run build:portal && npm run build:site && npm run build:game",
+    "build:portal": "npm --prefix apps/portal run build",
+    "build:site": "npm --prefix apps/public-site run build",
+    "build:game": "npm --prefix apps/game run build",
+
+    "test": "npm run test:all",
+    "test:all": "npm run test:unit && npm run test:pipeline && npm run test:api && npm run test:e2e",
+    "test:unit": "npm --prefix apps/portal run test",
+    "test:pipeline": "node scripts/verify-pipeline.mjs",
+    "test:api": "node scripts/verify-api.mjs",
+    "test:e2e": "node scripts/e2e-repository.mjs",
+
+    "seed:historical": "node scripts/seed-historical.mjs",
+    "seed:deposits": "node scripts/seed-repository-deposits.mjs",
+    "seed:demo": "node scripts/seed-field-demo.mjs",
+    "generate:records": "node scripts/generate-historical-records.mjs",
+
+    "deploy": "firebase deploy",
+    "deploy:rules": "firebase deploy --only firestore:rules,storage",
+    "deploy:api": "firebase deploy --only functions",
+    "deploy:hosting": "firebase deploy --only hosting"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
+  }
+}

@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#06121f" />
+<title>PolarQuest</title>
+<meta name="description" content="An immersive 3D expedition to India's Antarctic research stations. Ministry of Earth Sciences / NCPOR outreach experience." />
+<link rel="icon" type="image/png" href="/logo.png?v=2" />
+<link rel="stylesheet" href="./src/ui/style.css" />
+</head>
+<body>
+  <canvas id="viewport"></canvas>
+
+  <!-- ============ ROTATE-DEVICE PROMPT (mobile portrait) ============ -->
+  <div id="rotate-lock" class="screen hidden">
+    <div class="rotate-inner">
+      <div class="rotate-icon">📱</div>
+      <h2>Turn your device sideways</h2>
+      <p>India in Antarctica is a landscape experience — rotate your phone to keep exploring.</p>
+    </div>
+  </div>
+
+  <!-- ============ LOADING ============ -->
+  <div id="boot" class="screen">
+    <div class="pixel-snow-layer" id="boot-snow"></div>
+    <div class="boot-inner">
+      <div class="crest small">
+        <img class="crest-img" src="/logo.png" alt="India in Antarctica" />
+      </div>
+      <p class="sub">Ministry of Earth Sciences &nbsp;·&nbsp; National Centre for Polar and Ocean Research</p>
+      <!-- The word stage: one phrase at a time, shuffled in per character. -->
+      <div class="boot-stage"><h1 class="boot-word" id="boot-word"></h1></div>
+      <div class="bar"><i id="boot-bar"></i></div>
+      <p class="boot-status" id="boot-status">Preparing the expedition…</p>
+    </div>
+  </div>
+
+  <!-- ============ MAIN MENU ============ -->
+  <div id="menu" class="screen hidden">
+    <div class="pixel-snow-layer" id="menu-snow"></div>
+    <div class="menu-grid">
+      <div class="menu-left">
+        <div class="crest small"><img class="crest-img" src="/logo.png" alt="India in Antarctica" /></div>
+        <h1 class="wordmark">INDIA IN <span>ANTARCTICA</span></h1>
+        <p class="tagline">Walk the ice. Run the science. Bring the data home.</p>
+        <p class="blurb">Step inside India's Antarctic research programme. Explore <b>Maitri</b> in the Schirmacher Oasis and <b>Bharati</b> in the Larsemann Hills, run real field experiments, and fill the National Polar Data Archive with everything you discover.</p>
+        <div class="menu-actions">
+          <button class="btn primary" id="btn-start">Begin Expedition</button>
+          <button class="btn" id="btn-main-site">Back To Main Site</button>
+        </div>
+        <ul class="creds">
+          <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</li>
+          <li><kbd>Shift</kbd> run</li>
+          <li><kbd>E</kbd> interact</li>
+          <li><kbd>Tab</kbd> archive</li>
+          <li><kbd>M</kbd> map</li>
+        </ul>
+      </div>
+      <div class="menu-right">
+        <div class="station-pick" id="station-pick"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ IN-GAME HUD ============ -->
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div class="hud-chip" id="chip-site">
+        <span class="lbl">Site</span><b id="hud-site">Maitri</b>
+      </div>
+      <div class="compass" id="compass"><div class="rose" id="compass-rose"></div><i class="needle"></i></div>
+      <div class="hud-chip metrics">
+        <span><span class="lbl">Temp</span><b id="hud-temp">−18 °C</b></span>
+        <span><span class="lbl">Wind</span><b id="hud-wind">24 kt</b></span>
+        <span><span class="lbl">Time</span><b id="hud-clock">14:20</b></span>
+      </div>
+    </div>
+
+    <div class="objective" id="objective">
+      <span class="obj-kicker">Objective</span>
+      <b id="obj-text">Reach Maitri Station</b>
+      <span class="obj-dist" id="obj-dist"></span>
+    </div>
+
+    <div class="minimap" id="minimap">
+      <canvas id="minimap-canvas" width="176" height="176"></canvas>
+      <div class="minimap-ring"></div>
+    </div>
+
+    <div class="reticle" id="reticle"><i></i></div>
+
+    <div class="prompt hidden" id="prompt">
+      <kbd>E</kbd><span id="prompt-text">Examine</span>
+    </div>
+
+    <div class="hud-bottom">
+      <div class="samples" id="samples">
+        <span class="lbl">Archive</span>
+        <b><i id="hud-collected">0</i> / <i id="hud-total">0</i></b>
+        <span class="lbl">records</span>
+      </div>
+      <div class="hint" id="hint"><kbd>Tab</kbd> Archive &nbsp; <kbd>M</kbd> Map &nbsp; <kbd>Esc</kbd> Menu</div>
+    </div>
+    
+    <!-- Toast notifications -->
+    <div class="toast-stack" id="toasts"></div>
+    
+    <!-- Mobile touch controls -->
+    <div class="touch hidden" id="touch">
+      <div class="stick" id="stick"><i id="stick-knob"></i></div>
+      <button class="tbtn" id="tbtn-act">E</button>
+      <button class="tbtn small" id="tbtn-run">RUN</button>
+    </div>
+  </div>
+
+
+
+  <!-- ============ CODEX / ARCHIVE ============ -->
+  <div id="codex" class="overlay hidden">
+    <div class="codex-shell">
+      <header>
+        <div>
+          <h2>National Polar Data Archive</h2>
+          <p>Expedition reports · datasets · publications · media — collected in the field</p>
+        </div>
+        <button class="x" id="codex-close" aria-label="Close">×</button>
+      </header>
+      <div class="codex-body">
+        <nav class="codex-nav" id="codex-nav"></nav>
+        <section class="codex-list" id="codex-list"></section>
+        <article class="codex-detail" id="codex-detail"></article>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ MAP ============ -->
+  <div id="map" class="overlay hidden">
+    <div class="map-shell">
+      <header><h2>Antarctic Operations Map</h2><button class="x" id="map-close" aria-label="Close">×</button></header>
+      <div class="map-body"><canvas id="map-canvas"></canvas><div class="map-legend" id="map-legend"></div></div>
+    </div>
+  </div>
+
+  <!-- ============ MINIGAME HOST ============ -->
+  <div id="mini" class="overlay hidden"><div class="mini-shell" id="mini-shell"></div></div>
+
+  <!-- ============ PAUSE ============ -->
+  <div id="pause" class="overlay hidden">
+    <div class="pause-shell">
+      <h2>Expedition Paused</h2>
+      <div class="pause-actions">
+        <button class="btn primary" id="btn-resume">Resume</button>
+        <button class="btn" id="btn-travel">Travel to another station</button>
+        <button class="btn" id="btn-bugreport">Report a bug</button>
+        <button class="btn" id="btn-quit">Return to base camp</button>
+      </div>
+      <div class="settings" id="settings"></div>
+    </div>
+  </div>
+
+  <!-- ============ BUG REPORT ============ -->
+  <div id="bugreport" class="overlay hidden">
+    <div class="bugreport-shell">
+      <h2>Report a bug</h2>
+      <p class="bug-sub">Tell us what went wrong — a screenshot helps a lot.</p>
+      <textarea id="bug-desc" rows="5" maxlength="2000"
+        placeholder="What happened? What were you doing right before it happened?"></textarea>
+      <label class="bug-file-btn" for="bug-files">
+        <span>+ Attach screenshots</span>
+        <input type="file" id="bug-files" accept="image/*" multiple hidden>
+      </label>
+      <div class="bug-thumbs" id="bug-thumbs"></div>
+      <p class="bug-error hidden" id="bug-error"></p>
+      <p class="bug-success hidden" id="bug-success">Thanks — your report was sent.</p>
+      <div class="pause-actions">
+        <button class="btn primary" id="btn-bugreport-submit">Send report</button>
+        <button class="btn" id="btn-bugreport-cancel">Back</button>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .cursor {
+      display: inline-block;
+      animation: blink 1s step-end infinite;
+      color: #fff;
+      font-weight: normal;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0; }
+    }
+  </style>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const menuWordmark = document.querySelector('#menu .wordmark');
+      if (!menuWordmark) return;
+
+      const phrases = [
+        { prefix: "INDIA IN ", highlight: "ANTARCTICA" },
+        { prefix: "BEGIN THE ", highlight: "POLARQUEST" }
+      ];
+      
+      let currentPhrase = 0;
+      let isDeleting = false;
+      let charIndex = phrases[0].prefix.length + phrases[0].highlight.length; // Start fully typed
+      let isInitialWait = true;
+
+      function typeLoop() {
+        const phrase = phrases[currentPhrase];
+        const fullText = phrase.prefix + phrase.highlight;
+        const prefixLen = phrase.prefix.length;
+
+        if (isDeleting) {
+          charIndex--;
+        } else {
+          charIndex++;
+        }
+
+        let renderPrefix = '';
+        let renderHighlight = '';
+
+        if (charIndex <= prefixLen) {
+          renderPrefix = phrase.prefix.substring(0, charIndex);
+        } else {
+          renderPrefix = phrase.prefix;
+          renderHighlight = phrase.highlight.substring(0, charIndex - prefixLen);
+        }
+
+        menuWordmark.innerHTML = renderPrefix + (renderHighlight ? `<span>${renderHighlight}</span>` : '') + '<span class="cursor">_</span>';
+
+        let typeSpeed = isDeleting ? 40 : 100;
+        if (!isDeleting) typeSpeed += Math.random() * 50;
+
+        if (!isDeleting && charIndex === fullText.length) {
+          typeSpeed = 4000; // Pause when fully typed
+          isDeleting = true;
+        } else if (isDeleting && charIndex === 0) {
+          isDeleting = false;
+          currentPhrase = (currentPhrase + 1) % phrases.length;
+          typeSpeed = 500; // Pause before typing next
+        }
+
+        setTimeout(typeLoop, typeSpeed);
+      }
+
+      // Set initial HTML with cursor
+      menuWordmark.innerHTML = phrases[0].prefix + `<span>${phrases[0].highlight}</span>` + '<span class="cursor">_</span>';
+
+      // Start the loop after a 5-second initial wait, so the user sees the title first
+      setTimeout(() => {
+        isInitialWait = false;
+        isDeleting = true;
+        typeLoop();
+      }, 5000);
+    });
+  </script>
+  <script type="module">
+    import { initPixelTrail } from './src/ui/PixelTrail.js';
+    initPixelTrail();
+  </script>
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

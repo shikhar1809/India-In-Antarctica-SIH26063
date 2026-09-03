@@ -1,0 +1,15 @@
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ttf binary
+*.otf binary
+*.woff  binary
+*.woff2 binary
+*.glb binary
+*.mp3 binary
+
+# generated — keep out of diffs and language stats
+apps/portal/src/repository/historicalRecords.ts linguist-generated=true

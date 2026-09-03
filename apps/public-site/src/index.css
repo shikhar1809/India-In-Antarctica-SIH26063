@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+/* shadcn-style components (see components/ui/) expect the standard
+   bg-background/text-foreground/bg-muted/ring-ring utilities, which only
+   exist if something maps `--color-*` under Tailwind v4's `@theme`. This
+   project never ran `shadcn init` — it's a hand-built CSS-first Tailwind
+   setup with its own --ink/--ice palette below — so those tokens didn't
+   exist at all until now. Mapping them to the site's own palette (rather
+   than shadcn's default light-grey values) keeps a pasted shadcn
+   component visually native to this dark theme instead of introducing a
+   second, clashing color system. */
+@theme {
+  --color-background: #061019;
+  --color-foreground: #e6f2fb;
+  --color-muted: #0f2740;
+  --color-muted-foreground: #9fbdd6;
+  --color-ring: #5fd9ff;
+}
+
+:root {
+  --ink: #061019;
+  --ink-2: #0a1a2b;
+  --panel: #0d2033;
+  --panel-2: #0f2740;
+  --line: rgba(150, 200, 240, 0.16);
+  --line-strong: rgba(150, 200, 240, 0.32);
+  --ice: #e6f2fb;
+  --ice-dim: #9fbdd6;
+  --ice-faint: #6c8399;
+  --saffron: #ff9933;
+  --green: #128807;
+  --cyan: #5fd9ff;
+  --warn: #ffcf5c;
+  --danger: #ff6a6a;
+  --r: 12px;
+  --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-disp: 'Barlow Condensed', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: radial-gradient(120% 100% at 50% -10%, #102a44 0%, var(--ink) 55%, #030810 100%);
+  color: var(--ice);
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  /* The true root, not a nested wrapper — see Home.css for why this
+     replaced Puck's own inline overflow-x: hidden on its content wrapper
+     rather than just being removed.
+     `clip`, not `hidden`: the CSS Overflow spec auto-promotes overflow-y
+     from `visible` to `auto` whenever its paired axis is non-`visible` —
+     EXCEPT it explicitly exempts `clip`. `hidden` here silently turned
+     both <html> and <body> into their own real scroll containers (each
+     gets its own promoted overflow-y: auto), and since the browser
+     actually scrolls the viewport/documentElement rather than <body>'s
+     own scrollTop, <body> became a scrolling ancestor that never scrolls.
+     `position: sticky` anywhere on the page picks the NEAREST scrolling
+     ancestor to pin against — which was <body>, frozen at scrollTop 0 —
+     so every sticky element on the page (not just Puck's content) was
+     silently broken by this exact same promotion bug one level up. */
+  overflow-x: clip;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+a { color: inherit; text-decoration: none; }
+
+h1, h2, h3 {
+  font-family: var(--font-disp);
+  letter-spacing: 0.02em;
+  margin: 0;
+}
+
+button {
+  font-family: var(--font-ui);
+  cursor: pointer;
+}
+
+input, textarea, select {
+  font-family: var(--font-ui);
+}
+
+::selection {
+  background: rgba(95, 217, 255, 0.3);
+}

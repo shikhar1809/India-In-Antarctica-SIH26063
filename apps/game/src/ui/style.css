@@ -1,0 +1,527 @@
+/* ============================================================
+   PolarQuest — UI system
+   Palette: deep polar night, glacier ice, Indian tricolour accents
+   ============================================================ */
+@font-face{
+  font-family:"Minecraft";
+  src:url("/fonts/Minecraft.otf") format("opentype");
+  font-weight:400;
+  font-style:normal;
+  font-display:swap;
+}
+@font-face{
+  font-family:"Minecraft";
+  src:url("/fonts/Minecraft-Bold.otf") format("opentype");
+  font-weight:700;
+  font-style:normal;
+  font-display:swap;
+}
+:root{
+  --ink:#06121f;
+  --ink-2:#0b1c2e;
+  --panel:rgba(9,22,36,.86);
+  --panel-solid:#0c1b2b;
+  --line:rgba(150,200,240,.18);
+  --line-strong:rgba(150,200,240,.34);
+  --ice:#dcefff;
+  --ice-dim:#9fbdd6;
+  --ice-faint:#6c8399;
+  --saffron:#ff9933;
+  --green:#128807;
+  --chakra:#2b6cb0;
+  --cyan:#5fd9ff;
+  --warn:#ffcf5c;
+  --r:14px;
+  --mono:"Minecraft",ui-monospace,Menlo,Consolas,monospace;
+  --disp:"Minecraft",system-ui,sans-serif;
+  --ui:"Minecraft",system-ui,-apple-system,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--ink);color:var(--ice);font-family:var(--ui);-webkit-font-smoothing:antialiased}
+body{overscroll-behavior:none;touch-action:none;user-select:none;-webkit-user-select:none}
+canvas#viewport{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.hidden{display:none !important}
+kbd{font-family:var(--mono);font-size:11px;background:rgba(255,255,255,.09);border:1px solid var(--line-strong);
+  border-bottom-width:2px;border-radius:5px;padding:2px 6px;color:var(--ice);letter-spacing:.02em}
+.lbl{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ice-faint);font-weight:600}
+
+/* ---------- shared buttons ---------- */
+.btn{font-family:var(--ui);font-size:14px;font-weight:600;letter-spacing:.01em;color:var(--ice);
+  background:rgba(255,255,255,.06);border:1px solid var(--line-strong);border-radius:10px;
+  padding:12px 22px;cursor:pointer;transition:background .16s,border-color .16s,transform .1s}
+.btn:hover{background:rgba(255,255,255,.12);border-color:rgba(150,200,240,.55)}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:linear-gradient(180deg,#ff9f45,#f07f1a);border-color:#ffb469;color:#221000;
+  box-shadow:0 6px 20px -8px rgba(255,153,51,.8)}
+.btn.primary:hover{background:linear-gradient(180deg,#ffae5e,#ff8f28)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* ---------- crest / wordmark ---------- */
+.crest{width:74px;height:74px;border-radius:50%;position:relative;overflow:hidden;
+  border:2px solid rgba(255,255,255,.5);box-shadow:0 8px 30px -10px #000;margin-bottom:22px;
+  animation:crest-breathe 2.8s ease-in-out infinite}
+.crest.small{width:46px;height:46px;margin-bottom:16px}
+/* The official India-in-Antarctica seal (LOGO.png) already carries its own
+   flag bands and chakra baked in, so the crest is now just a circular frame
+   around that image — the CSS-drawn tricolour bands and spinning chakra
+   overlay this used to render (.tri / ::after) are gone rather than left to
+   double up on top of the logo's own artwork. */
+.crest-img{width:100%;height:100%;object-fit:cover;display:block}
+@keyframes crest-breathe{0%,100%{box-shadow:0 8px 30px -10px #000}50%{box-shadow:0 8px 34px -6px rgba(95,217,255,.55),0 8px 30px -10px #000}}
+.wordmark{font-family:var(--disp);font-size:clamp(40px,7vw,72px);font-weight:700;letter-spacing:.05em;line-height:.95;color:#fff}
+.wordmark span{color:var(--cyan)}
+
+/* ---------- boot + menu: plain black, shared by both -------
+   Pure black rather than the busy gradient/aurora/snow combo this used to
+   carry — a quiet field with just a hard scatter of stars reads as clean
+   and deliberate, and keeps every foreground element (crest, wordmark,
+   station cards) the clear focal point instead of competing with the
+   background for attention. Boot and menu use the exact same background
+   (one .screen rule) rather than two different treatments, so the very
+   first thing a visitor sees doesn't change character the moment they
+   press start. */
+.screen{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:6vw;overflow-y:auto;overflow-x:hidden;
+  background:#000}
+.screen::before{content:"";position:absolute;inset:0;pointer-events:none;
+  background-image:
+    radial-gradient(1.6px 1.6px at 12% 22%,#fff 100%,transparent),
+    radial-gradient(1.1px 1.1px at 78% 14%,#fff 100%,transparent),
+    radial-gradient(1.3px 1.3px at 45% 8%,#dbe9ff 100%,transparent),
+    radial-gradient(1px 1px at 92% 48%,#fff 100%,transparent),
+    radial-gradient(1.4px 1.4px at 25% 55%,#fff 100%,transparent),
+    radial-gradient(1px 1px at 60% 35%,#dbe9ff 100%,transparent),
+    radial-gradient(1.2px 1.2px at 6% 70%,#fff 100%,transparent),
+    radial-gradient(1px 1px at 35% 82%,#cfe0f5 100%,transparent);
+  background-size:280px 280px;background-repeat:repeat;
+  opacity:.85;animation:star-twinkle 3.6s ease-in-out infinite alternate}
+@keyframes star-twinkle{0%{opacity:.5}50%{opacity:.95}100%{opacity:.65}}
+/* Falling snow layer (PixelSnow.js), sandwiched between the black .screen
+   background/stars and the real content — an actual WebGL canvas, so it
+   needs an explicit stacking position rather than relying on DOM order the
+   way the CSS-only star pseudo-element does. */
+.pixel-snow-layer{position:absolute;inset:0;z-index:1;pointer-events:none}
+
+/* ---------- rotate-device prompt ---------- */
+/* Always above every other screen (boot/menu/HUD/pause) — a portrait phone
+   should see this instead of whatever else is showing, no matter what state
+   the game is in underneath. */
+#rotate-lock{z-index:200}
+.rotate-inner{position:relative;text-align:center;max-width:340px;padding:0 20px}
+.rotate-icon{font-size:56px;display:inline-block;animation:rotate-hint 1.8s ease-in-out infinite}
+@keyframes rotate-hint{0%,100%{transform:rotate(0deg)}50%{transform:rotate(90deg)}}
+.rotate-inner h2{font-family:var(--disp);font-size:26px;font-weight:700;color:#fff;margin-top:18px}
+.rotate-inner p{margin-top:10px;font-size:14px;line-height:1.6;color:var(--ice-dim)}
+.boot-inner{position:relative;z-index:2;text-align:center;display:flex;flex-direction:column;align-items:center;max-width:560px}
+.sub{margin-top:14px;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--ice-dim);font-weight:600}
+.bar{position:relative;margin-top:34px;width:min(420px,72vw);height:3px;background:rgba(255,255,255,.12);
+  border-radius:99px;overflow:hidden;box-shadow:0 0 12px -2px rgba(95,217,255,.35)}
+.bar i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--saffron),#fff,var(--green));
+  transition:width .3s ease;position:relative}
+/* A highlight sweeping along the fill — a static gradient bar reads as
+   "stalled" even while it's genuinely progressing; constant motion on top
+   of it reads as "working" regardless of how fast the underlying loads are. */
+.bar::after{content:"";position:absolute;inset:0;width:35%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.75),transparent);
+  mix-blend-mode:overlay;animation:bar-sweep 1.6s ease-in-out infinite}
+@keyframes bar-sweep{0%{transform:translateX(-120%)}100%{transform:translateX(340%)}}
+.boot-status{margin-top:14px;font-family:var(--mono);font-size:12px;color:var(--ice-faint);
+  animation:status-pulse 2s ease-in-out infinite}
+@keyframes status-pulse{0%,100%{opacity:.72}50%{opacity:1}}
+
+/* ---------- main menu ---------- */
+#menu{z-index:55}
+.menu-grid{position:relative;z-index:2;width:min(1180px,94vw);display:grid;grid-template-columns:1.05fr .95fr;gap:clamp(24px,5vw,64px);align-items:center}
+.menu-left{max-width:540px}
+.tagline{margin-top:12px;font-family:var(--disp);font-size:22px;letter-spacing:.06em;color:var(--saffron);text-transform:uppercase}
+.blurb{margin-top:18px;font-size:15px;line-height:1.65;color:var(--ice-dim)}
+.blurb b{color:var(--ice)}
+.menu-actions{margin-top:28px;display:flex;gap:12px;flex-wrap:wrap}
+.creds{margin-top:26px;display:flex;flex-wrap:wrap;gap:6px 18px;list-style:none;font-size:12px;color:var(--ice-faint)}
+.creds li{display:flex;align-items:center;gap:5px}
+.station-pick{display:flex;flex-direction:column;gap:12px}
+.pick-card{position:relative;text-align:left;padding:18px 20px;border-radius:var(--r);cursor:pointer;
+  background:linear-gradient(120deg,rgba(255,255,255,.07),rgba(255,255,255,.02));
+  border:1px solid var(--line);transition:border-color .18s,transform .18s,background .18s;overflow:hidden}
+.pick-card:hover{border-color:var(--cyan);transform:translateX(4px);background:linear-gradient(120deg,rgba(95,217,255,.14),rgba(255,255,255,.02))}
+.pick-card.active{border-color:var(--saffron);background:linear-gradient(120deg,rgba(255,153,51,.16),rgba(255,255,255,.02))}
+.pick-card h3{font-family:var(--disp);font-size:26px;letter-spacing:.05em;color:#fff;
+  max-width:calc(100% - 90px)}
+.pick-card .meta{margin-top:4px;font-family:var(--mono);font-size:11px;color:var(--cyan)}
+.pick-card p{margin-top:8px;font-size:13px;line-height:1.55;color:var(--ice-dim)}
+.pick-card .tag{position:absolute;top:16px;right:18px;font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  padding:4px 9px;border-radius:99px;border:1px solid var(--line-strong);color:var(--ice-dim)}
+.pick-card .tag.live{color:#7ef0a0;border-color:rgba(126,240,160,.4)}
+.pick-card .tag.hist{color:var(--warn);border-color:rgba(255,207,92,.4)}
+
+/* ---------- HUD ---------- */
+#hud{position:fixed;inset:0;z-index:20;pointer-events:none;font-size:13px}
+.hud-top{position:absolute;top:0;left:0;right:0;padding:18px 22px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.hud-chip{background:var(--panel);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:10px;
+  padding:9px 14px;display:flex;gap:16px;align-items:center}
+.hud-chip b{font-family:var(--disp);font-size:19px;letter-spacing:.05em;display:block;color:#fff}
+.hud-chip.metrics span{display:block}
+.hud-chip.metrics b{font-family:var(--mono);font-size:13px;font-weight:600}
+.compass{position:relative;width:230px;height:34px;overflow:hidden;border-radius:8px;
+  background:var(--panel);border:1px solid var(--line);backdrop-filter:blur(10px)}
+.compass .rose{position:absolute;top:0;height:100%;white-space:nowrap;font-family:var(--mono);font-size:11px;color:var(--ice-dim);
+  display:flex;align-items:center;will-change:transform}
+.compass .rose i{display:inline-block;width:34px;text-align:center;font-style:normal}
+.compass .rose i.card{color:#fff;font-weight:600}
+.compass .needle{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--saffron);transform:translateX(-50%)}
+.compass::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(90deg,var(--panel-solid),transparent 18%,transparent 82%,var(--panel-solid))}
+
+.objective{position:absolute;top:74px;left:22px;background:var(--panel);border:1px solid var(--line);
+  border-left:3px solid var(--saffron);border-radius:8px;padding:10px 16px;backdrop-filter:blur(10px);max-width:340px}
+.obj-kicker{display:block;font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--saffron);font-weight:700}
+.objective b{display:block;margin-top:3px;font-size:14px;font-weight:600;color:#fff;line-height:1.35}
+.obj-dist{display:block;margin-top:3px;font-family:var(--mono);font-size:11px;color:var(--ice-faint)}
+
+/* Sits directly above the archive counter in the bottom-left corner — 84px
+   clears .hud-bottom's own 18px padding plus the .samples box's height with
+   a small gap, so the two read as one stacked HUD cluster. */
+.minimap{position:absolute;bottom:84px;left:22px;width:176px;height:176px;border-radius:50%;
+  overflow:hidden;background:var(--panel);border:1px solid var(--line-strong);backdrop-filter:blur(10px);
+  box-shadow:0 10px 26px -14px #000}
+body.touch-input .minimap{bottom:256px}
+.minimap canvas{display:block;width:100%;height:100%}
+.minimap-ring{position:absolute;inset:0;border-radius:50%;pointer-events:none;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.08), inset 0 0 22px rgba(0,0,0,.5)}
+.minimap-ring::after{content:"";position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;
+  border-radius:50%;background:var(--saffron);box-shadow:0 0 8px 2px rgba(255,153,51,.7)}
+
+.blizzard-banner{position:absolute;top:22px;left:50%;transform:translateX(-50%);z-index:5;
+  background:rgba(48,10,10,.82);border:1px solid rgba(255,90,90,.55);border-radius:99px;
+  padding:9px 22px;font-size:12.5px;font-weight:700;letter-spacing:.03em;color:#ffd6d6;
+  backdrop-filter:blur(10px);white-space:nowrap;animation:blizzard-pulse 1.6s ease-in-out infinite,pop .25s ease}
+@keyframes blizzard-pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,90,90,.45)}50%{box-shadow:0 0 0 8px rgba(255,90,90,0)}}
+
+.reticle{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:22px;height:22px;display:grid;place-items:center}
+.reticle i{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.55);
+  box-shadow:0 0 0 1px rgba(0,0,0,.45);transition:width .15s,height .15s,background .15s}
+.reticle.hot i{width:11px;height:11px;background:var(--saffron)}
+
+.prompt{position:absolute;left:50%;top:calc(50% + 42px);transform:translateX(-50%);display:flex;align-items:center;gap:9px;
+  background:var(--panel);border:1px solid var(--line-strong);border-radius:99px;padding:8px 18px 8px 10px;
+  backdrop-filter:blur(10px);font-size:13px;font-weight:600;white-space:nowrap;animation:pop .18s ease}
+@keyframes pop{from{opacity:0;transform:translateX(-50%) translateY(6px)}}
+
+.hud-bottom{position:absolute;bottom:0;left:0;right:0;padding:18px 22px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;
+  transition:padding-bottom .2s}
+/* On touch devices the movement stick and action buttons occupy the same
+   corner as the archive counter and the keybind hint — without this the
+   stick visually sits on top of "0 / 20 RECORDS" and makes it unreadable. */
+body.touch-input .hud-bottom{padding-bottom:190px}
+body.touch-input .hint{display:none}  /* the hint lists keyboard keys that do not exist here */
+.samples{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 14px;
+  display:flex;gap:9px;align-items:baseline;backdrop-filter:blur(10px)}
+.samples b{font-family:var(--disp);font-size:20px;color:#fff;letter-spacing:.04em}
+.samples b i{font-style:normal}
+.samples b i#hud-collected{color:var(--saffron)}
+.hint{font-size:11px;color:var(--ice-faint);display:flex;gap:4px;align-items:center}
+
+.toast-stack{position:absolute;top:74px;right:22px;display:flex;flex-direction:column;gap:9px;align-items:flex-end}
+.toast{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:8px;
+  padding:11px 16px;backdrop-filter:blur(12px);max-width:330px;animation:slidein .3s cubic-bezier(.2,.9,.3,1);
+  box-shadow:0 12px 30px -14px #000}
+.toast.good{border-left-color:#7ef0a0}
+.toast.warn{border-left-color:var(--warn)}
+.toast .t-title{font-size:13px;font-weight:700;color:#fff}
+.toast .t-body{margin-top:2px;font-size:12px;color:var(--ice-dim);line-height:1.45}
+.toast.out{animation:slideout .3s ease forwards}
+@keyframes slidein{from{opacity:0;transform:translateX(24px)}}
+@keyframes slideout{to{opacity:0;transform:translateX(24px)}}
+
+/* ---------- touch ---------- */
+.touch{pointer-events:none}
+.stick{position:absolute;left:26px;bottom:26px;width:130px;height:130px;border-radius:50%;
+  border:1px solid var(--line-strong);background:rgba(9,22,36,.4);pointer-events:auto;backdrop-filter:blur(6px)}
+.stick i{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;
+  background:rgba(220,239,255,.28);border:1px solid rgba(220,239,255,.5)}
+.tbtn{position:absolute;right:30px;bottom:44px;width:82px;height:82px;border-radius:50%;pointer-events:auto;
+  background:rgba(255,153,51,.22);border:1px solid var(--saffron);color:#fff;font-family:var(--disp);font-size:26px;
+  backdrop-filter:blur(6px)}
+.tbtn.small{width:60px;height:60px;right:126px;bottom:120px;font-size:13px;font-family:var(--ui);font-weight:700;
+  background:rgba(220,239,255,.14);border-color:var(--line-strong)}
+
+/* ---------- overlays ---------- */
+.overlay{position:fixed;inset:0;z-index:40;display:grid;place-items:center;padding:min(5vw,48px);
+  background:rgba(3,8,15,.72);backdrop-filter:blur(14px);animation:fade .2s ease}
+@keyframes fade{from{opacity:0}}
+.x{width:36px;height:36px;border-radius:9px;background:rgba(255,255,255,.06);border:1px solid var(--line);
+  color:var(--ice);font-size:22px;line-height:1;cursor:pointer;flex:none}
+.x:hover{background:rgba(255,255,255,.14)}
+
+/* codex */
+.codex-shell,.map-shell,.pause-shell,.mini-shell{width:min(1120px,100%);max-height:min(760px,92vh);
+  background:linear-gradient(180deg,#0d1f31,#081522);border:1px solid var(--line-strong);border-radius:18px;
+  box-shadow:0 40px 100px -40px #000;display:flex;flex-direction:column;overflow:hidden}
+.codex-shell header,.map-shell header{display:flex;align-items:center;justify-content:space-between;gap:20px;
+  padding:20px 24px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
+.codex-shell h2,.map-shell h2{font-family:var(--disp);font-size:27px;letter-spacing:.05em;color:#fff}
+.codex-shell header p{margin-top:2px;font-size:12px;color:var(--ice-faint)}
+.codex-body{display:grid;grid-template-columns:190px 300px 1fr;flex:1;min-height:0}
+.codex-nav{border-right:1px solid var(--line);padding:14px 10px;overflow-y:auto}
+.codex-nav button{display:block;width:100%;text-align:left;padding:9px 12px;border-radius:8px;background:none;border:0;
+  color:var(--ice-dim);font-family:var(--ui);font-size:13px;font-weight:600;cursor:pointer}
+.codex-nav button:hover{background:rgba(255,255,255,.05);color:var(--ice)}
+.codex-nav button.active{background:rgba(255,153,51,.14);color:var(--saffron)}
+.codex-nav .count{float:right;font-family:var(--mono);font-size:11px;opacity:.65}
+/* ---------- codex list: a shelf of book spines, not a text list -------
+   Each record renders as a spine standing in a shallow 3D shelf (a
+   perspective on the list column, a rotateY tilt per row); the selected
+   one slides forward off the shelf line toward the reader — the same
+   "pop the volume out" gesture a real bookshelf browser uses, rebuilt in
+   CSS transforms rather than a second WebGL scene, so it costs nothing
+   the game's own renderer has to share a frame budget with. */
+:root{
+  --cat-expedition:var(--saffron); --cat-dataset:var(--cyan);
+  --cat-publication:#7ef0a0; --cat-media:#b98cff; --cat-institution:var(--warn);
+}
+.codex-list{border-right:1px solid var(--line);overflow-y:auto;overflow-x:hidden;padding:14px 10px 14px 18px;
+  perspective:1000px}
+.entry{position:relative;display:flex;align-items:stretch;gap:10px;cursor:pointer;
+  padding:10px 12px 10px 4px;margin-bottom:3px;border-radius:0 8px 8px 0;
+  background:linear-gradient(90deg,rgba(255,255,255,.05),rgba(255,255,255,.015));
+  border:1px solid var(--line);border-left:none;
+  transform-style:preserve-3d;transform-origin:left center;
+  transition:transform .32s cubic-bezier(.22,.85,.32,1),box-shadow .32s,background .2s}
+.e-spine{flex:0 0 6px;border-radius:2px;background:var(--spine-color,var(--cat-expedition));
+  box-shadow:inset -1px 0 0 rgba(0,0,0,.35),inset 1px 0 0 rgba(255,255,255,.15)}
+.entry.cat-expedition{--spine-color:var(--cat-expedition)}
+.entry.cat-dataset{--spine-color:var(--cat-dataset)}
+.entry.cat-publication{--spine-color:var(--cat-publication)}
+.entry.cat-media{--spine-color:var(--cat-media)}
+.entry.cat-institution{--spine-color:var(--cat-institution)}
+.entry .e-text{display:flex;flex-direction:column;justify-content:center;min-width:0}
+.entry:hover{transform:translateX(3px) rotateY(-3deg);
+  box-shadow:-8px 8px 20px -12px rgba(0,0,0,.6)}
+.entry.active{transform:translateX(16px) rotateY(-9deg) scale(1.045);
+  background:linear-gradient(90deg,rgba(255,255,255,.1),rgba(255,255,255,.025));
+  border-color:rgba(255,255,255,.22);
+  box-shadow:-14px 14px 32px -14px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.06)}
+.entry.active .e-spine{box-shadow:inset -1px 0 0 rgba(0,0,0,.35),inset 1px 0 0 rgba(255,255,255,.15),
+  0 0 14px -2px var(--spine-color)}
+.entry.locked{opacity:.4;cursor:default}
+.entry.locked:hover{transform:none;box-shadow:none}
+.entry .e-kind{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--cyan)}
+.entry .e-title{margin-top:3px;font-size:13px;font-weight:600;line-height:1.35;color:var(--ice)}
+.entry.locked .e-title{color:var(--ice-faint)}
+.entry.locked .e-spine{background:rgba(255,255,255,.12)}
+
+/* ---------- the popped-out volume: a genuine little 3D book -------- */
+.book-header{display:flex;gap:24px;align-items:flex-start}
+.book-cover-3d{flex:0 0 118px;height:160px;position:relative;perspective:600px;
+  animation:bookPopIn .5s cubic-bezier(.2,.85,.3,1)}
+.book-cover-face{position:absolute;inset:0;border-radius:3px 6px 6px 3px;
+  background:linear-gradient(155deg,color-mix(in srgb,var(--spine2,var(--cat-expedition)) 55%,#0c1622) 0%,
+    color-mix(in srgb,var(--spine2,var(--cat-expedition)) 30%,#0c1622) 100%);
+  border:1px solid rgba(255,255,255,.14);box-shadow:0 18px 34px -14px rgba(0,0,0,.7),inset 0 0 0 1px rgba(255,255,255,.05);
+  padding:14px 12px;display:flex;flex-direction:column;gap:8px;
+  transform:rotateY(-16deg);transform-origin:left center}
+.book-cover-3d.cat-expedition{--spine2:var(--cat-expedition)}
+.book-cover-3d.cat-dataset{--spine2:var(--cat-dataset)}
+.book-cover-3d.cat-publication{--spine2:var(--cat-publication)}
+.book-cover-3d.cat-media{--spine2:var(--cat-media)}
+.book-cover-3d.cat-institution{--spine2:var(--cat-institution)}
+.book-cover-spine{position:absolute;left:-9px;top:2px;bottom:2px;width:9px;
+  background:linear-gradient(90deg,rgba(0,0,0,.5),color-mix(in srgb,var(--spine2,var(--cat-expedition)) 65%,#0c1622));
+  transform:rotateY(-16deg) translateZ(0);transform-origin:right center;border-radius:2px 0 0 2px}
+.book-cover-pages{position:absolute;right:-5px;top:4px;bottom:4px;width:5px;
+  background:repeating-linear-gradient(180deg,#e8e2d2 0,#e8e2d2 2px,#cfc7b2 2px,#cfc7b2 3px);
+  transform:rotateY(-16deg);transform-origin:left center;border-radius:0 2px 2px 0}
+.bc-kind{font-family:var(--mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;
+  color:rgba(255,255,255,.75)}
+.bc-title{font-family:var(--disp);font-size:15px;line-height:1.15;letter-spacing:.01em;color:#fff}
+.bc-org{margin-top:auto;font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:rgba(255,255,255,.55)}
+.book-header-text{flex:1;min-width:0;padding-top:6px}
+.book-header-text h3{margin-top:0}
+@keyframes bookPopIn{
+  0%{transform:translateX(-30px) rotateY(28deg) scale(.85);opacity:0}
+  100%{transform:translateX(0) rotateY(0) scale(1);opacity:1}
+}
+.codex-detail{overflow-y:auto;padding:26px 30px}
+.codex-detail h3{font-family:var(--disp);font-size:30px;letter-spacing:.03em;color:#fff;line-height:1.1}
+.codex-detail .d-meta{margin-top:8px;display:flex;flex-wrap:wrap;gap:8px}
+.codex-detail .pill{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+  padding:4px 9px;border-radius:99px;border:1px solid var(--line-strong);color:var(--ice-dim)}
+.codex-detail p{margin-top:14px;font-size:14px;line-height:1.75;color:var(--ice-dim)}
+.codex-detail p b{color:var(--ice)}
+.codex-detail .figure{margin-top:20px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#050d16}
+.codex-detail .figure canvas{display:block;width:100%;height:auto}
+.codex-detail .figure figcaption{padding:9px 14px;font-size:11px;color:var(--ice-faint);border-top:1px solid var(--line)}
+.codex-detail table{margin-top:18px;width:100%;border-collapse:collapse;font-size:13px}
+.codex-detail th,.codex-detail td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+.codex-detail th{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ice-faint)}
+.codex-detail td{color:var(--ice-dim)}
+.codex-detail td:first-child{color:var(--ice);font-weight:600}
+.codex-detail .src{margin-top:22px;padding-top:14px;border-top:1px solid var(--line);font-size:11px;color:var(--ice-faint);line-height:1.7}
+.empty{display:grid;place-items:center;height:100%;text-align:center;color:var(--ice-faint);font-size:13px;padding:40px}
+
+/* map */
+.map-body{position:relative;flex:1;min-height:0;display:flex;padding:22px;gap:22px}
+#map-canvas{flex:1;min-width:0;border-radius:12px;border:1px solid var(--line);background:#04101c}
+.map-legend{width:250px;flex:none;overflow-y:auto;font-size:12px;color:var(--ice-dim);line-height:1.7}
+.map-legend h4{font-family:var(--disp);font-size:18px;letter-spacing:.05em;color:#fff;margin-bottom:8px}
+.map-legend .row{display:flex;gap:8px;align-items:center;margin-bottom:5px}
+.map-legend .dot{width:9px;height:9px;border-radius:50%;flex:none}
+
+/* pause */
+.pause-shell{width:min(560px,100%);padding:36px;align-items:stretch;gap:18px;text-align:center}
+.pause-shell h2{font-family:var(--disp);font-size:34px;letter-spacing:.05em;color:#fff}
+.pause-actions{display:flex;flex-direction:column;gap:10px}
+.settings{margin-top:8px;border-top:1px solid var(--line);padding-top:18px;display:flex;flex-direction:column;gap:12px}
+.setting{display:flex;align-items:center;justify-content:space-between;gap:16px;font-size:13px;color:var(--ice-dim)}
+.setting input[type=range]{flex:1;max-width:180px;accent-color:var(--saffron)}
+.seg{display:flex;gap:4px;background:rgba(255,255,255,.05);border-radius:8px;padding:3px}
+.seg button{background:none;border:0;color:var(--ice-faint);font-family:var(--ui);font-size:12px;font-weight:600;
+  padding:5px 12px;border-radius:6px;cursor:pointer}
+.seg button.on{background:rgba(255,153,51,.2);color:var(--saffron)}
+
+/* bug report */
+.bugreport-shell{width:min(560px,100%);padding:36px;align-items:stretch;gap:14px;text-align:left}
+.bugreport-shell h2{font-family:var(--disp);font-size:30px;letter-spacing:.05em;color:#fff;text-align:center}
+.bug-sub{font-size:12.5px;color:var(--ice-faint);text-align:center;margin-top:-6px}
+#bug-desc{width:100%;resize:vertical;padding:12px 14px;border-radius:10px;border:1px solid var(--line-strong);
+  background:rgba(255,255,255,.03);color:var(--ice);font-family:var(--ui);font-size:13px;line-height:1.5}
+#bug-desc:focus{outline:none;border-color:var(--cyan)}
+.bug-file-btn{display:inline-flex;align-self:flex-start;padding:8px 14px;border-radius:8px;
+  border:1px solid var(--line-strong);background:rgba(255,255,255,.04);color:var(--ice-dim);
+  font-size:12.5px;font-weight:600;cursor:pointer}
+.bug-file-btn:hover{background:rgba(255,255,255,.08);color:var(--ice)}
+.bug-thumbs{display:flex;flex-wrap:wrap;gap:8px}
+.bug-thumb{position:relative;width:64px;height:64px;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+.bug-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.bug-thumb button{position:absolute;top:2px;right:2px;width:18px;height:18px;line-height:16px;
+  border-radius:50%;border:0;background:rgba(6,16,25,.85);color:#fff;font-size:12px;cursor:pointer;padding:0}
+.bug-error{font-size:12.5px;color:#ff6a6a}
+.bug-success{font-size:12.5px;color:#7ef0a0}
+
+/* minigame */
+.mini-shell{width:min(880px,100%);padding:0}
+.mini-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding:22px 26px;border-bottom:1px solid var(--line)}
+.mini-head h2{font-family:var(--disp);font-size:28px;letter-spacing:.04em;color:#fff}
+.mini-head p{margin-top:3px;font-size:12.5px;color:var(--ice-faint);max-width:520px;line-height:1.55}
+.mini-stage{padding:26px;overflow-y:auto}
+.mini-foot{padding:16px 26px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:16px}
+.mini-foot .status{font-size:13px;color:var(--ice-dim)}
+
+@media (max-width:960px){
+  /* .menu-right used to just be display:none below this width — the whole
+     station picker (the only way to actually pick Maitri vs. Bharati)
+     vanished rather than reflowing, which is exactly "the option to select
+     the centre isn't visible" on any phone or narrow tablet. Stacking it
+     under menu-left instead keeps every card reachable; .screen switching
+     from place-items:center to align-items:start (below) is what makes the
+     now-taller single column actually scrollable to its full height rather
+     than centred with its top half clipped off-screen.
+  */
+  .menu-grid{grid-template-columns:1fr;gap:22px;width:min(640px,92vw)}
+  .menu-left{max-width:none}
+  .screen{align-items:start;padding-top:max(4vh,20px);padding-bottom:max(4vh,20px)}
+  .codex-body{grid-template-columns:1fr 1fr}
+  .codex-nav{display:none}
+  .compass{display:none}
+  .hint{display:none}
+  .objective{max-width:min(260px,52vw)}
+}
+
+/* Keyboard hints (WASD/Shift/E/Tab/M) describe controls that don't exist on
+   a touch device — left to show, they were just clutter competing with the
+   "Begin Expedition" button for space on exactly the screens tightest on
+   room. Gated on the same body.touch-input class the in-game HUD's own
+   .hint already uses, so both stay in sync with how the player is actually
+   controlling the game rather than with viewport width alone (a touch
+   laptop or a narrow desktop window shouldn't lose real keybind info, and a
+   wide-screen tablet in a phone-sized browser window still should). */
+body.touch-input .creds{display:none}
+
+/* ---------- touch performance: backdrop-filter is a full-frame compositor
+   blur, re-sampled from the live canvas behind it on every single repaint.
+   Stacked over a WebGL scene that redraws every animation frame, it is one
+   of the most common causes of "the HUD chrome itself" tanking frame rate
+   on phones — and two of the elements carrying it are the exact controls a
+   touch player's thumbs sit on for the whole session (.stick, .tbtn). Solid
+   panels read almost identically at a glance and cost nothing to compare,
+   so touch input drops the blur and keeps a plain panel colour instead. */
+body.touch-input .hud-chip,
+body.touch-input .compass,
+body.touch-input .objective,
+body.touch-input .minimap,
+body.touch-input .blizzard-banner,
+body.touch-input .prompt,
+body.touch-input .samples,
+body.touch-input .toast,
+body.touch-input .stick,
+body.touch-input .tbtn,
+body.touch-input .overlay{
+  backdrop-filter:none;
+  -webkit-backdrop-filter:none;
+}
+body.touch-input .hud-chip,
+body.touch-input .compass,
+body.touch-input .objective,
+body.touch-input .minimap,
+body.touch-input .prompt,
+body.touch-input .samples{
+  background:var(--panel-solid);
+}
+body.touch-input .toast{background:#0c1b2b}
+body.touch-input .overlay{background:rgba(3,8,15,.94)}
+
+/* ===================================================== loading word stage ==
+ * The preloader's headline. One phrase at a time, each character rolling in
+ * through a fixed-width window (see Shuffle.js). The window has to clip, and
+ * the strip inside it has to be able to sit outside the window, which is why
+ * the wrapper is overflow:hidden and the strip is a flex row of fixed-width
+ * cells rather than plain text. */
+.boot-stage {
+  min-height: 4.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0.6rem 0 1.4rem;
+}
+.boot-word {
+  margin: 0;
+  font-size: clamp(1.4rem, 4.4vw, 3rem);
+  letter-spacing: 0.04em;
+  color: #eaf4ff;
+  text-shadow: 0 0 22px rgba(120, 190, 255, 0.35);
+}
+.shuffle-parent {
+  display: inline-block;
+  white-space: nowrap;
+  line-height: 1;
+  text-transform: uppercase;
+  visibility: hidden;
+}
+.shuffle-parent.is-ready { visibility: visible; }
+.shuffle-probe {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: pre;
+}
+.shuffle-char-wrapper {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: bottom;
+  position: relative;
+}
+.shuffle-strip {
+  display: inline-flex;
+  will-change: transform;
+}
+.shuffle-char {
+  display: inline-block;
+  text-align: center;
+  line-height: 1;
+  flex: none;
+}
+.shuffle-space { display: inline-block; width: 0.42em; }
+
+@media (prefers-reduced-motion: reduce) {
+  .shuffle-strip { transition: none !important; }
+}
+

@@ -1,0 +1,39 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Uploaded research files live under research/{uid}/{fileName} — public
+    // read (the archive is meant to be browsable by anyone), but a user can
+    // only write into their OWN uid-prefixed folder, and only up to 50 MB.
+    match /research/{uid}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 50 * 1024 * 1024;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Screenshots attached to a pause-menu bug report — write-only (same
+    // reasoning as the bugReports Firestore collection), images only, 8 MB
+    // cap per file.
+    match /bug-reports/{reportId}/{fileName} {
+      allow write: if request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow read: if false;
+    }
+
+    // Voice notes and photos uploaded by a scientist for a dispatch.
+    // The scientist writes to their own uid-prefixed path; any signed-in
+    // user can read (publishers and admins need the URLs to preview).
+    match /dispatches/{uid}/{dispatchId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 50 * 1024 * 1024;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

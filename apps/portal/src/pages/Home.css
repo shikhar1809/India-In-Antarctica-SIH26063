@@ -1,0 +1,37 @@
+.home-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.home-hero {
+  text-align: center;
+  padding: 26px 28px 18px;
+}
+
+.home-kicker {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--saffron);
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.home-hero h1 {
+  font-size: 28px;
+  color: #fff;
+  margin-bottom: 6px;
+}
+
+.home-sub {
+  font-size: 13.5px;
+  color: var(--ice-dim);
+}
+
+.home-flow {
+  height: 56vh;
+  min-height: 460px;
+}

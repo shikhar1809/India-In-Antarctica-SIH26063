@@ -1,0 +1,52 @@
+# ── dependencies ───────────────────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+
+# ── build output ───────────────────────────────────────────────────────────
+dist/
+build/
+*.tsbuildinfo
+.vite/
+
+# Flutter / Dart. `apps/scientist-app/build` reaches several GB — never commit it.
+apps/scientist-app/build/
+apps/scientist-app/.dart_tool/
+apps/scientist-app/.flutter-plugins
+apps/scientist-app/.flutter-plugins-dependencies
+apps/scientist-app/windows/flutter/ephemeral/
+apps/scientist-app/linux/flutter/ephemeral/
+apps/scientist-app/macos/Flutter/ephemeral/
+apps/scientist-app/ios/Flutter/Flutter.framework/
+apps/scientist-app/ios/Pods/
+*.iml
+
+# ── firebase ───────────────────────────────────────────────────────────────
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+*-debug.log
+
+# ── secrets ────────────────────────────────────────────────────────────────
+# The web API keys in each app's firebase.ts are public by design (they only
+# identify the project; the security boundary is firestore.rules). Anything
+# below is a genuine credential and must never be committed.
+.env
+.env.*
+!.env.example
+serviceAccount*.json
+*-service-account*.json
+gcloud-key*.json
+
+# ── editors & os ───────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# ── scratch ────────────────────────────────────────────────────────────────
+scratch_*
+*.local
+.agents/

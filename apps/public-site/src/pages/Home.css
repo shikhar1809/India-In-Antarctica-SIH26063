@@ -1,0 +1,280 @@
+.loader-container { display: flex; height: 100svh; align-items: center; justify-content: center; color: var(--cyan); }
+.spinner { animation: spin 1.8s linear infinite; }
+@keyframes spin { 100% { transform: rotate(360deg); } }
+
+/* ── Page Shell ── */
+.home-page { min-height: 100svh; display: flex; flex-direction: column; }
+
+/* ── Header ── */
+.home-header {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.875rem 1.25rem;
+  background: rgba(6, 16, 25, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--line);
+}
+@media (min-width: 640px) {
+  .home-header { padding: 1rem 2.5rem; }
+}
+
+.home-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  text-decoration: none;
+}
+.home-header-brand img { width: 34px; height: 34px; object-fit: contain; }
+.home-header-brand span {
+  font-family: var(--font-disp);
+  font-size: 1.05rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ice);
+  /* hide on very small screens */
+  display: none;
+}
+@media (min-width: 400px) {
+  .home-header-brand span { display: block; }
+}
+
+/* Desktop nav */
+.home-header-nav {
+  display: none;
+  align-items: center;
+  gap: 1.75rem;
+}
+@media (min-width: 768px) {
+  .home-header-nav { display: flex; }
+}
+.home-header-nav a {
+  color: var(--ice-dim);
+  font-size: 0.875rem;
+  transition: color 0.2s;
+  letter-spacing: 0.02em;
+}
+.home-header-nav a:hover { color: var(--ice); }
+
+.portal-link {
+  padding: 0.4rem 0.875rem !important;
+  border: 1px solid var(--saffron) !important;
+  border-radius: 5px !important;
+  color: var(--saffron) !important;
+  font-size: 0.825rem !important;
+  transition: background 0.2s !important;
+}
+.portal-link:hover { background: rgba(255,153,51,0.12) !important; }
+
+/* Mobile hamburger */
+.home-header-menu-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+}
+@media (min-width: 768px) { .home-header-menu-btn { display: none; } }
+.home-header-menu-btn span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: var(--ice);
+  border-radius: 2px;
+  transition: transform 0.25s, opacity 0.25s;
+}
+.home-header-menu-btn.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.home-header-menu-btn.open span:nth-child(2) { opacity: 0; }
+.home-header-menu-btn.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* Mobile drawer */
+.home-mobile-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(6,16,25,0.97);
+  z-index: 199;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s;
+}
+.home-mobile-nav.open { opacity: 1; pointer-events: all; }
+.home-mobile-nav a {
+  font-family: var(--font-disp);
+  font-size: 2rem;
+  letter-spacing: 0.04em;
+  color: var(--ice);
+  text-transform: uppercase;
+  transition: color 0.2s;
+}
+.home-mobile-nav a:hover { color: var(--cyan); }
+.home-mobile-nav .portal-link-mobile {
+  padding: 0.75rem 2rem;
+  border: 1px solid var(--saffron);
+  border-radius: 8px;
+  color: var(--saffron);
+  font-family: var(--font-disp);
+  font-size: 1.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Main ── */
+.home-main { flex: 1; width: 100%; }
+
+/* Puck's own <Render> wrapper sets `overflow-x: hidden` inline and nothing
+ * for `overflow-y` — but per the CSS Overflow spec, pairing a non-`visible`
+ * overflow-x with an unset overflow-y silently promotes that axis from its
+ * initial `visible` to `auto`, turning this div into a real scroll
+ * container. `position: sticky` pins relative to its NEAREST scrolling
+ * ancestor, so every sticky element inside Puck's content — including the
+ * gallery's pinned centre column — was pinning against a container that
+ * only "scrolls" if something scrolls IT specifically, which nothing here
+ * does; the actual page scrolls via the outer body. That is the entire
+ * "sticky doesn't do anything, it's just static" bug: sticky was engaged
+ * and correct, against a scroll position that never changed. */
+.home-main > div[style*="--preview-width"] {
+  /* The CSS Overflow spec re-promotes overflow-y to `auto` any time its
+     paired axis is non-`visible` — overriding overflow-y alone left
+     overflow-x: hidden (from Puck's own inline style) forcing it straight
+     back to `auto` regardless of what this rule declared. Both axes have
+     to go to `visible` together for the promotion rule to stop firing. */
+  overflow: visible !important;
+}
+
+/* ── Footer ── */
+.home-footer {
+  padding: 2.5rem 1.25rem;
+  background: var(--ink-2);
+  border-top: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2rem;
+}
+@media (min-width: 640px) {
+  .home-footer { padding: 3rem 2.5rem; grid-template-columns: 1fr 1fr; }
+}
+@media (min-width: 900px) {
+  .home-footer { grid-template-columns: 1fr 1fr 1fr; }
+}
+
+.footer-brand { display: flex; flex-direction: column; gap: 0.5rem; }
+.footer-brand img { width: 40px; object-fit: contain; }
+.footer-brand h3 { font-family: var(--font-disp); font-size: 1rem; letter-spacing: 0.04em; color: var(--ice); }
+.footer-brand p { font-size: 0.8rem; color: var(--ice-faint); line-height: 1.6; max-width: 260px; }
+
+.footer-links h4 { color: var(--cyan); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.875rem; }
+.footer-links ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.footer-links li a { color: var(--ice-dim); font-size: 0.875rem; transition: color 0.2s; }
+.footer-links li a:hover { color: var(--ice); }
+
+.footer-copy { color: var(--ice-faint); font-size: 0.8rem; line-height: 1.75; }
+@media (min-width: 900px) { .footer-copy { text-align: right; } }
+
+.puck-root-header, .puck-root-footer { display: none !important; }
+
+/* ✨ Did You Know Section ✨ */
+.home-dyk {
+  width: 100%;
+  background: var(--ink-1);
+  padding: 4rem 1.25rem;
+  border-top: 1px solid var(--line);
+}
+
+.home-dyk-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.home-dyk-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.home-dyk-header h2 {
+  font-family: var(--font-disp);
+  font-size: 2.5rem;
+  letter-spacing: 0.05em;
+  color: var(--saffron);
+  margin: 0 0 0.5rem 0;
+  text-transform: uppercase;
+}
+
+.home-dyk-header p {
+  color: var(--ice-dim);
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.home-dyk-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 640px) {
+  .home-dyk-grid { grid-template-columns: 1fr 1fr; }
+}
+
+@media (min-width: 1024px) {
+  .home-dyk-grid { grid-template-columns: 1fr 1fr 1fr 1fr; }
+}
+
+.home-dyk-card {
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  padding: 2rem 1.5rem;
+  border-radius: 8px;
+  text-align: center;
+  transition: transform 0.3s, box-shadow 0.3s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.home-dyk-card:hover {
+  transform: translateY(-5px);
+  border-color: var(--cyan);
+  box-shadow: 0 8px 24px rgba(95, 217, 255, 0.08);
+}
+
+.dyk-icon {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  background: var(--ink-1);
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+}
+
+.home-dyk-card h3 {
+  font-family: var(--font-disp);
+  font-size: 1.25rem;
+  color: var(--ice);
+  margin: 0 0 1rem 0;
+  letter-spacing: 0.02em;
+}
+
+.home-dyk-card p {
+  color: var(--ice-faint);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0;
+}

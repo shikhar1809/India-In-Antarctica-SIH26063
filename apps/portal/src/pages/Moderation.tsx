@@ -1,0 +1,245 @@
+import { useState, useEffect } from 'react';
+import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../firebase';
+import { useAuth } from '../context/AuthContext';
+import type { ResearchDocument } from '../types';
+import { mintIdentifier, publishRecord, documentToRepositoryRecord } from '../repository/publish';
+import './shared.css';
+import './Moderation.css';
+
+export function Moderation() {
+  const [pendingQuestions, setPendingQuestions] = useState<any[]>([]);
+  const [pendingAnswers, setPendingAnswers] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'questions' | 'answers' | 'repository'>('questions');
+  const [pendingDocs, setPendingDocs] = useState<ResearchDocument[]>([]);
+  const [docBusy, setDocBusy] = useState<string | null>(null);
+  const [docError, setDocError] = useState<string | null>(null);
+  const { user } = useAuth();
+
+  /* Repository deposits waiting on review. Uploads land as 'submitted' and
+   * only an admin moves them on — publishing writes the public record that
+   * iia-public reads, so this tab is the gate between "someone uploaded a
+   * file" and "it is on the public site". */
+  useEffect(() => {
+    const q = query(collection(db, 'documents'), where('status', '==', 'submitted'));
+    return onSnapshot(q, (snap) => {
+      setPendingDocs(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ResearchDocument));
+    });
+  }, []);
+
+  const publishDoc = async (d: ResearchDocument) => {
+    if (!user) return;
+    setDocBusy(d.id); setDocError(null);
+    try {
+      const identifier = await mintIdentifier();
+      await publishRecord(documentToRepositoryRecord(d, user.uid, identifier));
+      await updateDoc(doc(db, 'documents', d.id), {
+        status: 'published', publishedIdentifier: identifier, reviewNotes: null,
+      });
+    } catch (e) {
+      setDocError(e instanceof Error ? e.message : 'Could not publish this deposit.');
+    } finally { setDocBusy(null); }
+  };
+
+  const rejectDoc = async (d: ResearchDocument) => {
+    if (!user) return;
+    setDocBusy(d.id); setDocError(null);
+    try {
+      await updateDoc(doc(db, 'documents', d.id), { status: 'rejected' });
+    } catch (e) {
+      setDocError(e instanceof Error ? e.message : 'Could not update this deposit.');
+    } finally { setDocBusy(null); }
+  };
+
+  // Load Pending Questions
+  useEffect(() => {
+    const q = query(
+      collection(db, 'student_questions'),
+      where('status', '==', 'PENDING_QUESTION'),
+      orderBy('submittedAt', 'asc')
+    );
+    return onSnapshot(q, (snapshot) => {
+      const data: any[] = [];
+      snapshot.forEach(d => data.push({ id: d.id, ...d.data() }));
+      setPendingQuestions(data);
+    });
+  }, []);
+
+  // Load Pending Answers
+  useEffect(() => {
+    const q = query(
+      collection(db, 'student_questions'),
+      where('status', '==', 'PENDING_ANSWER'),
+      orderBy('answeredAt', 'asc')
+    );
+    return onSnapshot(q, (snapshot) => {
+      const data: any[] = [];
+      snapshot.forEach(d => data.push({ id: d.id, ...d.data() }));
+      setPendingAnswers(data);
+    });
+  }, []);
+
+  const handleApproveQuestion = async (id: string) => {
+    try {
+      await updateDoc(doc(db, 'student_questions', id), {
+        status: 'READY_FOR_SCIENTIST',
+        questionApprovedAt: serverTimestamp()
+      });
+    } catch (e) {
+      console.error(e);
+      alert('Error approving question');
+    }
+  };
+
+  const handleReject = async (id: string, type: 'question' | 'answer') => {
+    const confirmMessage = type === 'question' 
+      ? 'Reject this question? It will be deleted or marked rejected.'
+      : 'Reject this answer? It will not be published.';
+    if (!window.confirm(confirmMessage)) return;
+    try {
+      await updateDoc(doc(db, 'student_questions', id), {
+        status: type === 'question' ? 'REJECTED_Q' : 'REJECTED_A'
+      });
+    } catch (e) {
+      console.error(e);
+      alert('Error rejecting');
+    }
+  };
+
+  const handlePublishAnswer = async (id: string, currentAnswer: string) => {
+    const editedAnswer = window.prompt("Edit answer before publishing (or click OK to publish as is):", currentAnswer);
+    if (editedAnswer === null) return; // cancelled
+    
+    try {
+      await updateDoc(doc(db, 'student_questions', id), {
+        status: 'PUBLISHED',
+        answer: editedAnswer,
+        publishedAt: serverTimestamp()
+      });
+    } catch (e) {
+      console.error(e);
+      alert('Error publishing answer');
+    }
+  };
+
+  return (
+    <div className="ph-page">
+      <div className="ph-page-header">
+        <h1>Moderation</h1>
+        <p className="ph-sub">Approve student questions, review scientist answers, and publish repository deposits.</p>
+      </div>
+
+      <div className="mod-tabs">
+        <button
+          className={`mod-tab ${activeTab === 'questions' ? 'active' : ''}`}
+          onClick={() => setActiveTab('questions')}
+        >
+          Incoming Questions ({pendingQuestions.length})
+        </button>
+        <button
+          className={`mod-tab ${activeTab === 'answers' ? 'active' : ''}`}
+          onClick={() => setActiveTab('answers')}
+        >
+          Pending Answers ({pendingAnswers.length})
+        </button>
+        <button
+          className={`mod-tab ${activeTab === 'repository' ? 'active' : ''}`}
+          onClick={() => setActiveTab('repository')}
+        >
+          Repository ({pendingDocs.length})
+        </button>
+      </div>
+
+      <div className="mod-content">
+        {activeTab === 'questions' && (
+          <div className="mod-list">
+            {pendingQuestions.length === 0 ? (
+              <div className="mod-empty">No incoming questions at the moment.</div>
+            ) : (
+              pendingQuestions.map(q => (
+                <div key={q.id} className="mod-card">
+                  <div className="mod-card-meta">
+                    <strong>{q.firstName}</strong> | Grade {q.grade} | {q.submittedAt?.toDate().toLocaleString()}
+                  </div>
+                  <div className="mod-card-q">"{q.question}"</div>
+                  <div className="mod-card-actions">
+                    <button className="ph-btn primary" onClick={() => handleApproveQuestion(q.id)}>
+                      Approve (Send to Game)
+                    </button>
+                    <button className="ph-btn danger" onClick={() => handleReject(q.id, 'question')}>
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {activeTab === 'answers' && (
+          <div className="mod-list">
+            {pendingAnswers.length === 0 ? (
+              <div className="mod-empty">No pending answers from scientists.</div>
+            ) : (
+              pendingAnswers.map(q => (
+                <div key={q.id} className="mod-card">
+                  <div className="mod-card-meta">
+                    <strong>{q.firstName}</strong> | Grade {q.grade}
+                  </div>
+                  <div className="mod-card-q">"{q.question}"</div>
+                  <div className="mod-card-a-header">Answered by {q.answeredByStation || 'Scientist'} at {q.answeredAt?.toDate().toLocaleString()}</div>
+                  <div className="mod-card-a">{q.answer}</div>
+                  <div className="mod-card-actions">
+                    <button className="ph-btn primary" onClick={() => handlePublishAnswer(q.id, q.answer)}>
+                      Review & Publish
+                    </button>
+                    <button className="ph-btn danger" onClick={() => handleReject(q.id, 'answer')}>
+                      Reject Answer
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {activeTab === 'repository' && (
+          <div className="mod-list">
+            {docError && <div className="mod-card mod-card--error">{docError}</div>}
+            {pendingDocs.length === 0 ? (
+              <div className="mod-empty">
+                No deposits waiting. Uploads to the Knowledge Repository appear here for review
+                before they reach the public site.
+              </div>
+            ) : (
+              pendingDocs.map((d) => (
+                <div key={d.id} className="mod-card">
+                  <div className="mod-card-meta">
+                    <strong>{d.title}</strong> | {d.category} · {d.station}
+                  </div>
+                  <div className="mod-card-q">{d.description}</div>
+                  <div className="mod-doc-facts">
+                    <span>{d.fileName} ({Math.max(1, Math.round((d.fileSizeBytes ?? 0) / 1024))} KB)</span>
+                    <span>{d.license}</span>
+                    {d.instrument && <span>{d.instrument}</span>}
+                    <span>Deposited by {d.authorName}</span>
+                    {d.embargo && d.embargo !== 'none' && <span className="mod-doc-embargo">Embargo: {d.embargo}</span>}
+                  </div>
+                  <div className="mod-card-actions">
+                    <a className="ph-btn ghost" href={d.fileUrl} target="_blank" rel="noreferrer">Open the file</a>
+                    <button className="ph-btn primary" onClick={() => publishDoc(d)} disabled={docBusy === d.id}>
+                      {docBusy === d.id ? 'Publishing…' : 'Publish to the repository'}
+                    </button>
+                    <button className="ph-btn danger" onClick={() => rejectDoc(d)} disabled={docBusy === d.id}>
+                      Send back
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

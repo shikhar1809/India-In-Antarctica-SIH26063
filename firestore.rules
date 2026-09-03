@@ -1,0 +1,169 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null
+        && get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Knowledge Repository submissions: readable by anyone (the catalogue is
+    // public), created by any signed-in user, but a submission only becomes
+    // *published* when an admin says so — the review gate. An uploader can
+    // still edit their own record's descriptive fields; they cannot publish it.
+    match /documents/{docId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.description is string
+        && request.resource.data.description.size() > 0
+        && request.resource.data.description.size() <= 500
+        && request.resource.data.fileUrl is string
+        && request.resource.data.observedAt is int
+        && request.resource.data.license in ['CC BY 4.0', 'CC0', 'CC BY-NC 4.0']
+        && request.resource.data.embargo in ['none', 'project-end', '1-year', '5-years']
+        // Everything arrives unreviewed. Nobody self-publishes.
+        && request.resource.data.status == 'submitted';
+      allow update: if request.auth != null && (
+          // Owner edits their own metadata, but cannot move it through review.
+          (
+            resource.data.authorUid == request.auth.uid
+            && request.resource.data.description.size() <= 500
+            && request.resource.data.status == resource.data.status
+            && request.resource.data.authorUid == resource.data.authorUid
+          )
+          ||
+          // Admin decides: publish it, or send it back.
+          (
+            isAdmin()
+            && request.resource.data.status in ['submitted', 'published', 'rejected']
+          )
+        );
+      allow delete: if request.auth != null
+        && (resource.data.authorUid == request.auth.uid || isAdmin());
+    }
+
+    // The published public record — what iia-public actually reads.
+    //
+    // This collection is world-readable with no auth at all, which is exactly
+    // why nothing is copied into it wholesale. Documents here are built field
+    // by field in iia-portal/src/repository/publish.ts from material a
+    // publisher wrote *for* the public; raw dispatches, with their admin
+    // notes, SOP checklists, field-party names, safety flags and incident
+    // detail, stay behind the auth wall in /dispatches and are never exposed.
+    match /publicArchive/{recordId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Sequence counters behind the IIA-<year>-<nnnn> record identifiers.
+    // Allocated in a transaction on approval, so two admins approving at the
+    // same moment can't mint the same identifier.
+    match /counters/{counterId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // Scientist profiles: the in-game intro line a scientist edits from the
+    // portal. Publicly readable (the game reads it too), but only the
+    // account owner can ever write their own doc.
+    match /profiles/{uid} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.data.introMessage is string
+        && request.resource.data.introMessage.size() <= 280
+        && (!request.resource.data.keys().hasAny(['appearance'])
+            || request.resource.data.appearance is map);
+    }
+
+    // Bug reports from the game's pause menu: anonymous (the game has no
+    // sign-in), write-only from the client — nobody can read, edit or
+    // delete a report back out except via the Firebase Console.
+    match /bugReports/{reportId} {
+      allow create: if request.resource.data.description is string
+        && request.resource.data.description.size() > 0
+        && request.resource.data.description.size() <= 2000
+        && request.resource.data.screenshots is list
+        && request.resource.data.screenshots.size() <= 5;
+      allow read, update, delete: if false;
+    }
+
+    // Role assignments: each user can read and set their own role (self-service
+    // switcher in the portal UI). Admins can set anyone's role.
+    match /roles/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow write: if request.auth != null
+        && request.resource.data.role in ['scientist', 'publisher', 'admin']
+        && (
+          request.auth.uid == uid
+          || get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role == 'admin'
+        );
+    }
+
+    // Field dispatches: Scientist → Publisher → Admin pipeline.
+    // Read: publisher and admin only (scientists see their own via 'mine' filter client-side).
+    // Create: scientists only, status must start as 'raw'.
+    // Update: publisher can draft (→ 'drafted'), admin can approve/flag.
+    // Delete: only the author.
+    match /dispatches/{dispatchId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.status == 'raw'
+        && request.resource.data.observedAt is int
+        && request.resource.data.activity is string
+        && request.resource.data.priority in ['routine', 'notable', 'urgent']
+        && request.resource.data.weather is map
+        && request.resource.data.measurements is map
+        && request.resource.data.notes is string
+        && request.resource.data.notes.size() <= 2000
+        && request.resource.data.safetyFlag is bool
+        && request.resource.data.imageUrls is list
+        && request.resource.data.imageUrls.size() <= 5;
+      allow update: if request.auth != null && (
+          // Publisher: set caption + status to 'drafted'. The SOP checklist
+          // (types.ts SOP_CHECKLIST_ITEMS — facts/safety/photo/credit/
+          // hashtags, 5 items) has to be all-true here too, not just a
+          // disabled Submit button client-side — a client check alone is
+          // just UI, not enforcement.
+          (
+            get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role == 'publisher'
+            && request.resource.data.status in ['drafted']
+            && request.resource.data.keys().hasAll(['caption', 'status', 'publisherName', 'publisherUid', 'sopChecklist', 'adminNotes', 'updatedAt'])
+            && request.resource.data.publisherUid == request.auth.uid
+            && request.resource.data.sopChecklist is map
+            && request.resource.data.sopChecklist.size() == 5
+            && request.resource.data.sopChecklist.facts == true
+            && request.resource.data.sopChecklist.safety == true
+            && request.resource.data.sopChecklist.photo == true
+            && request.resource.data.sopChecklist.credit == true
+            && request.resource.data.sopChecklist.hashtags == true
+          )
+          ||
+          // Admin: approve or flag
+          (
+            get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role == 'admin'
+            && request.resource.data.status in ['approved', 'flagged']
+          )
+        );
+      allow delete: if request.auth != null
+        && resource.data.authorUid == request.auth.uid;
+    }
+
+    // Public website CMS content — readable by anyone (powers iia-public.web.app),
+    // writable only by signed-in admins via the portal Site Builder.
+    match /publicSiteData/{docId} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // No other collection exists yet — default deny.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
