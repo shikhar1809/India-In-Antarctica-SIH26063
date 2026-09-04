@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom'
 import { HeroCarousel } from '../components/ui/hero-carousel'
 import { ArcticMapBackground } from '../components/ui/arctic-map-pattern'
 import { RecordChart, TemperatureTrend } from '../components/RecordChart'
-import { RecordPreview } from '../components/ui/record-preview'
 import { useRepository, temperatureSeries, CATEGORY_LABELS, STATION_LABELS } from '../api/repository'
 import type { RepositoryRecord, CoverCategory } from '../repository/contract'
 import { coverGrade } from '../lib/archiveCovers'
@@ -37,13 +36,13 @@ export default function Archive() {
   const [index, setIndex] = useState(0)
   const [filter, setFilter] = useState<CoverCategory | 'all'>('all')
   const [menuOpen, setMenuOpen] = useState(false)
+  // PS5 flow: 'selector' = carousel screen, 'detail' = record detail screen
+  const [view, setView] = useState<'selector' | 'detail'>('selector')
+  const [transitioning, setTransitioning] = useState(false)
 
   const items = useMemo(() => records.map(toHeroItem), [records])
-
   const trend = useMemo(() => temperatureSeries(records), [records])
 
-  // Clamp, because records stream in live — a deletion mid-session must not
-  // leave the detail pane pointing past the end of the list.
   const safeIndex = Math.min(index, Math.max(0, records.length - 1))
   const active = records[safeIndex]
 
@@ -55,93 +54,141 @@ export default function Archive() {
     if (hit >= 0) setIndex(hit)
   }
 
+  const transition = (to: 'selector' | 'detail', i?: number) => {
+    if (i !== undefined) setIndex(i)
+    setTransitioning(true)
+    window.scrollTo({ top: 0, behavior: 'instant' })
+    setTimeout(() => {
+      setView(to)
+      setTransitioning(false)
+    }, 700)
+  }
+
+  const openRecord = (i?: number) => transition('detail', i)
+  const backToSelector = () => transition('selector')
+
   return (
     <div className="arch2-page">
       <ArcticMapBackground />
 
-      <div className="arch2-hero">
-        {items.length > 0 ? (
-          <HeroCarousel
-            items={items}
-            index={safeIndex}
-            onIndexChange={setIndex}
-            brand={
-              <span className="arch2-brand">
-                <img src="/logo.png" alt="" className="arch2-brand-mark" />
-                Knowledge Repository
-              </span>
-            }
-            onBack={() => navigate('/')}
-            onMenu={() => setMenuOpen((o) => !o)}
-            className="h-[74svh] min-h-[520px]"
-          />
-        ) : (
-          <div className="arch2-hero-fallback">
-            <span className="arch2-brand">
-              <img src="/logo.png" alt="" className="arch2-brand-mark" />
-              Knowledge Repository
-            </span>
-            <h1>{loading ? 'Opening the repository…' : error ? 'The repository is unreachable' : 'Nothing published yet'}</h1>
-            <p>
-              {loading
-                ? 'Fetching everything NCPOR has published.'
-                : error
-                  ? 'We could not reach the record store just now. Please try again in a moment.'
-                  : 'Records appear here the moment a station report is approved for publication.'}
-            </p>
-            <Link to="/" className="arch2-menu-link">Back to home</Link>
-          </div>
-        )}
+      {/* ══════════════════ SELECTOR SCREEN ══════════════════ */}
+      {view === 'selector' && (
+        <div className="arch2-selector-screen">
+          {/* Hero carousel */}
+          <div className="arch2-hero">
+            {items.length > 0 ? (
+              <HeroCarousel
+                items={items}
+                index={safeIndex}
+                onIndexChange={setIndex}
+                brand={
+                  <span className="arch2-brand">
+                    <img src="/logo.png" alt="" className="arch2-brand-mark" />
+                    Knowledge Repository
+                  </span>
+                }
+                onBack={() => navigate('/')}
+                onMenu={() => setMenuOpen((o) => !o)}
+                className="h-[74svh] min-h-[520px]"
+              />
+            ) : (
+              <div className="arch2-hero-fallback">
+                <span className="arch2-brand">
+                  <img src="/logo.png" alt="" className="arch2-brand-mark" />
+                  Knowledge Repository
+                </span>
+                <h1>
+                  {loading
+                    ? 'Opening the repository…'
+                    : error
+                      ? 'The repository is unreachable'
+                      : 'Nothing published yet'}
+                </h1>
+                <p>
+                  {loading
+                    ? 'Fetching everything NCPOR has published.'
+                    : error
+                      ? 'We could not reach the record store just now. Please try again in a moment.'
+                      : 'Records appear here the moment a station report is approved for publication.'}
+                </p>
+                <Link to="/" className="arch2-menu-link">Back to home</Link>
+              </div>
+            )}
 
-        {menuOpen ? (
-          <>
-            <button
-              type="button"
-              className="arch2-menu-scrim"
-              aria-label="Close menu"
-              onClick={() => setMenuOpen(false)}
-            />
-            <div className="arch2-menu" role="menu">
-              <Link to="/" className="arch2-menu-link" role="menuitem">Home</Link>
-              <Link to="/ask" className="arch2-menu-link" role="menuitem">Ask a Scientist</Link>
-              <div className="arch2-menu-divider" />
-              <span className="arch2-menu-label">Jump to</span>
+            {menuOpen && (
+              <>
+                <button
+                  type="button"
+                  className="arch2-menu-scrim"
+                  aria-label="Close menu"
+                  onClick={() => setMenuOpen(false)}
+                />
+                <div className="arch2-menu" role="menu">
+                  <Link to="/" className="arch2-menu-link" role="menuitem">Home</Link>
+                  <Link to="/ask" className="arch2-menu-link" role="menuitem">Ask a Scientist</Link>
+                  <div className="arch2-menu-divider" />
+                  <span className="arch2-menu-label">Jump to</span>
+                  {CATEGORY_LABELS.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      role="menuitem"
+                      className={`arch2-menu-item ${filter === c.id ? 'is-active' : ''}`}
+                      onClick={() => jumpToCategory(c.id)}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Category chips + Open button */}
+          <div className="arch2-selector-bar">
+            <nav className="arch2-filters" aria-label="Filter by record type">
               {CATEGORY_LABELS.map((c) => (
                 <button
                   key={c.id}
                   type="button"
-                  role="menuitem"
-                  className={`arch2-menu-item ${filter === c.id ? 'is-active' : ''}`}
+                  className={`arch2-chip ${filter === c.id ? 'is-active' : ''}`}
                   onClick={() => jumpToCategory(c.id)}
                 >
                   {c.label}
                 </button>
               ))}
-            </div>
-          </>
-        ) : null}
-      </div>
+              <span className="arch2-count">
+                {loading ? 'loading…' : `${records.length} record${records.length === 1 ? '' : 's'}`}
+              </span>
+            </nav>
 
-      <main className="arch2-body">
-        {/* ── Category rail ───────────────────────────────────────────── */}
-        <nav className="arch2-filters" aria-label="Filter by record type">
-          {CATEGORY_LABELS.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              className={`arch2-chip ${filter === c.id ? 'is-active' : ''}`}
-              onClick={() => jumpToCategory(c.id)}
-            >
-              {c.label}
-            </button>
-          ))}
-          <span className="arch2-count">
-            {loading ? 'loading…' : `${records.length} record${records.length === 1 ? '' : 's'}`}
-          </span>
-        </nav>
+            {items.length > 0 && (
+              <button
+                type="button"
+                className="arch2-open-btn"
+                onClick={() => openRecord()}
+              >
+                Open Record
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+                  <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
-        {/* ── The focused record, in full ─────────────────────────────── */}
-        {active ? (
+      {/* ══════════════════ DETAIL SCREEN ══════════════════ */}
+      {view === 'detail' && active && (
+        <main className="arch2-body arch2-detail-screen">
+          {/* Back button */}
+          <button type="button" className="arch2-back-btn" onClick={backToSelector}>
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Knowledge Repository
+          </button>
+
           <section className="arch2-detail" aria-live="polite">
             <div className="arch2-detail-head">
               <span className="arch2-kind">{active.kind}</span>
@@ -212,46 +259,29 @@ export default function Archive() {
               </details>
             ) : null}
           </section>
-        ) : null}
 
-        {/* ── What the whole repository shows, once records accumulate ──
-            Explicitly its own section with its own heading. It used to sit
-            bare underneath the record detail, which made the same chart look
-            like it belonged to whichever record you happened to be reading. */}
-        {trend.length >= 2 ? (
-          <section className="arch2-trend">
-            <h3 className="arch2-list-title">Across the whole repository</h3>
-            <p className="arch2-trend-sub">
-              Not from the record above — this draws on every published observation at once.
-            </p>
-            <TemperatureTrend data={trend} />
-          </section>
-        ) : null}
+          {trend.length >= 2 ? (
+            <section className="arch2-trend">
+              <h3 className="arch2-list-title">Across the whole repository</h3>
+              <p className="arch2-trend-sub">
+                Not from the record above — this draws on every published observation at once.
+              </p>
+              <TemperatureTrend data={trend} />
+            </section>
+          ) : null}
+        </main>
+      )}
 
-        {/* ── Every record, for direct access ─────────────────────────── */}
-        {records.length > 0 ? (
-          <section className="arch2-list">
-            <h3 className="arch2-list-title">All Records</h3>
-            <div className="arch2-list-grid">
-              {records.map((r, i) => (
-                <RecordPreview
-                  key={r.id}
-                  record={r}
-                  triggerClass={`arch2-row ${i === safeIndex ? 'is-active' : ''}`}
-                  onActivate={() => {
-                    setIndex(i)
-                    window.scrollTo({ top: 0, behavior: 'smooth' })
-                  }}
-                >
-                  <span className="arch2-row-kind">{r.kind}</span>
-                  <span className="arch2-row-title">{r.title.replace(/\n/g, ' ')}</span>
-                  <span className="arch2-row-meta">{STATION_LABELS[r.station] ?? 'NCPOR'} · {r.year}</span>
-                </RecordPreview>
-              ))}
-            </div>
-          </section>
-        ) : null}
-      </main>
+      {/* ══ Logo transition overlay ══ */}
+      {transitioning && (
+        <div className="arch2-transition-overlay" aria-hidden>
+          <div className="arch2-transition-logo">
+            <img src="/logo.png" alt="" className="arch2-transition-mark" />
+            <span className="arch2-transition-wordmark">India in Antarctica</span>
+          </div>
+          <div className="arch2-transition-bar" />
+        </div>
+      )}
     </div>
   )
 }

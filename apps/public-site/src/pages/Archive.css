@@ -438,3 +438,155 @@
   color: var(--ice-faint);
   max-width: 60ch;
 }
+
+/* ══════════════════════════════════ PS5-style two-screen navigation ══ */
+
+/* Selector screen: carousel + chips bar stacked */
+.arch2-selector-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+}
+
+/* Chips + Open button row sits below the carousel */
+.arch2-selector-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.4rem var(--body-pad, 5vw);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.arch2-selector-bar .arch2-filters {
+  border-bottom: none;
+  padding-bottom: 0;
+  flex: 1;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.arch2-selector-bar .arch2-filters::-webkit-scrollbar { display: none; }
+
+/* "Open Record →" CTA */
+.arch2-open-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--ink);
+  background: var(--cyan);
+  border: none;
+  border-radius: 999px;
+  padding: 0.55rem 1.1rem;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  flex-shrink: 0;
+}
+.arch2-open-btn:hover { opacity: 0.88; transform: translateX(2px); }
+.arch2-open-btn:active { transform: translateX(4px); }
+
+/* Detail screen */
+.arch2-detail-screen {
+  padding-top: 1.6rem;
+}
+
+/* Back button */
+.arch2-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ice-dim);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.4rem 0;
+  margin-bottom: 1.6rem;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+.arch2-back-btn svg { transition: transform 0.15s ease; }
+.arch2-back-btn:hover { color: var(--ice); }
+.arch2-back-btn:hover svg { transform: translateX(-3px); }
+
+/* ══ Logo transition overlay ══════════════════════════════════════════ */
+.arch2-transition-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  animation: arch2-fade-in 0.25s ease forwards;
+}
+
+.arch2-transition-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  animation: arch2-logo-pulse 0.7s ease infinite alternate;
+}
+
+.arch2-transition-mark {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 24px var(--cyan));
+}
+
+.arch2-transition-wordmark {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+}
+
+.arch2-transition-bar {
+  width: 140px;
+  height: 2px;
+  background: var(--line);
+  border-radius: 1px;
+  overflow: hidden;
+  position: relative;
+}
+.arch2-transition-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--cyan);
+  border-radius: 1px;
+  animation: arch2-bar-sweep 0.7s ease-in-out forwards;
+}
+
+@keyframes arch2-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes arch2-logo-pulse {
+  from { opacity: 0.7; transform: scale(0.97); }
+  to   { opacity: 1;   transform: scale(1.03); }
+}
+
+@keyframes arch2-bar-sweep {
+  from { transform: scaleX(0); transform-origin: left; }
+  to   { transform: scaleX(1); transform-origin: left; }
+}
+
+/* Mobile tweaks */
+@media (max-width: 640px) {
+  .arch2-selector-bar { padding: 1rem var(--body-pad, 4vw); gap: 0.7rem; }
+  .arch2-open-btn { font-size: 0.78rem; padding: 0.5rem 0.9rem; }
+}
