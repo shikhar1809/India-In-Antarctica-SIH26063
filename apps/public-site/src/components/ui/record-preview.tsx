@@ -14,10 +14,18 @@ import * as HoverCardPrimitive from '@radix-ui/react-hover-card'
 import { AnimatePresence, motion, useMotionValue, useSpring } from 'framer-motion'
 import React from 'react'
 import type { RepositoryRecord, CoverStation } from '../../repository/contract'
-import { coverArt, coverGrade } from '../../lib/archiveCovers'
+import { coverGrade } from '../../lib/archiveCovers'
 import { STATION_LABELS } from '../../api/repository'
 
-const seedFor = (id: string) => [...id].reduce((n, ch) => n + ch.charCodeAt(0), 0)
+const U = 'https://images.unsplash.com'
+const STATION_THUMB: Record<string, string> = {
+  maitri:  `${U}/photo-1535752385016-16aa049b6a8d?w=520&q=80`,
+  bharati: `${U}/photo-1493329025335-18542a61595f?w=520&q=80`,
+  dakshin: `${U}/photo-1486566584569-b9319dc74315?w=520&q=80`,
+  ship:    `${U}/photo-1642928614293-ba6ff94b4a75?w=520&q=80`,
+  ncpor:   `${U}/photo-1531366936337-7c912a4589a7?w=520&q=80`,
+}
+const DEFAULT_THUMB = `${U}/photo-1609385510105-81ae06198c53?w=520&q=80`
 
 /** Faint badge background from the station accent. */
 function badgeBg(accent: string) {
@@ -54,8 +62,7 @@ export function RecordPreview({ record, children, onActivate, triggerClass }: Re
   }
 
   const station = STATION_LABELS[record.station] ?? 'NCPOR'
-  // coverArt always returns a data:image/svg+xml string
-  const imgSrc = record.photoUrls?.[0] ?? coverArt(record.cat, record.station, seedFor(record.id), station)
+  const imgSrc = record.photoUrls?.[0] ?? STATION_THUMB[record.station] ?? DEFAULT_THUMB
   const accent = coverGrade(record.station)        // CSS hex e.g. '#2f7bb0'
   const bg = STATION_BG[record.station as CoverStation] ?? '#080c18'
 

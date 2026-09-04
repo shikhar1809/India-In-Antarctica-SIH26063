@@ -6,22 +6,25 @@ import { RecordChart, TemperatureTrend } from '../components/RecordChart'
 import { RecordPreview } from '../components/ui/record-preview'
 import { useRepository, temperatureSeries, CATEGORY_LABELS, STATION_LABELS } from '../api/repository'
 import type { RepositoryRecord, CoverCategory } from '../repository/contract'
-import { coverArt, coverGrade } from '../lib/archiveCovers'
+import { coverGrade } from '../lib/archiveCovers'
 import './Archive.css'
 
-/** Stable per-record seed for the generated cover art, so a record's artwork
- *  never changes between visits. Same approach the static archive used. */
-const seedFor = (id: string) => [...id].reduce((n, ch) => n + ch.charCodeAt(0), 0)
+const U = 'https://images.unsplash.com'
+const STATION_HERO: Record<string, string> = {
+  maitri:  `${U}/photo-1535752385016-16aa049b6a8d?w=1600&q=85`,
+  bharati: `${U}/photo-1493329025335-18542a61595f?w=1600&q=85`,
+  dakshin: `${U}/photo-1486566584569-b9319dc74315?w=1600&q=85`,
+  ship:    `${U}/photo-1642928614293-ba6ff94b4a75?w=1600&q=85`,
+  ncpor:   `${U}/photo-1531366936337-7c912a4589a7?w=1600&q=85`,
+}
+const DEFAULT_HERO = `${U}/photo-1609385510105-81ae06198c53?w=1600&q=85`
 
-/** A published record as the hero carousel wants it. The publisher's chosen
- *  photo when there is one; otherwise the generated station artwork the
- *  archive has always fallen back to. */
 function toHeroItem(r: RepositoryRecord) {
   const station = STATION_LABELS[r.station] ?? 'NCPOR'
   return {
     id: r.id,
     title: r.title,
-    image: r.photoUrls?.[0] ?? coverArt(r.cat, r.station, seedFor(r.id), `${station} · ${r.year}`),
+    image: r.photoUrls?.[0] ?? STATION_HERO[r.station] ?? DEFAULT_HERO,
     credit: r.credit,
     meta: [station, r.year, r.kind.toUpperCase()],
     accent: coverGrade(r.station),
