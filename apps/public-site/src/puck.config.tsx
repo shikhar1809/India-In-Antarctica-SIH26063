@@ -5,6 +5,8 @@ import { ArchiveGallerySection } from './components/ui/sticky-scroll';
 import { ParallaxComponent } from './components/ui/parallax-scrolling';
 import './blocks.css';
 import SplitFlapText from './components/ui/SplitFlapText';
+import { ContainerScroll } from './components/ui/container-scroll-animation';
+import { GameSlideshow } from './components/ui/game-slideshow';
 type Props = {
   HeroBlock: {
     badge: string; titleLine1: string; titleLine2Accent: string;
@@ -346,13 +348,33 @@ export const config: Config<Props> = {
         ctaLabel: 'Launch PolarQuest 3D',
         ctaUrl: 'https://iia-game.web.app',
       },
-      render: ({ heading, body, ctaLabel, ctaUrl }) => (
-        <div className="block-banner">
-          <div className="block-banner-content">
-            <h2>{heading}</h2>
-            <p>{body}</p>
-            <a href={ctaUrl} className="btn-primary-pub">{ctaLabel}</a>
-          </div>
+      render: () => (
+        <div className="overflow-hidden">
+          <ContainerScroll
+            titleComponent={
+              <div style={{ fontFamily: 'var(--font-ui, system-ui)', textAlign: 'center' }}>
+                <p style={{ fontSize: '0.75rem', letterSpacing: '0.18em', textTransform: 'uppercase', color: '#22d3ee', marginBottom: '0.6rem', fontFamily: 'monospace' }}>
+                  India In Antarctica
+                </p>
+                <h2 style={{
+                  fontSize: 'clamp(2rem, 5vw, 3.5rem)',
+                  fontWeight: 800,
+                  color: '#f0f9ff',
+                  lineHeight: 1.1,
+                  letterSpacing: '-0.02em',
+                  margin: 0,
+                }}>
+                  Experience The<br />
+                  <span style={{ color: '#22d3ee' }}>Polar Quest</span>
+                </h2>
+                <p style={{ marginTop: '1rem', fontSize: '1rem', color: '#94a3b8', maxWidth: '44ch', marginInline: 'auto', lineHeight: 1.6 }}>
+                  Walk the ice of Maitri and Bharati. Collect field data, survive blizzards, and fill the Knowledge Repository.
+                </p>
+              </div>
+            }
+          >
+            <GameSlideshow />
+          </ContainerScroll>
         </div>
       ),
     },
