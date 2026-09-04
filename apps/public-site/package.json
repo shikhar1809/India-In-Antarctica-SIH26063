@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@measured/puck": "^0.20.2",
+    "@radix-ui/react-hover-card": "^1.1.23",
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
     "@types/three": "^0.185.4",
@@ -22,8 +23,10 @@
     "lucide-react": "^1.39.0",
     "motion": "^13.1.1",
     "ogl": "^1.0.11",
+    "qss": "^3.0.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-is": "^19.2.8",
     "react-router-dom": "^7.18.3",
     "recharts": "^3.10.1",
     "tailwind-merge": "^3.6.0",

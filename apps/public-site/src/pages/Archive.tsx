@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { HeroCarousel } from '../components/ui/hero-carousel'
 import { ArcticMapBackground } from '../components/ui/arctic-map-pattern'
 import { RecordChart, TemperatureTrend } from '../components/RecordChart'
+import { RecordPreview } from '../components/ui/record-preview'
 import { useRepository, temperatureSeries, CATEGORY_LABELS, STATION_LABELS } from '../api/repository'
 import type { RepositoryRecord, CoverCategory } from '../repository/contract'
 import { coverArt, coverGrade } from '../lib/archiveCovers'
@@ -230,11 +231,11 @@ export default function Archive() {
             <h3 className="arch2-list-title">All Records</h3>
             <div className="arch2-list-grid">
               {records.map((r, i) => (
-                <button
+                <RecordPreview
                   key={r.id}
-                  type="button"
-                  className={`arch2-row ${i === safeIndex ? 'is-active' : ''}`}
-                  onClick={() => {
+                  record={r}
+                  triggerClass={`arch2-row ${i === safeIndex ? 'is-active' : ''}`}
+                  onActivate={() => {
                     setIndex(i)
                     window.scrollTo({ top: 0, behavior: 'smooth' })
                   }}
@@ -242,7 +243,7 @@ export default function Archive() {
                   <span className="arch2-row-kind">{r.kind}</span>
                   <span className="arch2-row-title">{r.title.replace(/\n/g, ' ')}</span>
                   <span className="arch2-row-meta">{STATION_LABELS[r.station] ?? 'NCPOR'} · {r.year}</span>
-                </button>
+                </RecordPreview>
               ))}
             </div>
           </section>
