@@ -88,17 +88,58 @@
 }
 
 .lib-card {
-  display: block;
-  padding: 20px;
+  display: flex;
+  flex-direction: column;
   border-radius: var(--r);
   border: 1px solid var(--line);
   background: linear-gradient(160deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015));
   transition: border-color 0.15s, transform 0.15s;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
 }
 
 .lib-card:hover {
   border-color: var(--cyan);
   transform: translateY(-2px);
+}
+
+/* Station cover header */
+.lib-card-cover {
+  height: 80px;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  position: relative;
+}
+.lib-card-cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.35));
+}
+.lib-card-cover-icon {
+  font-size: 20px;
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5));
+}
+.lib-card-cover-station {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.85);
+  position: relative;
+  z-index: 1;
+}
+
+.lib-card-body {
+  padding: 16px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 .lib-card-cat {
@@ -119,8 +160,8 @@
 
 .lib-card-desc {
   margin-top: 8px;
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: 14px;
+  line-height: 1.6;
   color: var(--ice-dim);
   display: -webkit-box;
   -webkit-line-clamp: 3;
@@ -175,7 +216,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--ice-dim);
 }
 
@@ -193,10 +234,50 @@
   margin-top: 12px;
   display: flex;
   gap: 6px;
-  font-size: 11.5px;
+  font-size: 12.5px;
   color: var(--ice-faint);
   font-family: var(--font-mono);
   flex-wrap: wrap;
+}
+
+/* File attachment chip */
+.lib-card-file {
+  margin-top: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(95, 217, 255, 0.25);
+  background: rgba(95, 217, 255, 0.07);
+  color: var(--cyan);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+}
+.lib-card-file:hover {
+  background: rgba(95, 217, 255, 0.14);
+  border-color: var(--cyan);
+}
+.lib-card-file.embargoed-file {
+  color: var(--saffron);
+  border-color: rgba(255, 153, 51, 0.25);
+  background: rgba(255, 153, 51, 0.07);
+  cursor: default;
+}
+.lib-card-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 160px;
+}
+.lib-card-file-size {
+  flex-shrink: 0;
+  opacity: 0.7;
 }
 
 /* ── review status on a repository card ───────────────────────────────── */

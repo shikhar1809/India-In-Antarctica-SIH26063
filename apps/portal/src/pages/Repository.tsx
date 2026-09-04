@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { MapPin, Sparkles } from 'lucide-react';
+import { Download, MapPin, Sparkles } from 'lucide-react';
 import { useDocuments } from '../hooks/useDocuments';
 import { useRole } from '../hooks/useRole';
 import { CATEGORIES } from '../types';
@@ -7,6 +7,27 @@ import type { DocumentStatus } from '../types';
 import { HISTORICAL_RECORDS } from '../repository/historicalRecords';
 import { publishRecord } from '../repository/publish';
 import './Library.css';
+
+const STATION_GRADIENT: Record<string, string> = {
+  Maitri:            'linear-gradient(135deg, #0d2b3e 0%, #1a4a6e 60%, #2f9fc9 100%)',
+  Bharati:           'linear-gradient(135deg, #2a1800 0%, #6b3600 60%, #c8762a 100%)',
+  'Dakshin Gangotri':'linear-gradient(135deg, #0d2b1a 0%, #1a5030 60%, #4a9b6f 100%)',
+  Other:             'linear-gradient(135deg, #1a1f2e 0%, #2a3448 60%, #4a6080 100%)',
+};
+
+const CATEGORY_ICON: Record<string, string> = {
+  'Expedition Report': '📋',
+  'Dataset':           '📊',
+  'Publication':       '📰',
+  'Photographs & Video':'📷',
+  'Institutional':     '🏛️',
+};
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 function coordStr(lat: number | null, lon: number | null): string | null {
   if (lat == null || lon == null) return null;
@@ -106,58 +127,86 @@ export function Repository() {
             const isEmbargoed = d.embargo && d.embargo !== 'none';
             const status = statusOf(d.status);
 
+            const gradient = STATION_GRADIENT[d.station] ?? STATION_GRADIENT.Other;
+            const icon = CATEGORY_ICON[d.category] ?? '📄';
+
             return (
-              <a
+              <div
                 key={d.id}
                 className={'lib-card' + (isEmbargoed ? ' embargoed' : '')}
-                href={isEmbargoed ? undefined : d.fileUrl}
-                target="_blank"
-                rel="noreferrer"
-                aria-disabled={isEmbargoed}
-                onClick={isEmbargoed ? (e) => e.preventDefault() : undefined}
               >
-                <div className="lib-card-top">
-                  <span className="lib-card-cat">{d.category}</span>
-                  {d.license && <span className="lib-card-license">{d.license}</span>}
-                  {isEmbargoed && <span className="lib-card-embargo">Embargoed</span>}
-                  {status !== 'published' && (
-                    <span className={'lib-card-status status-' + status}>{STATUS_LABEL[status]}</span>
-                  )}
+                {/* Station cover header */}
+                <div className="lib-card-cover" style={{ background: gradient }}>
+                  <span className="lib-card-cover-icon">{icon}</span>
+                  <span className="lib-card-cover-station">{d.station}</span>
                 </div>
 
-                <h3>{d.title}</h3>
-                <p className="lib-card-desc">{d.description}</p>
-
-                <div className="lib-card-attrs">
-                  <span className="lib-card-attr">
-                    <span className="lib-attr-icon"><MapPin size={12} strokeWidth={2} /></span>
-                    {d.station}
-                    {coords && (
-                      <a
-                        href={mapsUrl(d.lat!, d.lon!)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="lib-coord-link"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {coords}
-                      </a>
+                <div className="lib-card-body">
+                  <div className="lib-card-top">
+                    <span className="lib-card-cat">{d.category}</span>
+                    {d.license && <span className="lib-card-license">{d.license}</span>}
+                    {isEmbargoed && <span className="lib-card-embargo">Embargoed</span>}
+                    {status !== 'published' && (
+                      <span className={'lib-card-status status-' + status}>{STATUS_LABEL[status]}</span>
                     )}
-                  </span>
-                  {d.instrument && (
+                  </div>
+
+                  <h3>{d.title}</h3>
+                  <p className="lib-card-desc">{d.description}</p>
+
+                  <div className="lib-card-attrs">
                     <span className="lib-card-attr">
-                      <span className="lib-attr-icon">🔬</span>
-                      {d.instrument}
+                      <span className="lib-attr-icon"><MapPin size={12} strokeWidth={2} /></span>
+                      {d.station}
+                      {coords && (
+                        <a
+                          href={mapsUrl(d.lat!, d.lon!)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="lib-coord-link"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {coords}
+                        </a>
+                      )}
+                    </span>
+                    {d.instrument && (
+                      <span className="lib-card-attr">
+                        <span className="lib-attr-icon">🔬</span>
+                        {d.instrument}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="lib-card-meta">
+                    <span>{d.authorName}</span>
+                    <span>·</span>
+                    <span>Observed {observedDate}</span>
+                  </div>
+
+                  {/* File download chip */}
+                  {d.fileUrl && !isEmbargoed && (
+                    <a
+                      className="lib-card-file"
+                      href={d.fileUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Download size={12} strokeWidth={2.5} />
+                      <span className="lib-card-file-name">{d.fileName}</span>
+                      {d.fileSizeBytes > 0 && (
+                        <span className="lib-card-file-size">{formatBytes(d.fileSizeBytes)}</span>
+                      )}
+                    </a>
+                  )}
+                  {isEmbargoed && (
+                    <span className="lib-card-file embargoed-file">
+                      <span>🔒</span> Embargoed — available {d.embargo}
                     </span>
                   )}
                 </div>
-
-                <div className="lib-card-meta">
-                  <span>{d.authorName}</span>
-                  <span>·</span>
-                  <span>Observed {observedDate}</span>
-                </div>
-              </a>
+              </div>
             );
           })}
         </div>
