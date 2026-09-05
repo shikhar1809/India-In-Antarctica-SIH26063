@@ -140,3 +140,8 @@ exports.api = onRequest({ region: 'asia-south1', cors: true }, async (req, res) 
     return res.status(500).json({ error: 'The repository could not be read just now.' });
   }
 });
+
+/* The post studio's copy generator lives in its own module — it is a write
+ * path with a secret, which has nothing in common with this read-only API
+ * beyond sharing a deployment. */
+exports.studio = require('./studio').studio;

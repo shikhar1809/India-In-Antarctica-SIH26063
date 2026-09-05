@@ -7,10 +7,23 @@ import { Repository } from './pages/Repository';
 import { Social } from './pages/Social';
 import { SiteEditor } from './pages/SiteEditor';
 import { Moderation } from './pages/Moderation';
+import { CanvasGallery } from './studio/CanvasGallery';
+import { StudioHarness } from './studio/StudioHarness';
 import './pages/shared.css';
 
 function Gate() {
   const { user, loading } = useAuth();
+
+  /* Studio dev harnesses, ahead of the auth gate on purpose: checking a
+   * template change or walking the compose flow should not require a Google
+   * sign-in. Both are dropped from the production bundle by the DEV guard.
+   *   /__canvas  every template and platform size at once
+   *   /__studio  the real five-step flow against a mock dispatch */
+  if (import.meta.env.DEV) {
+    const path = window.location.pathname;
+    if (path === '/__canvas') return <CanvasGallery />;
+    if (path === '/__studio') return <StudioHarness />;
+  }
 
   if (loading) {
     return (

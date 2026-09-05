@@ -1,21 +1,21 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
-import {
-  ArrowLeft, ArrowRight, Bookmark, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileSpreadsheet,
-  Heart, Maximize2, MessageCircle, Minimize2, Paperclip, Repeat2, RotateCcw, Send, Share, Sparkles, TriangleAlert,
-} from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { ArrowLeft, ChevronDown, FileSpreadsheet, Paperclip, RotateCcw, Sparkles, TriangleAlert } from 'lucide-react';
 import { addDoc, collection, doc, getDoc, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../firebase';
+import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useDispatches } from '../hooks/useDispatches';
 import { useRole, assignRole } from '../hooks/useRole';
 import type { Role } from '../hooks/useRole';
-import type { Dispatch, DispatchStatus, DispatchPriority, WeatherObs, PlatformCaptions, StoredPublicSummary } from '../types';
-import { MEASUREMENT_SCHEMA, PLATFORM_LIMITS, SOP_CHECKLIST_ITEMS, HASHTAG_BY_STATION, HASHTAG_BY_ACTIVITY } from '../types';
+import type { Dispatch, DispatchStatus, DispatchPriority, WeatherObs, PlatformCaptions } from '../types';
+import { MEASUREMENT_SCHEMA } from '../types';
 import { normaliseDispatch } from '../repository/normalise';
 import { draftPublicSummary } from '../repository/summarise';
 import { canPublishDispatch, mintIdentifier, publishRecord, unpublishRecord, toRepositoryRecord } from '../repository/publish';
+import { Studio } from '../studio/Studio';
+import { PostCanvas } from '../studio/PostCanvas';
+import { paletteById } from '../studio/brand';
+import type { PlatformId } from '../studio/brand';
+import { templateById } from '../studio/templates';
 import './Social.css';
 
 const STATUS_LABEL: Record<DispatchStatus, string> = {
@@ -48,8 +48,6 @@ const COMPOSE_PLATFORMS: { id: keyof PlatformCaptions; label: string }[] = [
   { id: 'linkedin', label: 'LinkedIn' },
   { id: 'instagram', label: 'Instagram' },
 ];
-
-const EMPTY_SOP: Record<string, boolean> = Object.fromEntries(SOP_CHECKLIST_ITEMS.map((i) => [i.id, false]));
 
 /** Three raw dispatches covering the cases actually worth exercising: one
  *  with multiple photos (tests the cover-photo picker), one with no photos
@@ -112,26 +110,6 @@ async function seedDemoDispatches(uid: string, name: string) {
   );
 }
 
-/** One shared narrative base, three platform-shaped variants from it — the
- *  same "template, then a human edits it" pattern the single-caption
- *  version used, just aware that X, LinkedIn and Instagram don't share a
- *  length or a tone. Not an AI call: no model exists in this project to
- *  call, and a plain template a publisher always reviews and edits by hand
- *  is more predictable than a generated one for a government archive. */
-function draftCaptions(d: Dispatch): PlatformCaptions {
-  const noteExcerpt = (n: number) => d.notes ? d.notes.slice(0, n) + (d.notes.length > n ? '…' : '') : '';
-  const hashtags = [...(HASHTAG_BY_STATION[d.station] ?? []), ...(HASHTAG_BY_ACTIVITY[d.activity] ?? [])];
-
-  const xBase = `${d.activity || 'Field report'} at ${d.station || 'an Antarctic station'}. ${noteExcerpt(120)}`.trim();
-  const linkedin = `Field report from ${d.authorName}${d.activity ? ` — ${d.activity}` : ''}${d.station ? ` at ${d.station}` : ''}. ${noteExcerpt(400)}\n\n(Edit before submitting for approval.)`;
-  const instagram = `${xBase}\n\n${hashtags.join(' ')}`.trim();
-
-  return {
-    x: xBase.length > PLATFORM_LIMITS.x ? xBase.slice(0, PLATFORM_LIMITS.x - 1) + '…' : xBase,
-    linkedin,
-    instagram,
-  };
-}
 
 /** Format a weather observation the way it would be read out on the radio. */
 function weatherLine(w: WeatherObs | undefined): string | null {
@@ -174,7 +152,7 @@ export function Social() {
     return (
       <div className="fld-page-full">
         <button className="fld-back" onClick={() => setPubActiveId(null)}><ArrowLeft size={14} strokeWidth={2.5} style={{ marginRight: 4 }} />Back to queue</button>
-        <ComposeView dispatch={composeDispatch} onSubmitted={() => setPubActiveId(null)} />
+        <Studio dispatch={composeDispatch} onSubmitted={() => setPubActiveId(null)} />
       </div>
     );
   }
@@ -343,616 +321,6 @@ function DemoSeedButton() {
   );
 }
 
-/* ================================================================= steps
- * A guided, one-thing-at-a-time flow instead of a flat form — write for X,
- * then LinkedIn, then Instagram, pick a cover if there's a choice to make,
- * then a real preview of all three before submitting. Reuses the wizard/
- * stepper CSS already built for the old scientist submission form
- * (.fld-wizard / .fld-stepper / .fld-step-panel), which was sitting unused
- * since that form moved to the desktop app. */
-interface ComposeStep { id: keyof PlatformCaptions | 'photo' | 'public' | 'review'; label: string; hint: string }
-
-const PUBLIC_STEP: ComposeStep = {
-  id: 'public',
-  label: 'Public page',
-  hint: 'This is what goes on the public website — written for someone with no science background. Short sentences, no field codes, and say why it matters. A first draft is generated from the report; make it sound like a person wrote it.',
-};
-
-const CAPTION_STEPS: ComposeStep[] = [
-  { id: 'x', label: 'X', hint: 'Short and sharp — this lives or dies in the first line. Well under 280 characters reads better than one that just fits.' },
-  { id: 'linkedin', label: 'LinkedIn', hint: 'Give it the context X has no room for — the story behind the data, not just the headline. Line breaks are fine here.' },
-  { id: 'instagram', label: 'Instagram', hint: 'Front-load anything that matters — captions collapse under "more" after a couple of lines. Hashtags go at the end.' },
-];
-const PHOTO_STEP: ComposeStep = { id: 'photo', label: 'Photo', hint: "Upload a photo or pick one already on the report — whichever will actually stop someone mid-scroll." };
-const REVIEW_STEP: ComposeStep = { id: 'review', label: 'Review', hint: 'How it actually looks on each platform, side by side, before an admin sees it.' };
-
-/** Google's own profile photo when there is one — genuinely more useful in
- *  a preview than a generic placeholder, since it's what the account that
- *  ships this post already looks like. Falls back to an initial. */
-function Avatar({ url, name, className }: { url?: string | null; name: string; className: string }) {
-  if (url) return <img src={url} alt="" className={className} />;
-  return <span className={className + ' fld-avatar-fallback'}>{name.trim().charAt(0).toUpperCase() || '?'}</span>;
-}
-
-function PlatformBadge({ id }: { id: keyof PlatformCaptions }) {
-  return <span className={'fld-platform-badge fld-platform-badge--' + id} aria-hidden="true">{id === 'x' ? '𝕏' : id === 'linkedin' ? 'in' : <Camera size={13} strokeWidth={2.5} />}</span>;
-}
-
-/* ============================================================ Compose view
- * The Publisher's actual toolkit: a step-by-step per-platform composer
- * with live length counters, one-click hashtag suggestions, a cover-photo
- * picker, real platform-shaped previews, and the SOP checklist that gates
- * submission — all driven off the same Dispatch, shared by the Review
- * queue and by "Revise" from My Submissions so the two never drift into
- * different UIs. */
-function ComposeView({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSubmitted: () => void }) {
-  const { user } = useAuth();
-  const [captions, setCaptions] = useState<PlatformCaptions>(
-    () => d.platformCaptions ?? { x: d.caption || '', linkedin: d.caption || '', instagram: d.caption || '' }
-  );
-  const [coverIndex, setCoverIndex] = useState(d.coverImageIndex ?? 0);
-  const [localImages, setLocalImages] = useState<string[]>(d.imageUrls ?? []);
-  const [sop, setSop] = useState<Record<string, boolean>>(d.sopChecklist ?? EMPTY_SOP);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [stepIdx, setStepIdx] = useState(0);
-  const [uploading, setUploading] = useState(false);
-  const [uploadPct, setUploadPct] = useState(0);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const focusedField = useRef<keyof PlatformCaptions>('x');
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const originalImageCount = d.imageUrls?.length ?? 0;
-
-  const steps: ComposeStep[] = [...CAPTION_STEPS, PHOTO_STEP, PUBLIC_STEP, REVIEW_STEP];
-  const step = steps[stepIdx];
-  const captionStepId: keyof PlatformCaptions | null =
-    step.id === 'x' || step.id === 'linkedin' || step.id === 'instagram' ? step.id : null;
-
-  /* The dispatch as it should be read, not as it arrived — an older field-app
-   * build may have sent Australian station names, METAR weather codes or an
-   * empty measurement map. normaliseDispatch repairs what it can and tells us
-   * what it couldn't, so the publisher sees the problems rather than
-   * unknowingly publishing them. */
-  const { dispatch: clean, measurements, warnings, sourceStation } = useMemo(() => normaliseDispatch(d), [d]);
-
-  const [publicSummary, setPublicSummary] = useState<StoredPublicSummary>(() => {
-    if (d.publicSummary) return d.publicSummary;
-    const drafted = draftPublicSummary(clean, measurements);
-    return { title: drafted.title, body: drafted.body, table: drafted.table, chart: drafted.chart ?? null };
-  });
-
-  const regeneratePublic = () => {
-    const drafted = draftPublicSummary(clean, measurements);
-    setPublicSummary({ title: drafted.title, body: drafted.body, table: drafted.table, chart: drafted.chart ?? null });
-  };
-
-  const hashtags = [...(HASHTAG_BY_STATION[d.station] ?? []), ...(HASHTAG_BY_ACTIVITY[d.activity] ?? [])];
-  const allChecked = SOP_CHECKLIST_ITEMS.every((item) => sop[item.id]);
-  const hasAnyCaption = COMPOSE_PLATFORMS.some((p) => captions[p.id].trim());
-  const coverUrl = localImages[coverIndex] ?? localImages[0] ?? null;
-  const authorInitials = user?.displayName ?? user?.email ?? 'Publisher';
-
-  const handleFileSelected = async (file: File | undefined) => {
-    if (!file || !user) return;
-    if (!file.type.startsWith('image/')) { setUploadError('Only image files are supported.'); return; }
-    if (file.size > 10 * 1024 * 1024) { setUploadError('Image exceeds the 10 MB limit.'); return; }
-    if (localImages.length >= 8) { setUploadError('Up to 8 photos per post.'); return; }
-    setUploadError(null);
-    setUploading(true);
-    setUploadPct(0);
-    try {
-      const objRef = ref(storage, `dispatches/${user.uid}/${d.id}/${Date.now()}-${file.name}`);
-      const task = uploadBytesResumable(objRef, file);
-      await new Promise<void>((resolve, reject) => {
-        task.on(
-          'state_changed',
-          (snap) => setUploadPct(Math.round((snap.bytesTransferred / snap.totalBytes) * 100)),
-          reject,
-          () => resolve()
-        );
-      });
-      const url = await getDownloadURL(objRef);
-      setLocalImages((prev) => {
-        const next = [...prev, url];
-        setCoverIndex(next.length - 1);
-        return next;
-      });
-    } catch {
-      setUploadError('Upload failed — check your connection and try again.');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const removeImage = (i: number) => {
-    setLocalImages((prev) => prev.filter((_, idx) => idx !== i));
-    setCoverIndex((prev) => (prev === i ? 0 : prev > i ? prev - 1 : prev));
-  };
-
-  /* ---- workspace layout: draggable/collapsible panes, like a real editor
-   * — the memo on the left for reference, the caption editor top-right,
-   * a live preview bottom-right that never has to be hunted for. */
-  const [leftWidth, setLeftWidth] = useState(340);
-  const [leftCollapsed, setLeftCollapsed] = useState(false);
-  const [topHeight, setTopHeight] = useState(420);
-  const [previewMaximized, setPreviewMaximized] = useState(false);
-  const [previewPlatform, setPreviewPlatform] = useState<keyof PlatformCaptions>('x');
-
-  useEffect(() => {
-    if (captionStepId) setPreviewPlatform(captionStepId);
-  }, [captionStepId]);
-
-  const dragLeftWidth = (e: ReactPointerEvent) => {
-    e.preventDefault();
-    const startX = e.clientX;
-    const startWidth = leftWidth;
-    const onMove = (ev: PointerEvent) => setLeftWidth(Math.min(560, Math.max(240, startWidth + (ev.clientX - startX))));
-    const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-  };
-
-  const dragTopHeight = (e: ReactPointerEvent) => {
-    e.preventDefault();
-    const startY = e.clientY;
-    const startHeight = topHeight;
-    const onMove = (ev: PointerEvent) => setTopHeight(Math.min(640, Math.max(200, startHeight + (ev.clientY - startY))));
-    const onUp = () => { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); };
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-  };
-
-  const generate = () => setCaptions(draftCaptions(d));
-
-  const setCaptionFor = (id: keyof PlatformCaptions, value: string) =>
-    setCaptions((prev) => ({ ...prev, [id]: value }));
-
-  const insertHashtag = (tag: string) => {
-    const id = focusedField.current;
-    setCaptions((prev) => ({ ...prev, [id]: (prev[id] ? prev[id] + ' ' : '') + tag }));
-  };
-
-  const copy = async (id: keyof PlatformCaptions) => {
-    try {
-      await navigator.clipboard.writeText(captions[id]);
-      setCopiedId(id);
-      setTimeout(() => setCopiedId(null), 1500);
-    } catch { /* clipboard permission denied — nothing to fall back to */ }
-  };
-
-  const toggleSop = (id: string) => setSop((prev) => ({ ...prev, [id]: !prev[id] }));
-
-  const submit = async () => {
-    if (!user || !allChecked || !hasAnyCaption) return;
-    setSaving(true);
-    try {
-      await updateDoc(doc(db, 'dispatches', d.id), {
-        caption: captions.x || captions.linkedin || captions.instagram,
-        platformCaptions: captions,
-        imageUrls: localImages,
-        coverImageIndex: coverIndex,
-        sopChecklist: sop,
-        publicSummary,
-        status: 'drafted' satisfies DispatchStatus,
-        publisherUid: user.uid,
-        publisherName: user.displayName ?? user.email ?? 'Unnamed publisher',
-        adminNotes: null,
-        updatedAt: Date.now(),
-      });
-      onSubmitted();
-    } finally { setSaving(false); }
-  };
-
-  return (
-    <>
-      {d.status === 'flagged' && d.adminNotes && (
-        <div className="fld-flagnote"><span>Sent back with a note</span><p>{d.adminNotes}</p></div>
-      )}
-
-      <div className="fld-workspace">
-        <aside className="fld-ws-memo" style={{ '--ws-left-w': leftCollapsed ? '0px' : `${leftWidth}px` } as CSSProperties}>
-          {!leftCollapsed && (
-            <div className="fld-ws-memo-inner">
-              <span className="fld-ws-pane-label">Field report</span>
-
-              {warnings.length > 0 && (
-                <div className="fld-datawarn">
-                  <span><TriangleAlert size={12} strokeWidth={2.5} /> Check this data before publishing</span>
-                  <ul>
-                    {warnings.map((w, i) => <li key={i}>{w.message}</li>)}
-                  </ul>
-                  {sourceStation && <p className="fld-datawarn-src">Field app sent station: “{sourceStation}”</p>}
-                </div>
-              )}
-
-              <DispatchDetail d={clean} />
-
-              {measurements.length > 0 && (
-                <div className="fld-ws-measure">
-                  <span className="fld-field-label">Measurements</span>
-                  <table className="fld-detail-table">
-                    <tbody>
-                      {measurements.map((m) => (
-                        <tr key={m.fieldId}>
-                          <th>{m.label}</th>
-                          <td>{m.value}{m.unit ? ` ${m.unit}` : ''}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-        </aside>
-
-        <div className="fld-ws-vdivider" onPointerDown={dragLeftWidth}>
-          <button
-            type="button"
-            className="fld-ws-collapse"
-            onClick={() => setLeftCollapsed((v) => !v)}
-            aria-label={leftCollapsed ? 'Show field report' : 'Hide field report'}
-          >
-            {leftCollapsed ? <ChevronRight size={13} strokeWidth={2.5} /> : <ChevronLeft size={13} strokeWidth={2.5} />}
-          </button>
-        </div>
-
-        <div className="fld-ws-right">
-          {!previewMaximized && (
-            <>
-              <div className="fld-ws-top" style={{ '--ws-top-h': `${topHeight}px` } as CSSProperties}>
-                <div className="fld-ws-top-inner">
-                  <span className="fld-ws-pane-label">Compose</span>
-
-                  <div className="fld-generate-prompt">
-                    <Sparkles size={16} strokeWidth={2.5} />
-                    <div>
-                      <strong>Not sure where to start?</strong>
-                      <p>Generate a first draft for all three platforms from this report — edit any of them as you go.</p>
-                    </div>
-                    <button type="button" className="ph-btn ghost small" onClick={generate}>Generate drafts</button>
-                  </div>
-
-                  <div className="fld-wizard">
-                    <div className="fld-stepper">
-                      {steps.map((s, i) => (
-                        <button
-                          key={s.id}
-                          type="button"
-                          className={'fld-step' + (i === stepIdx ? ' active' : '') + (i < stepIdx ? ' done' : '')}
-                          onClick={() => setStepIdx(i)}
-                        >
-                          <span className="fld-step-dot">{i < stepIdx ? <Check size={13} strokeWidth={3} /> : i + 1}</span>
-                          <span className="fld-step-label">{s.label}</span>
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="fld-step-panel">
-                      <p className="fld-step-hint">{step.hint}</p>
-
-                      {captionStepId && (() => {
-            const capId = captionStepId;
-            const len = captions[capId].length;
-            const limit = PLATFORM_LIMITS[capId];
-            const pct = len / limit;
-            return (
-              <>
-                <label className="fld-caption-label">
-                  <PlatformBadge id={capId} /> {COMPOSE_PLATFORMS.find((p) => p.id === capId)?.label} caption
-                  <textarea
-                    rows={capId === 'linkedin' ? 7 : 5}
-                    value={captions[capId]}
-                    onFocus={() => { focusedField.current = capId; }}
-                    onChange={(e) => setCaptionFor(capId, e.target.value)}
-                    autoFocus
-                  />
-                </label>
-                <p className={'fld-char-count' + (pct >= 1 ? ' danger' : pct >= 0.9 ? ' warn' : '')}>
-                  {len} / {limit}
-                </p>
-                {hashtags.length > 0 && (
-                  <div className="fld-hashtag-row">
-                    {hashtags.map((tag) => (
-                      <button key={tag} type="button" className="fld-hashtag-chip" onClick={() => insertHashtag(tag)}>{tag}</button>
-                    ))}
-                  </div>
-                )}
-              </>
-            );
-          })()}
-
-          {step.id === 'photo' && (
-            <>
-              {localImages.length > 0 && (
-                <div className="fld-photo-grid fld-photo-grid--lg">
-                  {localImages.map((url, i) => (
-                    <div key={url} className="fld-photo-thumb-wrap">
-                      <button
-                        type="button"
-                        className={'fld-photo-thumb fld-photo-thumb--lg fld-cover-pick' + (coverIndex === i ? ' selected' : '')}
-                        onClick={() => setCoverIndex(i)}
-                        aria-label={`Use photo ${i + 1} as cover`}
-                      >
-                        <img src={url} alt="" />
-                        {coverIndex === i && <span className="fld-cover-check"><Check size={12} strokeWidth={3} /></span>}
-                      </button>
-                      {i >= originalImageCount && (
-                        <button type="button" className="fld-photo-remove" onClick={() => removeImage(i)} aria-label="Remove photo">×</button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="fld-upload-row">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  hidden
-                  onChange={(e) => { void handleFileSelected(e.target.files?.[0]); e.target.value = ''; }}
-                />
-                <button
-                  type="button"
-                  className="ph-btn ghost small"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                >
-                  <Paperclip size={14} strokeWidth={2.5} />
-                  {uploading ? `Uploading… ${uploadPct}%` : localImages.length ? 'Add another photo' : 'Upload a photo'}
-                </button>
-                {uploadError && <p className="fld-upload-error">{uploadError}</p>}
-              </div>
-
-              {localImages.length === 0 && !uploading && (
-                <p className="fld-step-hint" style={{ margin: 0 }}>No photo yet — every preview reads stronger with one.</p>
-              )}
-            </>
-          )}
-
-                      {step.id === 'public' && (
-                        <div className="fld-public-step">
-                          <div className="fld-compose-head">
-                            <span className="fld-field-label" style={{ margin: 0 }}>Public page copy</span>
-                            <button type="button" className="ph-btn ghost small" onClick={regeneratePublic}>Re-draft from the report</button>
-                          </div>
-
-                          <label className="fld-caption-label">
-                            Headline
-                            <input
-                              className="fld-public-title"
-                              value={publicSummary.title}
-                              onChange={(e) => setPublicSummary((p) => ({ ...p, title: e.target.value }))}
-                            />
-                          </label>
-
-                          {publicSummary.body.map((para, i) => (
-                            <label key={i} className="fld-caption-label">
-                              {i === 0 ? 'What happened' : i === 1 ? 'Why it matters' : 'Conditions'}
-                              <textarea
-                                rows={3}
-                                value={para}
-                                onChange={(e) => setPublicSummary((p) => ({
-                                  ...p, body: p.body.map((b, bi) => (bi === i ? e.target.value : b)),
-                                }))}
-                              />
-                            </label>
-                          ))}
-
-                          {publicSummary.chart ? (
-                            <div className="fld-public-chartnote">
-                              <strong>Chart included:</strong> {publicSummary.chart.title} — {publicSummary.chart.data.length} readings in {publicSummary.chart.unit}
-                              <span>{publicSummary.chart.data.map((pt) => `${pt.label} ${pt.value}${publicSummary.chart!.unit}`).join(' · ')}</span>
-                            </div>
-                          ) : (
-                            <div className="fld-public-chartnote muted">
-                              No chart — this report doesn’t have two or more readings sharing a unit, so the key facts table is shown instead.
-                            </div>
-                          )}
-
-                          {publicSummary.table.length > 0 && (
-                            <div className="fld-public-facts">
-                              <span className="fld-field-label">Key facts shown on the page</span>
-                              <table>
-                                <tbody>
-                                  {publicSummary.table.map((f, i) => (
-                                    <tr key={i}><th>{f.label}</th><td>{f.value}</td></tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {step.id === 'review' && (
-                        <div className="fld-ws-review">
-                          <p className="fld-step-hint" style={{ margin: 0 }}>Check the live preview for each platform (tabs below), then confirm the checklist.</p>
-                          <SopChecklist checked={sop} onToggle={toggleSop} />
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="fld-wizard-nav">
-                      <button type="button" className="ph-btn ghost fld-nav-btn" onClick={() => setStepIdx((i) => i - 1)} disabled={stepIdx === 0}>
-                        <ArrowLeft size={14} strokeWidth={2.5} />Back
-                      </button>
-                      {step.id === 'review' ? (
-                        <button className="ph-btn primary" onClick={submit} disabled={saving || !allChecked || !hasAnyCaption}>
-                          {saving ? 'Submitting…' : !allChecked ? 'Complete the checklist' : 'Submit for approval'}
-                        </button>
-                      ) : (
-                        <button type="button" className="ph-btn primary fld-nav-btn" onClick={() => setStepIdx((i) => i + 1)}>
-                          Next<ArrowRight size={14} strokeWidth={2.5} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="fld-ws-hdivider" onPointerDown={dragTopHeight} />
-            </>
-          )}
-
-          <div className="fld-ws-bottom" style={previewMaximized ? { flex: 1 } : undefined}>
-            <div className="fld-ws-preview-head">
-              <span className="fld-ws-pane-label">Live preview</span>
-              <div className="fld-ws-preview-tabs">
-                {COMPOSE_PLATFORMS.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    className={'fld-ws-preview-tab' + (previewPlatform === p.id ? ' active' : '')}
-                    onClick={() => setPreviewPlatform(p.id)}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-              <button
-                type="button"
-                className="fld-ws-collapse"
-                onClick={() => setPreviewMaximized((v) => !v)}
-                aria-label={previewMaximized ? 'Shrink preview' : 'Expand preview'}
-              >
-                {previewMaximized ? <Minimize2 size={13} strokeWidth={2.5} /> : <Maximize2 size={13} strokeWidth={2.5} />}
-              </button>
-            </div>
-            <div className="fld-ws-preview-body">
-              {previewPlatform === 'x' && (
-                <PreviewX name={authorInitials} avatarUrl={user?.photoURL} caption={captions.x} imageUrl={coverUrl} onCopy={() => copy('x')} copied={copiedId === 'x'} />
-              )}
-              {previewPlatform === 'linkedin' && (
-                <PreviewLinkedIn name={authorInitials} avatarUrl={user?.photoURL} caption={captions.linkedin} imageUrl={coverUrl} onCopy={() => copy('linkedin')} copied={copiedId === 'linkedin'} />
-              )}
-              {previewPlatform === 'instagram' && (
-                <PreviewInstagram name={authorInitials} avatarUrl={user?.photoURL} caption={captions.instagram} imageUrl={coverUrl} onCopy={() => copy('instagram')} copied={copiedId === 'instagram'} />
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
-
-/* ===================================================== realistic previews
- * Each platform gets its own real chrome and colour, not a reskinned copy
- * of the others — that's what actually reads as "realistic" rather than
- * three identical boxes with a label swapped. */
-function PreviewX({ name, avatarUrl, caption, imageUrl, onCopy, copied }: PreviewProps) {
-  return (
-    <div className="fld-prev fld-prev--x">
-      <div className="fld-prev-x-top">
-        <Avatar url={avatarUrl} name={name} className="fld-prev-avatar" />
-        <div className="fld-prev-x-names">
-          <span className="fld-prev-x-name">{name}</span>
-          <span className="fld-prev-x-handle">@iia_antarctica · now</span>
-        </div>
-        <CopyChip onCopy={onCopy} copied={copied} />
-      </div>
-      <p className="fld-prev-x-text">{caption || <em>Nothing written yet</em>}</p>
-      {imageUrl && <img src={imageUrl} alt="" className="fld-prev-x-img" />}
-      <div className="fld-prev-x-actions">
-        <span><MessageCircle size={15} strokeWidth={1.8} /> 12</span>
-        <span><Repeat2 size={16} strokeWidth={1.8} /> 4</span>
-        <span><Heart size={15} strokeWidth={1.8} /> 48</span>
-        <span><Share size={14} strokeWidth={1.8} /></span>
-      </div>
-    </div>
-  );
-}
-
-function PreviewInstagram({ name, avatarUrl, caption, imageUrl, onCopy, copied }: PreviewProps) {
-  const [handle] = name.toLowerCase().split(' ');
-  return (
-    <div className="fld-prev fld-prev--ig">
-      <div className="fld-prev-ig-top">
-        <Avatar url={avatarUrl} name={name} className="fld-prev-avatar fld-prev-avatar--ig" />
-        <span className="fld-prev-ig-user">iia.{handle || 'antarctica'}</span>
-        <CopyChip onCopy={onCopy} copied={copied} dark={false} />
-      </div>
-      <div className="fld-prev-ig-image">
-        {imageUrl ? <img src={imageUrl} alt="" /> : <div className="fld-prev-ig-placeholder"><Camera size={28} strokeWidth={1.5} /></div>}
-      </div>
-      <div className="fld-prev-ig-actions">
-        <Heart size={20} strokeWidth={1.8} />
-        <MessageCircle size={20} strokeWidth={1.8} />
-        <Send size={19} strokeWidth={1.8} />
-        <span className="fld-prev-ig-spacer" />
-        <Bookmark size={19} strokeWidth={1.8} />
-      </div>
-      <p className="fld-prev-ig-caption">
-        <strong>iia.{handle || 'antarctica'}</strong> {caption || <em>Nothing written yet</em>}
-      </p>
-    </div>
-  );
-}
-
-function PreviewLinkedIn({ name, avatarUrl, caption, imageUrl, onCopy, copied }: PreviewProps) {
-  return (
-    <div className="fld-prev fld-prev--li">
-      <div className="fld-prev-li-top">
-        <Avatar url={avatarUrl} name={name} className="fld-prev-avatar" />
-        <div className="fld-prev-li-names">
-          <span className="fld-prev-li-name">{name}</span>
-          <span className="fld-prev-li-title">Knowledge Repository</span>
-          <span className="fld-prev-li-time">now</span>
-        </div>
-        <CopyChip onCopy={onCopy} copied={copied} dark={false} />
-      </div>
-      <p className="fld-prev-li-text">{caption || <em>Nothing written yet</em>}</p>
-      {imageUrl && <img src={imageUrl} alt="" className="fld-prev-li-img" />}
-      <div className="fld-prev-li-actions">
-        <span>👍 Like</span><span>💬 Comment</span><span>↻ Repost</span><span><Send size={13} strokeWidth={2} /> Send</span>
-      </div>
-    </div>
-  );
-}
-
-interface PreviewProps {
-  name: string;
-  avatarUrl?: string | null;
-  caption: string;
-  imageUrl: string | null;
-  onCopy: () => void;
-  copied: boolean;
-}
-
-function CopyChip({ onCopy, copied, dark = true }: { onCopy: () => void; copied: boolean; dark?: boolean }) {
-  return (
-    <button type="button" className={'fld-copy-btn' + (dark ? '' : ' fld-copy-btn--light')} onClick={onCopy}>
-      {copied ? <Check size={12} strokeWidth={2.5} /> : <Copy size={12} strokeWidth={2.5} />}
-      {copied ? 'Copied' : 'Copy'}
-    </button>
-  );
-}
-
-/* ========================================================== SOP checklist */
-function SopChecklist({ checked, onToggle }: { checked: Record<string, boolean>; onToggle: (id: string) => void }) {
-  const done = SOP_CHECKLIST_ITEMS.filter((i) => checked[i.id]).length;
-  return (
-    <aside className="fld-sop">
-      <div className="fld-sop-head">
-        <span>Before you submit</span>
-        <span className="fld-sop-count">{done}/{SOP_CHECKLIST_ITEMS.length}</span>
-      </div>
-      <ul className="fld-sop-list">
-        {SOP_CHECKLIST_ITEMS.map((item) => (
-          <li key={item.id}>
-            <label className={'fld-sop-item' + (checked[item.id] ? ' done' : '')}>
-              <input type="checkbox" checked={!!checked[item.id]} onChange={() => onToggle(item.id)} />
-              <span className="fld-sop-box">{checked[item.id] && <Check size={12} strokeWidth={3} />}</span>
-              {item.label}
-            </label>
-          </li>
-        ))}
-      </ul>
-    </aside>
-  );
-}
 
 /* ==================================================== My submissions tab */
 function MySubmissionsTab({ dispatches, onRevise }: { dispatches: Dispatch[]; onRevise: (id: string) => void }) {
@@ -1088,6 +456,35 @@ function ApproveTab({ items }: { items: Dispatch[] }) {
       <div className="fld-pane">
         <button className="fld-back" onClick={() => { setActiveId(null); setFlagging(false); }}><ArrowLeft size={14} strokeWidth={2.5} style={{ marginRight: 4 }} />Back</button>
         <DispatchDetail d={active} />
+
+        {/* The graphic itself, rebuilt from the design the publisher settled
+          * on. Stored as template/palette/photo ids rather than a rendered
+          * file, so this is the same renderer the studio previewed with —
+          * an approver is never shown something the export would not match. */}
+        {active.postDesign && (
+          <div className="fld-approve-graphic">
+            <span className="fld-field-label">
+              The graphic that goes out
+              {active.postDesign.generated && <em> · wording came from the generator</em>}
+            </span>
+            <PostCanvas
+              platform={active.postDesign.platform as PlatformId}
+              template={templateById(active.postDesign.templateId)}
+              palette={paletteById(active.postDesign.paletteId)}
+              copy={{
+                kicker: active.postDesign.kicker,
+                headline: active.postDesign.headline,
+                standfirst: active.postDesign.standfirst,
+                stat: null,
+                statLabel: null,
+                captions: active.platformCaptions ?? { x: '', linkedin: '', instagram: '' },
+              }}
+              photoUrl={active.imageUrls?.[active.postDesign.photoIndex] ?? active.imageUrls?.[0] ?? null}
+              scale={0.28}
+            />
+          </div>
+        )}
+
         <p className="fld-caption-preview">{active.caption}</p>
         <p className="fld-list-author" style={{ marginBottom: 16, fontSize: 12 }}>Drafted by {active.publisherName}</p>
 

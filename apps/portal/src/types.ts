@@ -236,12 +236,39 @@ export interface Dispatch {
    *  chart. Drafted from the dispatch by repository/summarise.ts, then edited
    *  by the publisher. This, not the raw dispatch, is what gets published. */
   publicSummary?: StoredPublicSummary | null;
+  /** How the post graphic was laid out — which template, palette and photo
+   *  the publisher settled on. Stored so that "Revise" reopens the studio
+   *  on the design that was submitted rather than a fresh default, and so
+   *  an admin can regenerate the exact same PNG later. The graphic itself
+   *  is rendered from these three ids; it is never stored as a blob. */
+  postDesign?: StoredPostDesign | null;
   adminNotes: string | null;
   createdAt: number;
   updatedAt: number;
 
   /** @deprecated superseded by structured `weather`; kept so older docs render. */
   conditions?: string;
+}
+
+/** Firestore-safe record of a post graphic's design decisions.
+ *
+ *  Deliberately ids, not pixels: the studio renders the graphic from a
+ *  template and a palette defined in `studio/`, so storing the choices lets
+ *  the same post be re-rendered at any size later — and means a brand
+ *  change propagates to every historical post instead of stranding them as
+ *  stale images. `headline`/`standfirst` are the on-graphic words, which
+ *  are shorter and differently written from the platform captions. */
+export interface StoredPostDesign {
+  templateId: string;
+  paletteId: string;
+  platform: string;
+  photoIndex: number;
+  kicker: string;
+  headline: string;
+  standfirst: string;
+  /** Whether the wording came from the generator or the offline draft —
+   *  part of the audit trail an admin sees before approving. */
+  generated: boolean;
 }
 
 /** Firestore-safe shape of the outreach summary stored on a dispatch. Kept

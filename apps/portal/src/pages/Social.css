@@ -2183,3 +2183,20 @@
   .fld-ws-preview-head { padding: 14px 14px 0; flex-wrap: wrap; }
   .fld-ws-preview-body { overflow-y: visible; padding: 14px; }
 }
+
+/* ── the post graphic in the approval queue ───────────────────────────
+ * Rebuilt from the stored design ids by studio/PostCanvas, so an admin
+ * reviews the same pixels the publisher approved rather than a caption
+ * and a hope. */
+.fld-approve-graphic {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 16px 0 20px;
+}
+
+.fld-approve-graphic .fld-field-label em {
+  color: var(--warn);
+  font-style: normal;
+  font-weight: 500;
+}

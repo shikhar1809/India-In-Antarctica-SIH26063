@@ -1,0 +1,90 @@
+/* The rendered post frame.
+ *
+ * Sizes here are deliberately unitless-free: every dimension that matters
+ * comes from PostCanvas.tsx as an inline pixel value derived from the
+ * platform spec, so this file only carries structure and never a magic
+ * number that would drift between platforms. */
+
+.pc-shell {
+  position: relative;
+  overflow: hidden;
+  flex: none;
+  border-radius: 6px;
+}
+
+.pc-frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.pc-photo {
+  position: absolute;
+  overflow: hidden;
+}
+
+.pc-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.pc-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.pc-rule {
+  position: absolute;
+  border-radius: 999px;
+}
+
+.pc-text {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  /* Clearance for the identity block is set inline from its real height —
+   * see textClearance in PostCanvas.tsx. */
+}
+
+.pc-kicker {
+  text-transform: uppercase;
+  font-weight: 500;
+  display: block;
+}
+
+.pc-stat {
+  font-weight: 700;
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+
+.pc-stat-label { display: block; }
+
+.pc-headline {
+  margin: 0;
+  font-weight: 600;
+  text-wrap: balance;
+}
+
+.pc-standfirst {
+  margin: 0;
+  font-weight: 400;
+}
+
+.pc-identity {
+  position: absolute;
+  display: flex;
+  align-items: center;
+}
+
+.pc-identity-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
