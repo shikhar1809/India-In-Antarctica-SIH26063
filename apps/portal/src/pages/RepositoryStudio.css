@@ -488,3 +488,17 @@
   background: rgba(95, 217, 255, 0.22);
   border-color: var(--cyan);
 }
+
+/* Distinguished from Edit by colour — green for "this is live", matching
+   the "posted" state elsewhere in the portal — since the two buttons sit
+   stacked and need to read apart at a glance, not just by their icon. */
+.rs-panel-viewsite {
+  color: #3fb950;
+  background: rgba(63, 185, 80, 0.12);
+  border-color: rgba(63, 185, 80, 0.4);
+}
+
+.rs-panel-viewsite:hover {
+  background: rgba(63, 185, 80, 0.22);
+  border-color: #3fb950;
+}

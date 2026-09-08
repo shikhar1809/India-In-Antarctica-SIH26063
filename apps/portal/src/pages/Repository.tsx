@@ -13,7 +13,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Download, Pencil, Sparkles, X, Eye, Search } from 'lucide-react';
+import { Download, Pencil, Sparkles, X, Eye, Search, ExternalLink } from 'lucide-react';
 import { HeroCarousel, type HeroCarouselItem } from '../components/ui/hero-carousel';
 import { useDocuments } from '../hooks/useDocuments';
 import { usePublicArchive } from '../hooks/usePublicArchive';
@@ -255,6 +255,8 @@ function publishedToEntry(r: RepositoryRecord, seed = 0): Entry {
 
 /* ── page ──────────────────────────────────────────────────────────── */
 
+const PUBLIC_SITE_URL = 'https://iia-public.web.app';
+
 type Source = 'deposits' | 'published';
 
 export function Repository() {
@@ -288,6 +290,28 @@ export function Repository() {
 
   const safeIndex = Math.min(index, Math.max(0, entries.length - 1));
   const active = entries[safeIndex];
+
+  /* The public site's address for whatever is open, or null when there
+   * isn't one yet. A record viewed on the Published tab is by definition
+   * live (it came from usePublicArchive — the same collection
+   * iia-public.web.app reads), so its own identifier always resolves.
+   *
+   * A deposit is different: `documents/{id}` is a submission, not a
+   * publication, and only becomes visible on the public site the moment an
+   * admin publishes it into `publicArchive/{id}` — same id, per
+   * documentToRepositoryRecord() in repository/publish.ts. So a deposit's
+   * link is found by matching that id against `records`, not assumed —
+   * showing a button that 404s would be worse than showing none. */
+  const activePublicUrl = useMemo(() => {
+    if (active?.record) {
+      return `${PUBLIC_SITE_URL}/archive/${active.record.metadata?.identifier || active.record.id}`;
+    }
+    if (active?.deposit) {
+      const published = records.find((r) => r.id === active.deposit!.id);
+      return published ? `${PUBLIC_SITE_URL}/archive/${published.metadata?.identifier || published.id}` : null;
+    }
+    return null;
+  }, [active, records]);
 
   const editActive = () => {
     if (active?.record) setEditing(active.record);
@@ -486,6 +510,23 @@ export function Repository() {
                   <Pencil size={14} strokeWidth={2} />
                   Edit this {active.record ? 'record' : 'deposit'}
                 </button>
+              )}
+
+              {/* Only for something actually live — see activePublicUrl's
+                  own comment. A deposit still in review has nothing to
+                  open, so the button is absent rather than disabled: a
+                  greyed-out button invites "why can't I click this" more
+                  than no button does. */}
+              {activePublicUrl && (
+                <a
+                  className="rs-panel-edit rs-panel-viewsite"
+                  href={activePublicUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <ExternalLink size={14} strokeWidth={2} />
+                  View on the public site
+                </a>
               )}
             </div>
           </aside>
