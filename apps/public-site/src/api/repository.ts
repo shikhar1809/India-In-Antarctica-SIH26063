@@ -67,6 +67,19 @@ function toRecord(id: string, data: Record<string, unknown>): RepositoryRecord {
     citations: data.citations as RepositoryRecord['citations'],
     metadata: data.metadata as RepositoryRecord['metadata'],
     publishedAt: (data.publishedAt as number) ?? 0,
+    // These three were missing from this mapping entirely — a record could
+    // carry a full report (sections), a dataset preview or a reference list
+    // in Firestore and every one of them would be silently dropped the
+    // moment it passed through toRecord(), on every live-published record,
+    // with nothing to indicate why the report body or the "Related
+    // publications" list was empty. Found while wiring socialPosts below,
+    // which had the identical gap.
+    sections: data.sections as RepositoryRecord['sections'],
+    dataset: data.dataset as RepositoryRecord['dataset'],
+    references: data.references as RepositoryRecord['references'],
+    // Absent on every record until a post about it is confirmed sent — see
+    // SocialPostSummary's own doc comment for who writes this and when.
+    socialPosts: data.socialPosts as RepositoryRecord['socialPosts'],
   }
 }
 
