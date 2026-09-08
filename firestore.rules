@@ -168,6 +168,24 @@ service cloud.firestore {
             isAdmin()
             && request.resource.data.status in ['approved', 'flagged']
           )
+          ||
+          // Admin: mark up the post graphic for the publisher — pins, drawn
+          // shapes — without approving or sending it back. Scoped tightly to
+          // exactly the two fields this touches, via diff().affectedKeys(),
+          // so this branch can never be used to slip a status change or
+          // anything else through under the guise of "just annotating".
+          (
+            isAdmin()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reviewAnnotations', 'updatedAt'])
+          )
+          ||
+          // Publisher: acknowledge an admin's markup (a pin's read state) —
+          // the mirror of the branch above, same field scoping, so seeing a
+          // note doesn't require re-submitting the whole dispatch.
+          (
+            isPublisher()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reviewAnnotations', 'updatedAt'])
+          )
         );
       allow delete: if request.auth != null
         && resource.data.authorUid == request.auth.uid;

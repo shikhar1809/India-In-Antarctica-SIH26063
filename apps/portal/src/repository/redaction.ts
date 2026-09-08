@@ -86,6 +86,7 @@ export const FIELD_RULES: Record<keyof Dispatch, FieldRule> = {
   conditions:     { label: 'Conditions (legacy)', disposition: 'withheld', reason: 'Superseded by the structured weather observation. Kept so older dispatches still render in the portal.' },
   publicRecordId: { label: 'Public record id', disposition: 'internal', reason: 'The publicArchive document this dispatch became once approved. A pipeline cross-reference, not a fact about the observation — the record itself is what publishes.' },
   publicIdentifier: { label: 'Public identifier', disposition: 'published', reason: 'The citable IIA-<year>-<seq> handle. It IS what is published — it is the address of the record itself, so a reviewer sees the same identifier here as the public does.' },
+  reviewAnnotations: { label: 'Review markup', disposition: 'withheld', reason: 'Drawn marks and pinned comments an admin leaves for the publisher — communication about the post, never part of it. Never published.' },
 };
 
 /* ───────────────────────────────────────────────────────── derivation ── */

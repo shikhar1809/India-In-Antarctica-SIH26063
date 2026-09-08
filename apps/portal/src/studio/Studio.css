@@ -399,3 +399,95 @@
 .stu-kb-note code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
+
+/* ── Review notes — pins an admin left on the post graphic ─────────────── */
+
+.stu-reviewnotes {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(240, 180, 41, 0.35);
+  background: rgba(240, 180, 41, 0.06);
+}
+
+.stu-reviewnotes-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  margin-bottom: 8px;
+}
+
+.stu-reviewnotes-badge {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #f0b429;
+  color: #0d1420;
+  font-size: 0.68rem;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.stu-reviewnotes ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stu-reviewnotes li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.stu-reviewnotes li.is-read { opacity: 0.6; }
+
+.stu-reviewnotes-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-top: 4px;
+  flex: 0 0 auto;
+}
+
+.stu-reviewnotes li p {
+  flex: 1;
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.stu-reviewnotes-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  font-size: 0.72rem;
+  opacity: 0.65;
+  white-space: nowrap;
+}
+
+.stu-reviewnotes-meta button {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.stu-reviewnotes-seen {
+  color: #3fb950;
+}

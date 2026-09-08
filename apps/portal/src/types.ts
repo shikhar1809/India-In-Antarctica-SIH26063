@@ -1,3 +1,5 @@
+import type { Annotation } from './review/annotations';
+
 export const CATEGORIES = [
   'Expedition Report',
   'Dataset',
@@ -267,6 +269,12 @@ export interface Dispatch {
    *  of an honest "not published". */
   publicRecordId?: string | null;
   publicIdentifier?: string | null;
+  /** Marks an admin leaves directly on the post graphic — a drawn circle,
+   *  an arrow, a pin with a comment — to tell a publisher what needs to
+   *  change without retyping "the headline in the top-left" into
+   *  `adminNotes`. Never published: this is communication about the post,
+   *  not part of it. See review/ImageAnnotator.tsx. */
+  reviewAnnotations?: Annotation[] | null;
 
   /** @deprecated superseded by structured `weather`; kept so older docs render. */
   conditions?: string;

@@ -1,0 +1,199 @@
+/* The annotation lightbox. Dark, full-viewport, sits above everything else
+   in the portal (the schedule dialog uses z-index 60; this is a step above
+   since it can be opened from inside the approve desk which itself can be
+   layered under other UI). */
+
+.ia-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(2, 5, 10, 0.86);
+  backdrop-filter: blur(6px);
+}
+
+.ia-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(1000px, 100%);
+  max-height: 94vh;
+}
+
+.ia-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: #dbe7f3;
+}
+
+.ia-tool-readout {
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+.ia-tool-readout strong { color: #fff; opacity: 1; }
+
+.ia-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ia-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.05);
+  color: #dbe7f3;
+  cursor: pointer;
+}
+
+.ia-close:hover { background: rgba(255, 255, 255, 0.1); }
+
+/* ── the drawing surface ────────────────────────────────────────────── */
+
+.ia-surface {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #05070c;
+  line-height: 0;
+  /* Right-click always resolves to this box or nothing — RadialMenu's
+     ContextMenu.Trigger wraps exactly this element, so a right-click a
+     few pixels outside it (on the backdrop, the toolbar) is untouched and
+     opens the browser's own menu, same as before the lightbox existed. */
+}
+
+.ia-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 72vh;
+  object-fit: contain;
+  user-select: none;
+}
+
+.ia-surface.ia-drawing { cursor: crosshair; }
+
+.ia-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Committed shapes take clicks (to select, for deletion) only when no tool
+   is active — while drawing, clicks are for making new marks, not picking
+   old ones. */
+.ia-surface:not(.ia-drawing) .ia-overlay > *,
+.ia-surface:not(.ia-drawing) .ia-overlay g {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.ia-overlay .ia-pin { pointer-events: auto; cursor: pointer; }
+
+.ia-selected { filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.9)); }
+
+@keyframes ia-pulse {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.25; }
+}
+.ia-pin-pulse { animation: ia-pulse 1.8s ease-in-out infinite; }
+
+/* ── pin comments ────────────────────────────────────────────────────── */
+
+.ia-comment {
+  position: absolute;
+  transform: translate(10px, -8px);
+  z-index: 2;
+  width: 220px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: #0d1420;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  font-size: 0.82rem;
+  color: #dbe7f3;
+}
+
+.ia-comment p { margin: 0 0 6px; line-height: 1.4; }
+
+.ia-comment-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  opacity: 0.6;
+}
+
+.ia-comment-meta button {
+  display: flex;
+  border: 0;
+  background: transparent;
+  color: #e5534b;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.ia-comment-active textarea {
+  width: 100%;
+  resize: none;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.3);
+  color: inherit;
+  font: inherit;
+  padding: 6px 8px;
+}
+
+/* ── bottom toolbar: colours + contextual actions ───────────────────── */
+
+.ia-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.ia-colors {
+  display: flex;
+  gap: 7px;
+}
+
+.ia-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.ia-swatch.is-active {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.4);
+}
+
+/* Base UI portals the radial menu straight onto document.body, as a sibling
+   of .ia-backdrop rather than a descendant. .ia-backdrop's own stacking
+   context (position:fixed + z-index:80) then paints above the portal's
+   default static box regardless of DOM order, so the menu was rendering
+   with correct geometry but invisibly behind the lightbox. Targeting Base
+   UI's own [data-base-ui-portal] marker is more robust than guessing at a
+   generated class name. */
+[data-base-ui-portal] {
+  position: relative;
+  z-index: 90;
+}

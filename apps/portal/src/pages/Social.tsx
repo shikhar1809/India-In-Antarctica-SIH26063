@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ChevronDown, FileSpreadsheet, Paperclip, RotateCcw, Sparkles, TriangleAlert } from 'lucide-react';
 import { addDoc, collection, doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -19,11 +19,14 @@ import { QueueTab } from '../social/QueueTab';
 import { ScheduleDialog } from '../social/ScheduleDialog';
 import { Studio } from '../studio/Studio';
 import { PostCanvas } from '../studio/PostCanvas';
+import { exportPng } from '../studio/export';
 import { paletteById } from '../studio/brand';
 import type { PlatformId } from '../studio/brand';
 import { templateById } from '../studio/templates';
 import { runChecks, worstSeverity, type Check } from '../review/checks';
 import { reviewDispatch, type AiReview } from '../review/aiReview';
+import { ImageAnnotator } from '../review/ImageAnnotator';
+import { pinCount, type Annotation } from '../review/annotations';
 import './Social.css';
 import './ApproveDesk.css';
 
@@ -455,7 +458,48 @@ function ApproveTab({ items }: { items: Dispatch[] }) {
      approved and the dialog still needs the record it was about. */
   const [scheduleFor, setScheduleFor] = useState<(RepositoryRecord & { id: string }) | null>(null);
 
+  /* Markup on the post graphic — a right-click radial menu of drawing tools
+     over an enlarged view, so an admin can point at exactly what's wrong
+     rather than describing it in a text box. See review/ImageAnnotator.tsx
+     for why. `annotateUrl` is a rasterised PNG of the live PostCanvas DOM
+     node (exportPng — the same rasteriser the real download uses), not the
+     source photo: what needs marking up is what will actually get posted,
+     headline and template included, not just the picture underneath it. */
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const [annotateUrl, setAnnotateUrl] = useState<string | null>(null);
+  const [draftAnnotations, setDraftAnnotations] = useState<Annotation[]>([]);
+  const [savingAnnotations, setSavingAnnotations] = useState(false);
+
   const active = items.find((d) => d.id === activeId) ?? items[0] ?? null;
+
+  const openAnnotator = async () => {
+    if (!canvasRef.current || !active?.postDesign) return;
+    const blob = await exportPng(canvasRef.current, active.postDesign.platform as PlatformId, { pixelRatio: 1.5 });
+    setAnnotateUrl(URL.createObjectURL(blob));
+    setDraftAnnotations(active.reviewAnnotations ?? []);
+  };
+
+  const closeAnnotator = () => {
+    if (annotateUrl) URL.revokeObjectURL(annotateUrl);
+    setAnnotateUrl(null);
+    setDraftAnnotations([]);
+  };
+
+  const saveAnnotations = async () => {
+    if (!active) return;
+    setSavingAnnotations(true);
+    try {
+      await updateDoc(doc(db, 'dispatches', active.id), {
+        reviewAnnotations: draftAnnotations,
+        updatedAt: Date.now(),
+      });
+      closeAnnotator();
+    } catch {
+      setError('Could not save the markup. Check your connection and try again.');
+    } finally {
+      setSavingAnnotations(false);
+    }
+  };
 
   /* Local checks are cheap enough to run for every dispatch in the queue,
      which is what lets the queue itself show a severity dot per row. */
@@ -690,25 +734,40 @@ function ApproveTab({ items }: { items: Dispatch[] }) {
           <span className="ad-ai-muted">by {active.publisherName ?? 'unknown'}</span>
         </div>
         <div className="ad-col-body">
-          {active.postDesign && (
-            <div className="ad-graphic">
-              <PostCanvas
-                platform={active.postDesign.platform as PlatformId}
-                template={templateById(active.postDesign.templateId)}
-                palette={paletteById(active.postDesign.paletteId)}
-                copy={{
-                  kicker: active.postDesign.kicker,
-                  headline: active.postDesign.headline,
-                  standfirst: active.postDesign.standfirst,
-                  stat: null,
-                  statLabel: null,
-                  captions: active.platformCaptions ?? { x: '', linkedin: '', instagram: '' },
-                }}
-                photoUrl={active.imageUrls?.[active.postDesign.photoIndex] ?? active.imageUrls?.[0] ?? null}
-                scale={0.22}
-              />
-            </div>
-          )}
+          {active.postDesign && (() => {
+            const pins = pinCount(active.reviewAnnotations ?? []);
+            return (
+              <button
+                type="button"
+                className="ad-graphic ad-graphic-clickable"
+                onClick={openAnnotator}
+                title="Click to mark up this graphic for the publisher"
+              >
+                <PostCanvas
+                  exportRef={canvasRef}
+                  platform={active.postDesign.platform as PlatformId}
+                  template={templateById(active.postDesign.templateId)}
+                  palette={paletteById(active.postDesign.paletteId)}
+                  copy={{
+                    kicker: active.postDesign.kicker,
+                    headline: active.postDesign.headline,
+                    standfirst: active.postDesign.standfirst,
+                    stat: null,
+                    statLabel: null,
+                    captions: active.platformCaptions ?? { x: '', linkedin: '', instagram: '' },
+                  }}
+                  photoUrl={active.imageUrls?.[active.postDesign.photoIndex] ?? active.imageUrls?.[0] ?? null}
+                  scale={0.22}
+                />
+                {pins.total > 0 && (
+                  <span className={'ad-graphic-badge' + (pins.unread > 0 ? ' is-unread' : '')}>
+                    {pins.total} note{pins.total === 1 ? '' : 's'}{pins.unread > 0 ? ` · ${pins.unread} new` : ''}
+                  </span>
+                )}
+                <span className="ad-graphic-hint">Click to mark up</span>
+              </button>
+            );
+          })()}
 
           {summary ? (
             <div className="ad-block">
@@ -883,6 +942,21 @@ function ApproveTab({ items }: { items: Dispatch[] }) {
         record={scheduleFor}
         createdBy={user.uid}
         onClose={() => setScheduleFor(null)}
+      />
+    )}
+
+    {/* Opened by clicking the "Goes public as" graphic — a rasterised
+        snapshot of it (annotateUrl), not the live PostCanvas node, since
+        the drawing surface needs a plain <img> to measure against. */}
+    {annotateUrl && active && (
+      <ImageAnnotator
+        imageUrl={annotateUrl}
+        annotations={draftAnnotations}
+        authorName={user?.displayName ?? user?.email ?? 'Admin'}
+        onChange={setDraftAnnotations}
+        onSave={saveAnnotations}
+        onClose={closeAnnotator}
+        saving={savingAnnotations}
       />
     )}
     </>

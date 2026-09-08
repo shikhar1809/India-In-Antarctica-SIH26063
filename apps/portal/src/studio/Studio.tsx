@@ -33,6 +33,7 @@ import type { Dispatch, DispatchStatus, PlatformCaptions, StoredPublicSummary } 
 import { PLATFORM_LIMITS, SOP_CHECKLIST_ITEMS } from '../types';
 import { normaliseDispatch } from '../repository/normalise';
 import { draftPublicSummary } from '../repository/summarise';
+import { acknowledgePin, pinCount, isPinAnnotation } from '../review/annotations';
 
 import { PALETTES, PLATFORM_SPECS, PLATFORM_ORDER, paletteById, DEFAULT_PALETTE } from './brand';
 import type { PlatformId } from './brand';
@@ -252,6 +253,8 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
       {d.status === 'flagged' && d.adminNotes && (
         <div className="fld-flagnote"><span>Sent back with a note</span><p>{d.adminNotes}</p></div>
       )}
+
+      <ReviewNotes dispatch={d} />
 
       {/* ── stepper ── */}
       <ol className="stu-steps">
@@ -676,6 +679,60 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Notes an admin left directly on the post graphic — pins with a comment,
+ * drawn there instead of typed into `adminNotes` because "the headline
+ * overlaps the roofline" is a claim about a specific spot on a specific
+ * image, not a sentence about the dispatch in general.
+ *
+ * Read-only here on purpose: a publisher acknowledges a note (so the admin
+ * can see it was seen) but doesn't edit or delete it — that stays the
+ * admin's own review surface in the approve desk. Shapes drawn on the
+ * graphic (boxes, arrows, circles) aren't re-rendered in this list; the pin
+ * comments are the actual communication, and re-drawing marks on a static
+ * thumbnail here would need the same rasterised-image machinery the approve
+ * desk uses for comparatively little gained — a publisher already has the
+ * live graphic open in this same wizard.
+ */
+function ReviewNotes({ dispatch: d }: { dispatch: Dispatch }) {
+  const pins = (d.reviewAnnotations ?? []).filter(isPinAnnotation);
+  const counts = pinCount(d.reviewAnnotations ?? []);
+
+  if (pins.length === 0) return null;
+
+  const acknowledge = async (id: string) => {
+    await updateDoc(doc(db, 'dispatches', d.id), {
+      reviewAnnotations: acknowledgePin(d.reviewAnnotations ?? [], id),
+      updatedAt: Date.now(),
+    });
+  };
+
+  return (
+    <div className="stu-reviewnotes">
+      <div className="stu-reviewnotes-head">
+        <span>Notes from review</span>
+        {counts.unread > 0 && <span className="stu-reviewnotes-badge">{counts.unread} new</span>}
+      </div>
+      <ul>
+        {pins.map((p) => (
+          <li key={p.id} className={p.acknowledged ? 'is-read' : undefined}>
+            <span className="stu-reviewnotes-dot" style={{ background: p.color }} />
+            <p>{p.comment}</p>
+            <div className="stu-reviewnotes-meta">
+              <span>{p.authorName}</span>
+              {p.acknowledged ? (
+                <span className="stu-reviewnotes-seen">Seen</span>
+              ) : (
+                <button type="button" onClick={() => acknowledge(p.id)}>Mark as seen</button>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

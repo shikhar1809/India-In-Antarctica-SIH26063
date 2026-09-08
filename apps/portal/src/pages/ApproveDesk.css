@@ -228,6 +228,58 @@
   overflow: hidden;
 }
 
+/* The graphic is now a <button> (opens the annotator), not a plain <div> —
+   reset the button-specific UA defaults the app's no-Preflight stylesheet
+   doesn't touch, and add the hover affordance + badge positioning. */
+.ad-graphic-clickable {
+  position: relative;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.ad-graphic-clickable:hover {
+  border-color: rgba(120, 190, 255, 0.5);
+}
+
+.ad-graphic-hint {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  color: #dbe7f3;
+  background: rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
+.ad-graphic-clickable:hover .ad-graphic-hint,
+.ad-graphic-clickable:focus-visible .ad-graphic-hint {
+  opacity: 1;
+}
+
+.ad-graphic-badge {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #0d1420;
+  background: #9fbdd6;
+}
+
+.ad-graphic-badge.is-unread {
+  background: #f0b429;
+}
+
 .ad-caption {
   font-family: var(--font-ui);
   font-size: 12.5px;
