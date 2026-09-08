@@ -1,0 +1,96 @@
+/* Calendar heatmap — GitHub's contribution graph shape, an uptime/outage
+   colour scale. Scrolls horizontally on its own rather than widening the
+   page, same rule as every other wide table in this portal. */
+
+.uc-wrap {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.uc-grid {
+  display: grid;
+  grid-auto-rows: 13px;
+  row-gap: 4px;
+  column-gap: 4px;
+  align-items: center;
+  width: max-content;
+}
+
+.uc-corner { grid-column: 1; grid-row: 1; }
+
+.uc-month {
+  grid-row: 1;
+  font-size: 11px;
+  color: var(--ice-dim, #9fbdd6);
+  align-self: end;
+  padding-bottom: 2px;
+}
+
+.uc-weekday {
+  font-size: 10px;
+  color: var(--ice-dim, #9fbdd6);
+  padding-right: 6px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.uc-cell {
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.uc-cell:focus-visible {
+  outline: 2px solid #5fd9ff;
+  outline-offset: 1px;
+}
+
+.uc-cell-empty {
+  background: transparent;
+  cursor: default;
+}
+
+/* Green ramp for "how good was this day", one hue, four steps by
+   lightness — the same rule the rest of this project's charts follow
+   (colour encodes one thing, magnitude by lightness, never a rainbow).
+   Outage breaks the ramp deliberately: red is a different hue entirely, so
+   an incident day is never mistakable for "a slightly quiet day" at a
+   glance — the whole reason it isn't just the lightest step on the same
+   green scale. */
+.uc-tier-none    { background: rgba(255, 255, 255, 0.06); }
+.uc-tier-degraded{ background: #f0b429; }
+.uc-tier-good    { background: #2c6e3f; }
+.uc-tier-great   { background: #3fb950; }
+.uc-tier-perfect { background: #56d364; }
+.uc-tier-outage  { background: #e5534b; }
+
+.uc-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.uc-hover-readout {
+  font-size: 0.8rem;
+  opacity: 0.7;
+  min-height: 1.2em;
+}
+
+.uc-legend {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.76rem;
+  opacity: 0.7;
+}
+
+.uc-legend .uc-cell { cursor: default; }
+
+.uc-legend-gap { width: 10px; }

@@ -17,7 +17,7 @@
  */
 
 import { Link } from 'react-router-dom';
-import { Flame, MessageCircleQuestion, PenSquare } from 'lucide-react';
+import { Activity, Flame, MessageCircleQuestion, PenSquare } from 'lucide-react';
 import './SiteHub.css';
 
 // Set at build time — same convention as apps/public-site's own env var,
@@ -56,6 +56,17 @@ export function SiteHub() {
               </p>
             </div>
           )}
+
+          {/* Sits right below the heatmap card — both are "how is the site
+              doing" questions, distinct from the two content-editing cards
+              beneath them. Mocked for now (see UptimePage.tsx's own note)
+              — no real monitor is wired up, so this shows what the page
+              will look like once one is, not real history. */}
+          <Link to="/site/uptime" className="sh-card">
+            <span className="sh-icon"><Activity className="w-6 h-6" /></span>
+            <strong>Uptime &amp; outages</strong>
+            <p>A day-by-day view of availability over the last year, and any incidents.</p>
+          </Link>
 
           <Link to="/editor" className="sh-card">
             <span className="sh-icon"><PenSquare className="w-6 h-6" /></span>

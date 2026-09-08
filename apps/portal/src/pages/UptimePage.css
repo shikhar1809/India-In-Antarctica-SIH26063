@@ -1,0 +1,64 @@
+.up-page { padding-bottom: 64px; }
+
+.up-head { margin-bottom: 16px; }
+.up-head h1 { margin: 0 0 6px; font-size: 1.45rem; font-weight: 600; }
+.up-head p { margin: 0; opacity: 0.65; }
+
+.up-mock-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(240, 180, 41, 0.35);
+  background: rgba(240, 180, 41, 0.08);
+  font-size: 0.82rem;
+  color: #f0b429;
+}
+
+.up-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.up-tile {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.up-tile-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 9px;
+  background: rgba(63, 185, 80, 0.14);
+  color: #3fb950;
+}
+
+.up-tile-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.up-tile-label { font-size: 0.82rem; opacity: 0.75; margin-top: 2px; }
+.up-tile-hint { font-size: 0.74rem; opacity: 0.5; margin-top: 4px; }
+
+.up-calendar-card {
+  padding: 20px 20px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
