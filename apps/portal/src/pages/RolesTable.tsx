@@ -6,7 +6,7 @@
  * already on the roster, and nobody has a UID memorised — an admin wanting
  * to make a colleague a publisher had to wait for that person to sign in
  * once, find their UID some other way (the Firebase console, or asking them
- * to paste it from their own "Manage roles" screen), and only then grant
+ * to paste it from their own "Access" screen), and only then grant
  * anything. "Give this Gmail address publisher access" was not a thing you
  * could actually do here.
  *

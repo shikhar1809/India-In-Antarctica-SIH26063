@@ -1,19 +1,16 @@
 /**
- * How a social platform reads on the public site — a small coloured pill,
- * not a hand-drawn brand logo.
+ * How a social platform reads on the public site — a small coloured pill
+ * with the platform's own mark, not a hand-drawn approximation.
  *
- * The portal itself never draws platform icons anywhere (studio/brand.ts's
- * PLATFORM_LIMITS is text labels only), and lucide-react — already a
- * dependency here — ships an `X` glyph but no LinkedIn or Instagram mark.
- * A mix of one real lucide icon and two hand-approximated ones would read
- * as more official than either actually is; matching the portal's own
- * choice (text, consistently) is the safer and more honest option.
- *
- * Colour here is identity, not encoded data — unlike a chart series, "which
- * platform" IS the fact being shown, so a fixed colour per platform is the
- * label, not decoration standing in for one.
+ * lucide-react (already a dependency here) ships an `X` glyph but nothing
+ * for LinkedIn or Instagram, which is what the badge used to fall back to
+ * text-only for every platform rather than mixing one real icon with two
+ * missing ones. react-icons' Font Awesome 6 set (`react-icons/fa6`) covers
+ * all three as real, recognisable brand marks, so that inconsistency is
+ * gone rather than papered over.
  */
 
+import { FaXTwitter, FaLinkedin, FaInstagram } from 'react-icons/fa6'
 import type { SocialPostSummary } from '../repository/contract'
 
 export type SocialPlatform = SocialPostSummary['platform']
@@ -24,6 +21,26 @@ export const PLATFORM_LABEL: Record<SocialPlatform, string> = {
   instagram: 'Instagram',
 }
 
-export function SocialBadge({ platform }: { platform: SocialPlatform }) {
-  return <span className={'social-badge social-badge-' + platform}>{PLATFORM_LABEL[platform]}</span>
+const PLATFORM_ICON: Record<SocialPlatform, React.ComponentType<{ size?: number }>> = {
+  x: FaXTwitter,
+  linkedin: FaLinkedin,
+  instagram: FaInstagram,
+}
+
+export function SocialBadge({ platform, iconOnly = false }: { platform: SocialPlatform; iconOnly?: boolean }) {
+  const Icon = PLATFORM_ICON[platform]
+  // X's brand mark is the letter X — pairing the icon with the text label
+  // "X" reads as a typo ("X X"), not as reinforcement, the way LinkedIn's
+  // "in" glyph or Instagram's camera icon pairing with their name doesn't.
+  // The icon alone already says everything the label would.
+  const showLabel = !iconOnly && platform !== 'x'
+  return (
+    <span
+      className={'social-badge social-badge-' + platform + (iconOnly ? ' social-badge-icon-only' : '')}
+      title={PLATFORM_LABEL[platform]}
+    >
+      <Icon size={12} />
+      {showLabel && PLATFORM_LABEL[platform]}
+    </span>
+  )
 }

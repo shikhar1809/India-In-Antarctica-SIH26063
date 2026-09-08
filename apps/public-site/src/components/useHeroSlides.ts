@@ -1,25 +1,28 @@
 /**
- * What the front-page hero shows: the archive's own most recent work,
- * not three fixed stock photos.
+ * What the front-page hero shows: the archive's own social media activity,
+ * not three fixed stock photos and not just "whatever published most
+ * recently".
  *
- * Every slide here is generated on the outreach portal — a scientist's field
- * dispatch, drafted for a public audience, approved by an admin — and
- * projected into `publicArchive` by `publish.ts`. The moment that projection
- * happens, the record is eligible to appear here: there is no separate step
- * to "feature" something on the homepage, because the newest published work
- * IS the featured work.
+ * The hero features records that were actually posted about — each slide
+ * is, specifically, evidence that this record was shared, on named
+ * platforms, and the caption's "View in archive" link goes to the record
+ * that post was about. A record with no confirmed social post does not
+ * appear here even if it was published five minutes ago; publishing to the
+ * archive and disseminating it are different events (see
+ * repository/publish.ts vs. the portal's dissemination queue), and this
+ * hero is specifically the second one, not the first.
  *
- * A record needs a cover photo to become a slide — text-only records (most
- * publications, some datasets) do not have imagery to show, so they are
- * skipped rather than shown as a blank frame. If fewer than three published
- * records currently have a photo (a fresh deployment, or an unlucky run of
- * publication-only records), the original three station photographs fill
- * the remainder, so the hero is never emptier than it was before this
- * existed.
+ * A record also needs a cover photo — there is nothing to put in a
+ * slideshow frame otherwise. If fewer than three published, photographed,
+ * *actually-shared* records exist (a fresh deployment, or simply before
+ * anyone has run a post through the portal's "Mark as posted" flow yet —
+ * true of every record as of this writing), the original three station
+ * photographs fill the remainder, so the hero is never emptier than it was
+ * before this existed.
  *
  * This file stays plain data (`.ts`, no JSX) on purpose — puck.config.tsx's
  * HeroBlockRender is what turns a slide into the actual caption markup
- * (title, platform badges, the "View post" link), so a slide here is
+ * (title, platform badges, the "View in archive" link), so a slide here is
  * *what to show*, not *how*.
  */
 
@@ -35,9 +38,10 @@ export interface HeroSlide {
    *  it, and also what makes the caption clickable at all. */
   href?: string;
   /** Distinct platforms this record was disseminated to, most-recent post
-   *  first. Empty for a record nobody has posted about yet — most of the
-   *  archive, honestly, since only a fraction of published work gets a
-   *  social post at all. */
+   *  first. Never empty on a generated slide — see the module doc comment:
+   *  having at least one platform is what qualifies a record for the hero
+   *  at all now, not an optional extra shown when present. Empty only on
+   *  the three static fallback slides, which are not about any record. */
   platforms: SocialPlatform[];
 }
 
@@ -51,14 +55,24 @@ const MAX_SLIDES = 5;
 const MIN_SLIDES = 3;
 
 /** True once at least one slide is a real, generated record rather than the
- *  three static fallbacks — the Site Management / Media hubs use this to
- *  say honestly whether the hero is "live" yet. */
+ *  three static fallbacks — the Site / Media hubs use this to say honestly
+ *  whether the hero is "live" yet. */
 export function useHeroSlides(): { slides: HeroSlide[]; live: boolean } {
   const { records } = useRepository();
 
   return useMemo(() => {
     const generated: HeroSlide[] = records
-      .filter((r) => r.photoUrls?.[0])
+      // Both conditions matter: a photo to show, and at least one confirmed
+      // social post — see the module doc comment for why "published" alone
+      // no longer qualifies a record for this specific slideshow.
+      .filter((r) => r.photoUrls?.[0] && r.socialPosts?.length)
+      // Most recently *shared*, not most recently published — this is a
+      // feed of dissemination activity, so its own freshest event is the
+      // right sort key.
+      .sort((a, b) => {
+        const latest = (r: typeof a) => Math.max(...r.socialPosts!.map((p) => p.postedAt));
+        return latest(b) - latest(a);
+      })
       .slice(0, MAX_SLIDES)
       .map((r) => ({
         image: r.photoUrls[0],
@@ -66,7 +80,7 @@ export function useHeroSlides(): { slides: HeroSlide[]; live: boolean } {
         station: r.metadata?.station,
         href: `/archive/${recordSlug(r)}`,
         platforms: [...new Set(
-          [...(r.socialPosts ?? [])].sort((a, b) => b.postedAt - a.postedAt).map((p) => p.platform),
+          [...r.socialPosts!].sort((a, b) => b.postedAt - a.postedAt).map((p) => p.platform),
         )],
       }));
 
@@ -74,8 +88,11 @@ export function useHeroSlides(): { slides: HeroSlide[]; live: boolean } {
       return { slides: generated, live: true };
     }
     // Pad with the static fallback rather than showing an unevenly short
-    // strip — a hero that is mostly real records and a little filler still
-    // reads as "the archive", not as an empty placeholder.
+    // strip — a hero that is mostly real activity and a little filler still
+    // reads as "the archive", not as an empty placeholder. This is the
+    // common case today: nothing has gone through "Mark as posted" yet, so
+    // every slide is currently a fallback until the first real post is
+    // confirmed sent.
     return {
       slides: [...generated, ...FALLBACK_SLIDES].slice(0, Math.max(MIN_SLIDES, generated.length)),
       live: generated.length > 0,

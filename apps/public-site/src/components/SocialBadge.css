@@ -1,6 +1,7 @@
 .social-badge {
   display: inline-flex;
   align-items: center;
+  gap: 5px;
   padding: 2px 9px;
   border-radius: 999px;
   font-size: 0.72rem;
@@ -8,6 +9,17 @@
   letter-spacing: 0.02em;
   border: 1px solid currentColor;
   line-height: 1.6;
+}
+
+.social-badge svg { flex: 0 0 auto; }
+
+/* Used in the hero card, where five slides' worth of platform badges need
+   to stay compact next to a title and a button — the icon alone (with the
+   platform name as a tooltip via `title`) carries the same information at
+   a third of the width. */
+.social-badge-icon-only {
+  padding: 4px;
+  gap: 0;
 }
 
 .social-badge-x         { color: #e8ecef; }

@@ -75,22 +75,22 @@ export function Header() {
               <NavLink to="/media" className={({ isActive }) => isActive ? 'active' : ''}>
                 Media
               </NavLink>
-              {/* Q&A moderation moved inside Site Management as a third
-                  card, alongside the heatmap and the content editor — one
-                  fewer top-level thing to remember, same reasoning as
-                  folding Dashboard into Media above. */}
+              {/* Q&A moderation moved inside Site as a third card, alongside
+                  the heatmap and the content editor — one fewer top-level
+                  thing to remember, same reasoning as folding Dashboard
+                  into Media above. */}
               {role === 'admin' && (
                 <>
                   <NavLink to="/site" className={({ isActive }) => isActive ? 'active' : ''}>
-                    Site Management
+                    Site
                   </NavLink>
-                  {/* Used to be a tab buried inside the review desk. Team
+                  {/* Used to be a tab buried inside the review desk. Who has
                       access is a different kind of decision from what
                       today's dispatches need, and an admin reaches for it
                       independently of reviewing anything — it earns its own
                       spot in the topbar rather than a click through Media. */}
                   <NavLink to="/roles" className={({ isActive }) => isActive ? 'active' : ''}>
-                    Manage roles
+                    Access
                   </NavLink>
                 </>
               )}

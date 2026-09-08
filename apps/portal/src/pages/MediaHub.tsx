@@ -10,7 +10,7 @@
  * is scheduled.
  *
  * Team management used to be a third tab on that same page too, and it has
- * moved out entirely — see RolesPage.tsx and the "Manage roles" link in the
+ * moved out entirely — see RolesPage.tsx and the "Access" link in the
  * topbar — since who has access is a different kind of decision from what
  * today's dispatches need, and didn't belong sharing a screen with either.
  */

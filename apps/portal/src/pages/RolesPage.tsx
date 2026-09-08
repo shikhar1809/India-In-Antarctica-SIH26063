@@ -1,5 +1,5 @@
 /**
- * Manage roles — its own page, not a tab buried inside the review desk.
+ * Access — its own page, not a tab buried inside the review desk.
  *
  * This used to be the fourth tab on the approve desk, alongside Approve,
  * Published content and Dissemination — reasonable when it was a one-UID
@@ -30,7 +30,7 @@ export function RolesPage() {
   return (
     <main className="ph-page rp-page">
       <header className="rp-head">
-        <h1>Manage roles</h1>
+        <h1>Access</h1>
         <p>Who has access, and what they can do with it.</p>
       </header>
 

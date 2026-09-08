@@ -1,5 +1,5 @@
 /**
- * Site Management — everything about the public site as a property, not
+ * Site — everything about the public site as a property, not
  * just its content.
  *
  * Previously "Site Editor" opened straight into the Puck canvas. That is
@@ -29,7 +29,7 @@ export function SiteHub() {
   return (
     <main className="ph-page sh-page">
         <header className="sh-head">
-          <h1>Site Management</h1>
+          <h1>Site</h1>
           <p>The public site as a property: what visitors do on it, and what is on it.</p>
         </header>
 
