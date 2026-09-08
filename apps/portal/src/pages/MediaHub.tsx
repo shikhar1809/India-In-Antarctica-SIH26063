@@ -13,7 +13,6 @@
 
 import { Link } from 'react-router-dom';
 import { BarChart3, CalendarClock, Sparkles } from 'lucide-react';
-import { Header } from '../components/Header';
 import { useRole } from '../hooks/useRole';
 import './MediaHub.css';
 
@@ -49,9 +48,7 @@ export function MediaHub() {
   ];
 
   return (
-    <>
-      <Header />
-      <main className="ph-page mh-page">
+    <main className="ph-page mh-page">
         <header className="mh-head">
           <h1>Media</h1>
           <p>Content and its reach, in one place.</p>
@@ -66,7 +63,6 @@ export function MediaHub() {
             </Link>
           ))}
         </div>
-      </main>
-    </>
+    </main>
   );
 }

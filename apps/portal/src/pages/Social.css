@@ -7,6 +7,12 @@
   min-height: 100%;
 }
 
+/* Publisher/admin console — no hero title above the tabs, so the top
+   padding that used to give that title room to breathe is cut back too. */
+.fld-page-compact {
+  padding-top: 20px;
+}
+
 .fld-center {
   width: 100%;
   /* Every block in here (.fld-list, .fld-pane, .fld-feed, .fld-mine, ...)

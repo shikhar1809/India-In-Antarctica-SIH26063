@@ -17,8 +17,7 @@
  */
 
 import { Link } from 'react-router-dom';
-import { Flame, PenSquare } from 'lucide-react';
-import { Header } from '../components/Header';
+import { Flame, MessageCircleQuestion, PenSquare } from 'lucide-react';
 import './SiteHub.css';
 
 // Set at build time — same convention as apps/public-site's own env var,
@@ -28,9 +27,7 @@ const CLARITY_PROJECT_ID = import.meta.env.VITE_CLARITY_PROJECT_ID as string | u
 
 export function SiteHub() {
   return (
-    <>
-      <Header />
-      <main className="ph-page sh-page">
+    <main className="ph-page sh-page">
         <header className="sh-head">
           <h1>Site Management</h1>
           <p>The public site as a property: what visitors do on it, and what is on it.</p>
@@ -65,8 +62,13 @@ export function SiteHub() {
             <strong>Edit site content</strong>
             <p>The page builder — hero, gallery, announcements and every other block on the public site.</p>
           </Link>
+
+          <Link to="/moderation" className="sh-card">
+            <span className="sh-icon"><MessageCircleQuestion className="w-6 h-6" /></span>
+            <strong>Q&amp;A moderation</strong>
+            <p>Questions the public asked on "Ask a Scientist" — approve, edit or dismiss before they go live.</p>
+          </Link>
         </div>
-      </main>
-    </>
+    </main>
   );
 }

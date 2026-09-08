@@ -174,15 +174,24 @@ export function Social() {
     );
   }
 
+  // Publishers and admins land on a working console, not a landing page —
+  // the "Field reports" hero and its blurb pushed real, information-dense
+  // content down for no reason once someone is here to work rather than to
+  // be welcomed. A scientist still gets it, since their whole page is that
+  // one info card and a title actually orients them.
+  const isStaff = role === 'publisher' || role === 'admin';
+
   return (
-    <div className="fld-page">
+    <div className={'fld-page' + (isStaff ? ' fld-page-compact' : '')}>
       <div className="fld-center">
-        <h1 className="fld-title">Field reports</h1>
-        <p className="fld-sub">
-          {role === 'scientist' && 'Field reports are submitted through the IIA desktop app.'}
-          {role === 'publisher' && 'Review incoming dispatches, compose posts for each platform, and track them after you submit.'}
-          {role === 'admin'     && 'Approve or send back drafted dispatches, and manage team roles.'}
-        </p>
+        {!isStaff && (
+          <>
+            <h1 className="fld-title">Field reports</h1>
+            <p className="fld-sub">
+              Field reports are submitted through the IIA desktop app.
+            </p>
+          </>
+        )}
 
         {role === 'scientist' && <ScientistPlaceholder />}
         {role === 'publisher' && (

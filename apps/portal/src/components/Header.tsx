@@ -71,15 +71,14 @@ export function Header() {
               <NavLink to="/media" className={({ isActive }) => isActive ? 'active' : ''}>
                 Media
               </NavLink>
+              {/* Q&A moderation moved inside Site Management as a third
+                  card, alongside the heatmap and the content editor — one
+                  fewer top-level thing to remember, same reasoning as
+                  folding Dashboard into Media above. */}
               {role === 'admin' && (
-                <>
-                  <NavLink to="/site" className={({ isActive }) => isActive ? 'active' : ''}>
-                    Site Management
-                  </NavLink>
-                  <NavLink to="/moderation" className={({ isActive }) => isActive ? 'active' : ''}>
-                    Q&A Moderation
-                  </NavLink>
-                </>
+                <NavLink to="/site" className={({ isActive }) => isActive ? 'active' : ''}>
+                  Site Management
+                </NavLink>
               )}
             </>
           )}

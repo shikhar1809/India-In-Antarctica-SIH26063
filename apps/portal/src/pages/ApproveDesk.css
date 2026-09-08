@@ -8,11 +8,17 @@
 
 .ad-desk {
   display: grid;
-  grid-template-columns: 230px minmax(0, 1fr) minmax(0, 1fr) 320px;
+  /* Review carries the AI verdict, the blocking checks and both action
+     buttons — it was the narrowest column despite doing the most, so it is
+     now the widest of the four rather than the fixed 320px it used to be. */
+  grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr) 460px;
   gap: 14px;
   align-items: stretch;
-  /* fill the viewport under the page header rather than growing the page */
-  height: calc(100vh - 260px);
+  /* The staff console dropped its hero title (see .fld-page-compact), which
+     freed up real vertical space above this grid — the offset here is
+     smaller to match, so the desk actually grows into that space instead of
+     leaving it as a gap. */
+  height: calc(100vh - 190px);
   min-height: 460px;
 }
 
@@ -361,7 +367,7 @@
    and public text keep their side-by-side comparison, which is the part
    that matters most. */
 @media (max-width: 1400px) {
-  .ad-desk { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 300px; }
+  .ad-desk { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 400px; }
   .ad-col--queue { display: none; }
 }
 
