@@ -1,0 +1,129 @@
+/* The dissemination queue. Shares the portal's field-report surface tokens
+   (fld-*) so it reads as part of the same tool rather than a bolted-on panel. */
+
+.sq-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sq-list.settled { opacity: 0.72; }
+
+.sq-heading {
+  margin: 28px 0 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.sq-row {
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-left: 3px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Only the row that needs a human is accented. If every state were coloured,
+   none of them would read as "this one". */
+.sq-row.status-ready   { border-left-color: #f0b429; }
+.sq-row.status-failed  { border-left-color: #e5534b; }
+.sq-row.status-posted  { border-left-color: #3fb950; }
+
+.sq-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.sq-platform { font-weight: 600; }
+
+.sq-ident {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  opacity: 0.7;
+}
+
+.sq-status {
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+
+.badge-ready     { color: #f0b429; }
+.badge-failed    { color: #e5534b; }
+.badge-posted    { color: #3fb950; }
+.badge-cancelled { color: rgba(255, 255, 255, 0.45); }
+.badge-queued    { color: rgba(255, 255, 255, 0.6); }
+
+.sq-when {
+  margin-left: auto;
+  font-size: 0.8rem;
+  opacity: 0.65;
+}
+
+.sq-caption {
+  margin: 0 0 8px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.sq-meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  opacity: 0.6;
+}
+
+.sq-over { color: #e5534b; opacity: 1; }
+
+.sq-error {
+  margin: 8px 0 0;
+  font-size: 0.82rem;
+  color: #e5534b;
+}
+
+.sq-posted { margin: 8px 0 0; font-size: 0.82rem; }
+
+.sq-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.sq-url {
+  flex: 1 1 240px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+  font-size: 0.85rem;
+}
+
+.sq-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.sq-summary {
+  font-size: 0.8rem;
+  opacity: 0.6;
+}
+
+.sq-remove { color: #e5534b; }

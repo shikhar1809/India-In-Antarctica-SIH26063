@@ -102,6 +102,26 @@ export function useRepository(): RepositoryState {
   return state
 }
 
+/* ────────────────────────────────────────────────────────── record links ──
+ * A record is a page, so it needs an address. Two handles are accepted:
+ * the citable identifier (IIA-2026-0001 — the one printed on the record and
+ * used in a citation) and the raw document id, which is what older links and
+ * the home-page shelf already use. */
+
+/** The handle a record is linked by — the citable identifier when it has
+ *  one, so /archive/IIA-2026-0001 is the address of the thing a citation
+ *  names, not an internal database key. */
+export function recordSlug(record: RepositoryRecord): string {
+  return record.metadata?.identifier || record.id
+}
+
+/** Whether a URL segment names this record. Case is ignored: an identifier
+ *  read off a printed page and typed back in should still land. */
+export function matchesRecordId(record: RepositoryRecord, key: string): boolean {
+  const k = key.trim().toLowerCase()
+  return record.id.toLowerCase() === k || (record.metadata?.identifier ?? '').toLowerCase() === k
+}
+
 /* ─────────────────────────────────────────────────────── derived views ── */
 
 export const CATEGORY_LABELS: { id: CoverCategory | 'all'; label: string }[] = [
@@ -121,12 +141,21 @@ export const STATION_LABELS: Record<string, string> = {
   ncpor: 'NCPOR',
 }
 
+export interface TrendPoint {
+  /** The record this observation came from, so a record's own point can be
+   *  picked out of the series it sits in. */
+  id: string
+  label: string
+  value: number
+  station: string
+}
+
 /**
  * Air temperature across every published record that has one, oldest first —
  * the chart that only becomes possible once records accumulate, and the one
  * that actually shows the value of a repository rather than a single report.
  */
-export function temperatureSeries(records: RepositoryRecord[]): { label: string; value: number; station: string }[] {
+export function temperatureSeries(records: RepositoryRecord[]): TrendPoint[] {
   return records
     .map((r) => {
       const conditions = r.table?.find((f) => f.label === 'Conditions')?.value
@@ -134,12 +163,20 @@ export function temperatureSeries(records: RepositoryRecord[]): { label: string;
       if (!match || !r.metadata?.temporal?.observedAt) return null
       return {
         at: r.metadata.temporal.observedAt,
+        id: r.id,
         label: new Date(r.metadata.temporal.observedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
         value: Number(match[1]),
         station: STATION_LABELS[r.station] ?? 'NCPOR',
       }
     })
-    .filter((p): p is { at: number; label: string; value: number; station: string } => p !== null)
+    .filter((p): p is TrendPoint & { at: number } => p !== null)
     .sort((a, b) => a.at - b.at)
-    .map(({ label, value, station }) => ({ label, value, station }))
+    .map(({ id, label, value, station }) => ({ id, label, value, station }))
 }
+
+/** Below this the "trend" is a straight segment between the only two
+ *  observations there are, which says nothing a reader couldn't get from the
+ *  two records themselves. The section is hidden until the repository has
+ *  enough temperature observations for the shape of the line to mean
+ *  something. */
+export const MIN_TREND_POINTS = 3

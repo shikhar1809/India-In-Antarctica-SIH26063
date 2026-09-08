@@ -5,9 +5,10 @@ import type { BookShelfHandle } from '../components/ui/book-shelf'
 import { ArcticMapBackground } from '../components/ui/arctic-map-pattern'
 import { RecordChart, TemperatureTrend } from '../components/RecordChart'
 import { CitedParagraph, SourceList } from '../components/ui/citation'
-import { useRepository, temperatureSeries, CATEGORY_LABELS, STATION_LABELS } from '../api/repository'
+import { DatasetBlock, ReportContents, ReportSections } from '../components/ui/report-body'
+import { useRepository, temperatureSeries, recordSlug, matchesRecordId, CATEGORY_LABELS, STATION_LABELS, MIN_TREND_POINTS } from '../api/repository'
 import { resolveCitations } from '../repository/citations'
-import type { RepositoryRecord, CoverCategory, ResourceType } from '../repository/contract'
+import type { RecordSource, RepositoryRecord, CoverCategory, ResourceType } from '../repository/contract'
 import { RECORDS } from '../data/archiveData'
 import './Archive.css'
 
@@ -50,10 +51,13 @@ const STATIC_REPOSITORY_RECORDS: RepositoryRecord[] = RECORDS.map((r) => ({
   body: r.body,
   table: r.table?.map(([label, value]) => ({ label, value })),
   credit: r.credit,
-  photoUrls: STATIC_PHOTOS[r.id] ? [STATIC_PHOTOS[r.id]] : [],
+  photoUrls: r.photos?.length ? r.photos : STATIC_PHOTOS[r.id] ? [STATIC_PHOTOS[r.id]] : [],
   videoUrl: null,
   measurements: [],
   chart: undefined,
+  sections: r.sections,
+  dataset: r.dataset,
+  references: r.references,
   metadata: {
     identifier: `IIA-HIST-${r.id.toUpperCase()}`,
     creators: [{ name: 'NCPOR', affiliation: 'National Centre for Polar and Ocean Research' }],
@@ -74,7 +78,7 @@ const STATIC_REPOSITORY_RECORDS: RepositoryRecord[] = RECORDS.map((r) => ({
 
 export default function Archive() {
   const navigate = useNavigate()
-  const { id: deepLinkId } = useParams<{ id: string }>()
+  const { id: routeId } = useParams<{ id: string }>()
   const { records: liveRecords, loading, error } = useRepository()
   // Show live Firestore records when available; fall back to the curated
   // historical catalogue so the page is never empty while Firestore loads.
@@ -89,28 +93,44 @@ export default function Archive() {
 
   const trend = useMemo(() => temperatureSeries(records), [records])
 
-  // /archive/:id lands straight on that record's detail view. `records`
-  // starts as the static fallback and is later REPLACED (not merged) by
-  // whatever Firestore returns, so a static-only id can stop existing in
-  // `records` after that swap. Locking onto a numeric index at match time
-  // and trusting it afterwards showed the wrong record once that swap
-  // happened — the id it was found at got reused by an unrelated live
-  // record. Looking the id up fresh on every render sidesteps that: while
-  // the deep link is "in control" the detail view's content comes straight
-  // from `records.find(id)`, never from a remembered position.
-  const userNavigated = useRef(false)
-  const deepLinkActive = !!deepLinkId && !userNavigated.current
-  useEffect(() => {
-    if (!deepLinkActive) return
-    if (records.some((r) => r.id === deepLinkId)) setView('detail')
-  }, [deepLinkActive, deepLinkId, records])
-
+  // The URL says which record is open. /archive/IIA-2026-0001 (or the
+  // record's own id) opens that record, and opening one from the shelf
+  // pushes the matching URL — which is what makes a record linkable,
+  // bookmarkable and reachable with the browser's Back button, instead of
+  // every record in the archive sharing the single address /archive.
+  //
+  // The record is looked up by id on every render rather than resolved once
+  // into a carousel position. `records` starts as the static fallback and is
+  // later REPLACED (not merged) by whatever Firestore returns, so a position
+  // remembered before that swap can point at an unrelated record after it —
+  // a bug this page has already had once. An id that no longer exists
+  // resolves to nothing and falls back to the shelf, never to whatever
+  // record happens to sit at that index now.
+  const openRecord = routeId ? records.find((r) => matchesRecordId(r, routeId)) : undefined
   const safeIndex = Math.min(index, Math.max(0, records.length - 1))
-  const deepLinkRecord = deepLinkActive ? records.find((r) => r.id === deepLinkId) : undefined
-  const active = deepLinkRecord ?? records[safeIndex]
+  const active = openRecord ?? records[safeIndex]
+
+  // Back, Forward and a cold load arrive with no click behind them, so the
+  // view follows the URL. A click runs transition(), which changes the URL
+  // at the end of its animation — by which point this already agrees.
+  useEffect(() => {
+    setView(routeId && openRecord ? 'detail' : 'selector')
+  }, [routeId, openRecord])
+
+  // Where each line of the published text came from. Every record resolves to
+  // something: what the portal published with it, or — for records that
+  // predate citations, and for the historical catalogue — a single source
+  // derived from the provenance block they have always carried.
+  const cited = useMemo(
+    () => (active ? resolveCitations(active) : { sources: [], numberOf: {}, paragraphs: [] }),
+    [active],
+  )
+  const sourceById = useMemo(
+    () => Object.fromEntries(cited.sources.map((s) => [s.id, s])) as Record<string, RecordSource>,
+    [cited],
+  )
 
   const jumpToCategory = (cat: CoverCategory | 'all') => {
-    userNavigated.current = true
     setFilter(cat)
     setMenuOpen(false)
     if (cat === 'all') return
@@ -118,27 +138,26 @@ export default function Archive() {
     if (hit >= 0) shelfApi.current?.goTo(hit)
   }
 
-  const transition = (to: 'selector' | 'detail', i?: number) => {
+  const transition = (to: 'selector' | 'detail', i?: number, url?: string) => {
     if (i !== undefined) setIndex(i)
     setTransitioning(true)
     window.scrollTo({ top: 0, behavior: 'instant' })
     setTimeout(() => {
       setView(to)
       setTransitioning(false)
+      // The address changes as the screen does, so the URL always names what
+      // is on screen — and each opened record is one Back away from the shelf.
+      if (url !== undefined) navigate(url)
     }, 700)
   }
 
   const openRecordById = (id: string) => {
-    userNavigated.current = true
     const i = records.findIndex((r) => r.id === id)
-    if (i >= 0) transition('detail', i)
+    if (i < 0) return
+    transition('detail', i, `/archive/${recordSlug(records[i])}`)
   }
   const backToSelector = () => {
-    userNavigated.current = true
-    // Drop the deep-link id from the URL so a refresh or a re-visit of this
-    // exact link doesn't immediately snap back into detail view.
-    if (deepLinkId) navigate('/archive', { replace: true })
-    transition('selector')
+    transition('selector', undefined, '/archive')
   }
 
   return (
@@ -184,6 +203,7 @@ export default function Archive() {
                 records={records}
                 variant="embedded"
                 onOpenRecord={openRecordById}
+                onIndexChange={setIndex}
                 apiRef={shelfApi}
               />
             ) : (
@@ -268,6 +288,9 @@ export default function Archive() {
 
             <div className="arch2-detail-grid">
               <div className="arch2-detail-body">
+                {/* The abstract. On a record with sections this is what a
+                    reader decides from; the report itself follows below. */}
+                {active.sections?.length ? <span className="arch2-abstract-label">Abstract</span> : null}
                 {cited.paragraphs.map((spans, i) => (
                   <CitedParagraph
                     key={i}
@@ -292,6 +315,19 @@ export default function Archive() {
               ) : null}
             </div>
 
+            {active.sections?.length ? (
+              <>
+                <ReportContents sections={active.sections} />
+                <ReportSections
+                  sections={active.sections}
+                  sourceById={sourceById}
+                  numberOf={cited.numberOf}
+                />
+              </>
+            ) : null}
+
+            {active.dataset ? <DatasetBlock dataset={active.dataset} /> : null}
+
             {active.chart ? (
               <div className="arch2-chart">
                 <RecordChart chart={active.chart} />
@@ -307,6 +343,14 @@ export default function Archive() {
                 <summary>Citation and metadata</summary>
                 <dl>
                   <dt>Identifier</dt><dd>{active.metadata.identifier}</dd>
+                  {/* The record's own address, spelled out — a citation is
+                      only useful if the thing it names can be reached. */}
+                  <dt>Permalink</dt>
+                  <dd>
+                    <Link className="arch2-permalink" to={`/archive/${recordSlug(active)}`}>
+                      {`${window.location.origin}/archive/${recordSlug(active)}`}
+                    </Link>
+                  </dd>
                   <dt>Collected by</dt><dd>{active.metadata.creators?.map((c) => c.name).join(', ')}</dd>
                   {active.metadata.publishedIn ? (<><dt>Published in</dt><dd>{active.metadata.publishedIn}</dd></>) : null}
                   <dt>Published by</dt><dd>{active.metadata.publisher}</dd>
@@ -328,16 +372,34 @@ export default function Archive() {
               </details>
             ) : null}
 
+            {active.references?.length ? (
+              <section className="arch2-refs">
+                <h3 className="arch2-refs-title">References</h3>
+                <ol className="arch2-refs-list">
+                  {active.references.map((r, i) => (
+                    <li key={i}>
+                      {r.url ? (
+                        <a href={r.url} target="_blank" rel="noreferrer">{r.citation}</a>
+                      ) : (
+                        r.citation
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            ) : null}
+
             <SourceList sources={cited.sources} numberOf={cited.numberOf} />
           </section>
 
-          {trend.length >= 2 ? (
+          {trend.length >= MIN_TREND_POINTS ? (
             <section className="arch2-trend">
-              <h3 className="arch2-list-title">Across the whole repository</h3>
+              <h3 className="arch2-trend-title">Across the whole repository</h3>
               <p className="arch2-trend-sub">
-                Not from the record above — this draws on every published observation at once.
+                Not from the record above — this draws on every published observation at once,
+                with this record's own reading ringed.
               </p>
-              <TemperatureTrend data={trend} />
+              <TemperatureTrend data={trend} activeId={active.id} />
             </section>
           ) : null}
         </main>

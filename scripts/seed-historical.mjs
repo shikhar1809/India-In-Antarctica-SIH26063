@@ -1,7 +1,7 @@
 /**
  * Seeds the historical records into the publicArchive collection.
  *
- * The portal has an admin-only "Import historical records" button that does
+ * The portal has an admin-only "Refresh records" button that does
  * exactly this from inside the app; this script is the same operation for a
  * terminal, reusing the Firebase CLI's own stored credentials (the ones
  * `firebase deploy` already uses) rather than asking for a service account.
@@ -55,7 +55,7 @@ for (const record of HISTORICAL_RECORDS) {
     console.error(`        ${err.slice(0, 300)}`);
     if (res.status === 403) {
       console.error('\n  The signed-in account is not an admin in roles/{uid}.');
-      console.error('  Use the portal\'s own "Import historical records" button instead,');
+      console.error('  Use the portal\'s own "Refresh records" button instead,');
       console.error('  or switch that account to Admin with the role switcher first.\n');
     }
     process.exit(1);

@@ -511,9 +511,14 @@ export interface BookShelfProps {
   /** Exposes `goTo` so a host page's own UI (Archive's category-jump menu)
    *  can drive the shelf without reaching into its internals. */
   apiRef?: Ref<BookShelfHandle>
+  /** Fires whenever the shelf lands on a different volume — by arrow, marker,
+   *  drag, or a host calling `goTo`. A host that keeps its own idea of the
+   *  selected record (Archive does, and publishes it as data-active-record)
+   *  needs this, or that idea silently drifts from what the shelf shows. */
+  onIndexChange?: (index: number, id: string) => void
 }
 
-export default function BookShelf({ records: recordsProp, onOpenRecord, variant = 'section', apiRef }: BookShelfProps) {
+export default function BookShelf({ records: recordsProp, onOpenRecord, variant = 'section', apiRef, onIndexChange }: BookShelfProps) {
   const navigate = useNavigate()
   const { records: liveRecords } = useRepository()
   const records = recordsProp ?? liveRecords
@@ -1088,6 +1093,13 @@ export default function BookShelf({ records: recordsProp, onOpenRecord, variant 
     else (apiRef as { current: BookShelfHandle | null }).current = handle
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // One place to report movement, rather than at each of the four points
+  // inside the scene that can change the index.
+  useEffect(() => {
+    const spec = specs[index]
+    if (spec) onIndexChange?.(index, spec.id)
+  }, [index, specs, onIndexChange])
 
   const current = specs[index]
   const open = selected !== null ? specs[selected] : null

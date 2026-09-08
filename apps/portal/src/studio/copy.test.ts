@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
-import { draftVariants, generateVariants, refineCopy } from './copy';
+import { draftVariants, generateVariants, refineCopy, withSourceLink, describeRecordForBrief, recordUrl } from './copy';
 import type { Brief } from './copy';
 import { simpler, bolder, TEMPLATES, COMPLEXITY_ORDER, templateById } from './templates';
 import { PLATFORM_SPECS, paletteById, PALETTES } from './brand';
@@ -227,5 +227,57 @@ describe('template controls', () => {
       expect(spec.safe).toBeGreaterThan(0);
       expect(spec.safe).toBeLessThan(Math.min(spec.w, spec.h) / 4);
     }
+  });
+});
+
+
+describe('building a post on an archive record', () => {
+  const source = { identifier: 'IIA-1998-0007', title: 'Total column ozone at Maitri', url: 'https://iia-public.web.app/archive/IIA-1998-0007' };
+  const variant = (captions: { x: string; linkedin: string; instagram: string }) =>
+    ({ copy: { kicker: '', headline: '', standfirst: '', stat: null, statLabel: null, captions } });
+
+  it('addresses a record by its citable identifier', () => {
+    expect(recordUrl('IIA-1998-0007')).toBe('https://iia-public.web.app/archive/IIA-1998-0007');
+  });
+
+  it('appends the link to every caption', () => {
+    const [v] = withSourceLink([variant({ x: 'Ozone over Maitri.', linkedin: 'Ozone.', instagram: 'Ozone.' })], source);
+    expect(v.copy.captions.x).toContain(source.url);
+    expect(v.copy.captions.linkedin).toContain(source.url);
+    expect(v.copy.captions.instagram).toContain(source.url);
+  });
+
+  it('leaves a caption alone when the link would push it over the limit', () => {
+    const long = 'a'.repeat(270);
+    const [v] = withSourceLink([variant({ x: long, linkedin: 'ok', instagram: 'ok' })], source);
+    // Better a post with no link than a truncated one that reads as broken.
+    expect(v.copy.captions.x).toBe(long);
+    expect(v.copy.captions.linkedin).toContain(source.url);
+  });
+
+  it('does not add the link twice', () => {
+    const once = withSourceLink([variant({ x: 'Ozone.', linkedin: 'x', instagram: 'y' })], source);
+    const twice = withSourceLink(once, source);
+    expect(twice[0].copy.captions.x.match(/archive/g)).toHaveLength(1);
+  });
+
+  it('is a no-op with no source', () => {
+    const v = variant({ x: 'Ozone.', linkedin: 'x', instagram: 'y' });
+    expect(withSourceLink([v], undefined)[0]).toBe(v);
+  });
+
+  it('hands the generator the record facts rather than trusting recall', () => {
+    const material = describeRecordForBrief({
+      title: 'Total column ozone at Maitri',
+      body: ['Measured by the India Meteorological Department.'],
+      year: '1998',
+      station: 'Maitri',
+      kind: 'Dataset',
+      measurements: [{ label: 'Minimum', value: 108, unit: 'DU' }],
+    });
+    expect(material).toContain('Total column ozone at Maitri');
+    expect(material).toContain('Maitri');
+    expect(material).toContain('1998');
+    expect(material).toContain('108 DU');
   });
 });

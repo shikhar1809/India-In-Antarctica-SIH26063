@@ -24,6 +24,8 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Cell,
 } from 'recharts'
 import type { RecordChart as RecordChartData } from '../repository/contract'
+import { MIN_TREND_POINTS } from '../api/repository'
+import type { TrendPoint } from '../api/repository'
 import './RecordChart.css'
 
 const SERIES = '#2f9fc9'      // glacier blue  — readings
@@ -122,8 +124,40 @@ export function RecordChart({ chart }: { chart: RecordChartData }) {
 
 /* ─────────────────────────────────────────────────── repository trend ── */
 
-export function TemperatureTrend({ data }: { data: { label: string; value: number; station: string }[] }) {
-  if (data.length < 2) return null
+interface TrendTipProps {
+  active?: boolean
+  payload?: { payload: TrendPoint }[]
+  activeId?: string
+}
+
+/** The trend's own tooltip: a point here is a whole record, so it says which
+ *  station reported it and calls out the record you are reading. */
+function TrendTip({ active, payload, activeId }: TrendTipProps) {
+  if (!active || !payload?.length) return null
+  const p = payload[0].payload
+  return (
+    <div className="rc-tip">
+      <span className="rc-tip-label">{p.station} · {p.label}</span>
+      <span className="rc-tip-value">{p.value} °C</span>
+      {p.id === activeId ? <span className="rc-tip-note">This record</span> : null}
+    </div>
+  )
+}
+
+/**
+ * Air temperature across the whole repository.
+ *
+ * The same series appears under every record, because it *is* the same
+ * series — so the one thing that has to change per record is where that
+ * record sits in it. `activeId` marks the point this page is about: a hollow
+ * ring around it, and a "this record" line in its tooltip. Without that the
+ * chart is a repeated decoration; with it, it answers "was this observation
+ * unusual?", which is a question only the repository can answer.
+ */
+export function TemperatureTrend({ data, activeId }: { data: TrendPoint[]; activeId?: string }) {
+  if (data.length < MIN_TREND_POINTS) return null
+
+  const marked = data.some((d) => d.id === activeId)
 
   return (
     <figure className="rc-figure rc-figure--wide">
@@ -132,6 +166,7 @@ export function TemperatureTrend({ data }: { data: { label: string; value: numbe
         <p className="rc-caption">
           Every published observation that recorded a temperature, in the order it was taken.
           Each point is one team, standing outside, writing down what the thermometer said.
+          {marked ? ' The ringed point is the record you are reading.' : null}
         </p>
       </figcaption>
 
@@ -141,19 +176,57 @@ export function TemperatureTrend({ data }: { data: { label: string; value: numbe
             <CartesianGrid vertical={false} stroke={GRID} />
             <XAxis dataKey="label" tick={axisTick} axisLine={{ stroke: GRID }} tickLine={false} />
             <YAxis tick={axisTick} axisLine={false} tickLine={false} unit="°C" width={56} />
-            <Tooltip cursor={{ stroke: GRID }} content={<Tip unit="°C" />} />
+            <Tooltip cursor={{ stroke: GRID }} content={<TrendTip activeId={activeId} />} />
             <Line
               type="monotone"
               dataKey="value"
               stroke={SERIES_WARM}
               strokeWidth={2}
-              dot={{ r: 4, fill: SERIES_WARM, stroke: '#0d2033', strokeWidth: 2 }}
+              dot={(props) => <TrendDot {...props} activeId={activeId} />}
               activeDot={{ r: 6 }}
               isAnimationActive={false}
             />
           </LineChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Same values as a table, for anyone the chart doesn't serve. */}
+      <table className="rc-table">
+        <caption className="sr-only">Air temperature across the published record, as a table</caption>
+        <tbody>
+          {data.map((d) => (
+            <tr key={`${d.id}-${d.label}`}>
+              <th scope="row">
+                {d.station} · {d.label}
+                {d.id === activeId ? <span className="rc-here"> this record</span> : null}
+              </th>
+              <td>{d.value} °C</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </figure>
+  )
+}
+
+interface DotProps {
+  cx?: number
+  cy?: number
+  payload?: TrendPoint
+  activeId?: string
+}
+
+/** An ordinary filled dot, except for this record's own observation, which
+ *  gets a ring so it can be found without hovering every point. */
+function TrendDot({ cx, cy, payload, activeId }: DotProps) {
+  if (cx === undefined || cy === undefined) return null
+  const isActive = !!payload && payload.id === activeId
+  return (
+    <g>
+      {isActive ? (
+        <circle cx={cx} cy={cy} r={9} fill="none" stroke={SERIES_WARM} strokeWidth={1.5} opacity={0.85} />
+      ) : null}
+      <circle cx={cx} cy={cy} r={isActive ? 4.5 : 4} fill={SERIES_WARM} stroke="#0d2033" strokeWidth={2} />
+    </g>
   )
 }

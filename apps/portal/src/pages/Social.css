@@ -2200,3 +2200,24 @@
   font-style: normal;
   font-weight: 500;
 }
+
+
+/* Your own UID, shown in the role manager so the first admin can be seeded
+   without a trip to the Firebase console. */
+.fld-own-uid {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.fld-own-uid code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+  flex: 1 1 220px;
+}

@@ -196,13 +196,6 @@
   border-color: var(--cyan);
 }
 
-.arch2-count {
-  margin-left: auto;
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  color: var(--ice-faint);
-}
-
 /* -------------------------------------------------------------- detail */
 
 .arch2-detail {
@@ -477,13 +470,42 @@
 
 /* The repository-wide chart gets its own heading and framing so it can't be
    mistaken for a chart belonging to the record above it. */
-.arch2-trend { margin-top: 48px; }
+/* The trend sits outside the record panel, directly on the starfield
+ * background — so its heading needs the panel's own surface behind it, not
+ * --ice-faint text over moving clouds, which was unreadable. */
+.arch2-trend {
+  margin-top: 48px;
+  padding: 1.6rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+
+.arch2-trend-title {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-disp);
+  font-size: 1.05rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ice);
+}
+
 .arch2-trend-sub {
-  margin: -6px 0 16px;
+  margin: 0 0 16px;
   font-size: 13px;
-  color: var(--ice-faint);
+  line-height: 1.6;
+  color: var(--ice-dim);
   max-width: 60ch;
 }
+
+/* Inside the panel the figure is the content, not a card of its own. */
+.arch2-trend .rc-figure {
+  padding: 0;
+  border: none;
+  background: none;
+}
+
+.arch2-trend .rc-figure--wide { margin-top: 0; }
 
 /* ══════════════════════════════════ PS5-style two-screen navigation ══ */
 
@@ -625,4 +647,445 @@
 @media (max-width: 640px) {
   .arch2-selector-bar { padding: 1rem var(--body-pad, 4vw); gap: 0.7rem; }
   .arch2-open-btn { font-size: 0.78rem; padding: 0.5rem 0.9rem; }
+}
+
+/* ── Sources ─────────────────────────────────────────────────────────────
+ * The citation apparatus under a record. The markers in the prose are the
+ * quick path; this is the version you can read straight through, and the
+ * one that survives a printout or a screen reader that skips hover cards. */
+
+.arch2-sources {
+  margin-top: 1.6rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--line);
+}
+
+.arch2-sources-title {
+  margin: 0 0 0.3rem;
+  font-family: var(--font-disp);
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ice);
+}
+
+.arch2-sources-note {
+  margin: 0 0 0.9rem;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--ice-faint);
+  max-width: 54ch;
+}
+
+.arch2-sources-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.arch2-source {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+  padding: 0.7rem 0.85rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.arch2-source-num {
+  flex: none;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.arch2-source-text {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.arch2-source-label {
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.arch2-source-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ice);
+}
+
+.arch2-source-meta {
+  font-size: 0.78rem;
+  color: var(--ice-dim);
+}
+
+.arch2-source-detail {
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: var(--ice-faint);
+}
+
+.arch2-source-link {
+  justify-self: start;
+  margin-top: 0.15rem;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+.arch2-permalink {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--cyan);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+  overflow-wrap: anywhere;
+}
+
+/* ── The report body ─────────────────────────────────────────────────────
+ * A published record is a document, not a card: an abstract to decide from,
+ * a contents list to navigate by, sections with their own figures, and — on
+ * a dataset — the schema and a few real rows. */
+
+.arch2-abstract-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+}
+
+.rep-contents {
+  margin-top: 2rem;
+  padding: 1rem 1.2rem;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+}
+
+.rep-contents-label {
+  display: block;
+  margin-bottom: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+}
+
+.rep-contents ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.rep-contents a {
+  display: flex;
+  gap: 0.6rem;
+  align-items: baseline;
+  padding: 0.3rem 0;
+  font-size: 0.9rem;
+  color: var(--ice-dim);
+  text-decoration: none;
+}
+
+.rep-contents a:hover { color: var(--cyan); }
+
+.rep-contents-num {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ice-faint);
+}
+
+.rep-sections { margin-top: 2rem; }
+
+.rep-section {
+  padding-top: 1.6rem;
+  border-top: 1px solid var(--line);
+  margin-top: 1.6rem;
+  scroll-margin-top: 1.5rem;
+}
+
+.rep-sections .rep-section:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.rep-section-head {
+  margin: 0 0 0.8rem;
+  font-family: var(--font-disp);
+  font-size: 1.35rem;
+  letter-spacing: 0.01em;
+  color: var(--ice);
+}
+
+.rep-para {
+  margin: 0 0 1.05rem;
+  font-size: 0.98rem;
+  line-height: 1.75;
+  color: var(--ice-dim);
+  max-width: 74ch;
+}
+
+/* ── Figures ── */
+
+.rep-figure {
+  margin: 1.4rem 0 0;
+  padding: 0;
+}
+
+.rep-figure-img {
+  display: block;
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+
+.rep-figure-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  font-size: 0.88rem;
+}
+
+.rep-figure-table th,
+.rep-figure-table td {
+  padding: 0.55rem 0.9rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.rep-figure-table tr:last-child th,
+.rep-figure-table tr:last-child td { border-bottom: none; }
+.rep-figure-table th { color: var(--ice-faint); font-weight: 500; white-space: nowrap; }
+.rep-figure-table td { color: var(--ice); font-family: var(--font-mono); }
+
+.rep-figure-caption {
+  margin-top: 0.6rem;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: var(--ice-faint);
+  max-width: 70ch;
+}
+
+.rep-figure-num {
+  margin-right: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+
+/* ── Dataset preview ── */
+
+.rep-dataset {
+  margin-top: 2rem;
+  padding: 1.4rem;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  scroll-margin-top: 1.5rem;
+}
+
+.rep-dataset-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.9rem;
+  margin: 0 0 1.2rem;
+}
+
+.rep-dataset-facts dt {
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+  margin-bottom: 0.2rem;
+}
+
+.rep-dataset-facts dd {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--ice);
+}
+
+.rep-dataset-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+}
+
+.rep-dataset-of { text-transform: none; letter-spacing: 0; }
+
+.rep-dataset-schema { margin-bottom: 1.2rem; }
+
+.rep-dataset-schema table,
+.rep-dataset-sample table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.rep-dataset-schema th,
+.rep-dataset-schema td,
+.rep-dataset-sample th,
+.rep-dataset-sample td {
+  padding: 0.45rem 0.7rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.rep-dataset-schema td:last-child { white-space: normal; color: var(--ice-dim); }
+
+.rep-dataset-schema thead th,
+.rep-dataset-sample thead th {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+  font-weight: 500;
+}
+
+.rep-dataset-schema tbody th code {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--cyan);
+}
+
+.rep-dataset-type,
+.rep-dataset-unit {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--ice-faint);
+}
+
+.rep-dataset-sample tbody td {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--ice);
+}
+
+/* Wide sample tables scroll in their own box; the page never does. */
+.rep-dataset-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+/* ── References ── */
+
+.arch2-refs {
+  margin-top: 1.6rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid var(--line);
+}
+
+.arch2-refs-title {
+  margin: 0 0 0.7rem;
+  font-family: var(--font-disp);
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ice);
+}
+
+.arch2-refs-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  line-height: 1.6;
+  color: var(--ice-dim);
+  max-width: 78ch;
+}
+
+.arch2-refs-list a {
+  color: var(--cyan);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 640px) {
+  .rep-section-head { font-size: 1.15rem; }
+  .rep-dataset { padding: 1rem; }
+}
+
+/* The download is the point of a dataset record, so it sits above the
+   description of the data rather than under it. */
+.rep-dataset-download {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 1.2rem;
+  padding: 0.85rem 1.1rem;
+  border: 1px solid rgba(95, 217, 255, 0.35);
+  border-radius: 10px;
+  background: rgba(95, 217, 255, 0.08);
+  color: var(--ice);
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.rep-dataset-download:hover {
+  background: rgba(95, 217, 255, 0.14);
+  border-color: var(--cyan);
+}
+
+.rep-dataset-download-icon {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(95, 217, 255, 0.16);
+  color: var(--cyan);
+  font-size: 1rem;
+}
+
+.rep-dataset-download strong {
+  display: block;
+  font-size: 0.92rem;
+  color: var(--ice);
+}
+
+.rep-dataset-download-meta {
+  display: block;
+  margin-top: 0.1rem;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--ice-dim);
 }

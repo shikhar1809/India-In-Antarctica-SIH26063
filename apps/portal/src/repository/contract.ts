@@ -280,6 +280,77 @@ export interface CitedSpan {
  *  outright, so an array of arrays cannot be persisted. */
 export interface ParagraphCitation { spans: CitedSpan[] }
 
+/* ─────────────────────────────────────────────────── the report itself ──
+ * `body` is the abstract: the two or three paragraphs that answer "what is
+ * this" for someone scanning the archive. It is what every record has had
+ * since the beginning, and it stays exactly that.
+ *
+ * A real expedition report or dataset is not an abstract. It has sections a
+ * reader navigates rather than reads start to finish, figures that carry the
+ * evidence, a description of how the measurements were made, and — for a
+ * dataset — enough of the data itself to judge whether it is worth
+ * downloading. These types carry that, and everything about them is
+ * optional: a record with no `sections` renders exactly as records did
+ * before they existed.
+ */
+
+/** A figure inside a section. `kind` says which payload field is set. */
+export interface SectionFigure {
+  kind: 'photo' | 'chart' | 'table';
+  /** Figures are captioned, always — an uncaptioned figure asks the reader
+   *  to guess what they are looking at. */
+  caption: string;
+  photoUrl?: string | null;
+  chart?: RecordChart;
+  rows?: RecordFact[];
+}
+
+export interface ReportSection {
+  /** Slug, used as the anchor the contents list links to. */
+  id: string;
+  heading: string;
+  paragraphs: string[];
+  figure?: SectionFigure;
+  /** Attributes the whole section to one of the record's `sources`. */
+  sourceId?: string | null;
+}
+
+/** One column of a published dataset. */
+export interface DatasetColumn {
+  name: string;
+  unit: string | null;
+  type: 'number' | 'text' | 'datetime';
+  description: string;
+}
+
+/**
+ * Enough of a dataset to judge it without downloading it: what shape it is,
+ * what each column means, and a few real rows. A dataset record that shows
+ * only a title and a file size asks the reader to take it on faith.
+ */
+export interface DatasetPreview {
+  format: string;
+  sizeLabel: string;
+  rowCount: number;
+  /** One line on what period and area the data covers. */
+  coverage: string;
+  /** Where the file itself can be fetched. A dataset record without one
+   *  describes data rather than offering it, which is the difference
+   *  between a catalogue entry and a repository. */
+  downloadUrl?: string | null;
+  columns: DatasetColumn[];
+  /** A handful of real rows, values aligned to `columns`. Each row is a map
+   *  rather than a bare array because Firestore rejects an array nested
+   *  directly inside another array. */
+  sampleRows: { values: string[] }[];
+}
+
+/** Something this record cites, or that cites it. */
+export interface Reference {
+  citation: string;
+  url?: string | null;
+}
+
 export interface RepositoryRecord {
   id: string;
   cat: CoverCategory;
@@ -303,6 +374,13 @@ export interface RepositoryRecord {
   /** Everything the prose in `body` was written from. Absent on records
    *  published before citations existed — iia-public derives a single
    *  provenance-level source for those rather than showing them uncited. */
+  /** The report proper, when the record has one. Sections are what turn a
+   *  published abstract into something a reader can navigate. */
+  sections?: ReportSection[];
+  /** Present on dataset records that published a schema and sample rows. */
+  dataset?: DatasetPreview;
+  references?: Reference[];
+
   sources?: RecordSource[];
   /** Index-aligned with `body`: how each paragraph splits into cited spans.
    *  iia-public re-joins the spans and only trusts them when they reproduce

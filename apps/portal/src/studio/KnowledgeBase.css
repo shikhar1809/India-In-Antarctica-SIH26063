@@ -1,0 +1,102 @@
+/* Archive picker inside the studio brief. */
+
+.kb { display: flex; flex-direction: column; gap: 10px; }
+
+.kb-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 11px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(0, 0, 0, 0.25);
+  opacity: 0.9;
+}
+
+.kb-search input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.86rem;
+  outline: none;
+}
+
+.kb-empty {
+  margin: 2px 0;
+  font-size: 0.8rem;
+  opacity: 0.5;
+}
+
+.kb-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.kb-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.kb-item:hover { border-color: rgba(255, 255, 255, 0.28); }
+
+.kb-item.is-picked {
+  border-color: rgba(63, 185, 80, 0.65);
+  background: rgba(63, 185, 80, 0.09);
+}
+
+.kb-item-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  opacity: 0.6;
+}
+
+.kb-item-head code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.kb-kind {
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.kb-item strong {
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.kb-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.75rem;
+  opacity: 0.55;
+}
+
+.kb-picked {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #3fb950;
+  opacity: 1;
+}

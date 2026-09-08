@@ -57,6 +57,96 @@ Two further guards live in `canPublishDispatch()`: anything with
 `safetyFlag: true`, and anything whose activity is `Emergency / incident`, is
 refused publication outright regardless of what an admin clicks.
 
+## The authorization boundary
+
+The projection above is only worth as much as the rule that decides who may
+approve. Two rules carry that weight, and both are stated here because both
+were once wrong in ways that read as correct.
+
+**Privilege is granted, never claimed.** `roles/{uid}` lets a signed-in user
+write exactly one value for themselves — `scientist`, which is what
+`useRole()` already assumes when no document exists. `publisher` and `admin`
+are writable only by someone who is already an admin. The earlier version
+allowed any authenticated user to write their own role with `admin` in the
+permitted set; sign-in is open Google auth, so every admin-gated rule in the
+file — approving a dispatch, writing to `publicArchive`, editing the public
+site — was self-issuable by anyone with a Google account.
+
+A project with no admins therefore cannot mint its first one from inside the
+app. That is deliberate: an in-band escape hatch is the vulnerability, not the
+fix. `scripts/set-role.mjs` seeds the first admin with owner credentials that
+operate above the rules.
+
+**A raw dispatch is not readable by every account.** `dispatches` previously
+granted read on `request.auth != null`, with a comment saying "publisher and
+admin only" that described a client-side filter. A dispatch carries the
+scientist's unedited notes, the field party, sample identifiers, admin notes
+and — on an incident report — injuries. Reads are now scoped to the author or
+a reviewer, and `useDispatches()` issues the matching query, because an
+unscoped query from a scientist is refused outright rather than silently
+trimmed.
+
+Neither rule can be tested here without a JVM for the Firestore emulator, so
+`src/security/rules.test.ts` reads the rules file directly and asserts both
+boundaries in the ordinary unit run. It is a poor substitute for an emulator
+and a good substitute for remembering; reintroducing either hole fails three
+tests.
+
+## Dissemination — the social half of the problem statement
+
+The brief asks for content generated "for websites and social media". The
+website half was always real: publish.ts projects an approved dispatch into
+`publicArchive`, and the public site and the JSON API read it. The social half
+stopped at a caption and a PNG the publisher downloaded and posted from their
+own phone. That is a useful tool, but it is not dissemination — nothing
+recorded what went out, when, to which account, or whether it went out at all.
+
+`src/social/queue.ts` is the missing half: a queue with a state machine, where
+a post is a tracked object from scheduling to landing.
+
+```
+queued ──► ready ──► posted
+  │          │
+  │          └────► failed ──► ready     (a retry re-enters the queue)
+  └────────────────► cancelled
+```
+
+`ready` is deliberately separate from `queued`. What decides a post is *due*
+is the clock; what decides it is *sendable* is validation. Collapsing them
+hides the difference between "not yet" and "never, because the caption is 40
+characters too long" — and the second one is only fixable while the publisher
+still remembers writing it, which is why captions are validated at schedule
+time rather than at send time.
+
+**A queue entry references a published record, never a dispatch.** This is the
+same boundary publish.ts draws, enforced a second time at the only other place
+content can leave the building. `schedulePost()` accepts a `RepositoryRecord`
+and there is no overload that takes anything else, and `firestore.rules`
+independently requires the referenced document to already exist in
+`publicArchive`. Without that, a publisher could schedule straight from a
+dispatch id and put raw field notes on a government timeline.
+
+**Posting is an adapter, and the manual adapter is a first-class citizen.**
+Getting an X or LinkedIn application approved for a government account is a
+procurement exercise measured in weeks, and a system that cannot disseminate
+until that finishes cannot disseminate. So the queue is complete with no
+credential at all: it prepares the post and records the permalink a publisher
+confirms. When a credential arrives, `registerAdapter()` claims that platform
+and the queue stops asking — the data model, the UI and the audit trail are
+unchanged. `adapterFor()` reporting `automatic: false` therefore always means
+"no credential", never "not wired up yet".
+
+Two details that look small and are not. The manual adapter returns an honest
+failure rather than a resolved promise, because a promise that quietly did
+nothing would write `posted` into the audit trail for a post that never
+existed. And confirming a manual post *requires* the permalink: an
+unverifiable claim that something was posted is worth less than no claim,
+because it looks like evidence.
+
+Nothing is hard-deleted — `cancelled` is a state. "This was scheduled and then
+pulled" is part of the record of what was disseminated; an absent row proves
+nothing.
+
 ## The shared vocabulary problem
 
 The three codebases were written separately and had drifted:

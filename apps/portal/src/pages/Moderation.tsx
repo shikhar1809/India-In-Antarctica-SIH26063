@@ -4,6 +4,8 @@ import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import type { ResearchDocument } from '../types';
 import { mintIdentifier, publishRecord, documentToRepositoryRecord } from '../repository/publish';
+import { documentRedactionOf } from '../repository/redaction';
+import { RedactionPreview } from '../components/RedactionPreview';
 import './shared.css';
 import './Moderation.css';
 
@@ -225,6 +227,12 @@ export function Moderation() {
                     <span>Deposited by {d.authorName}</span>
                     {d.embargo && d.embargo !== 'none' && <span className="mod-doc-embargo">Embargo: {d.embargo}</span>}
                   </div>
+                  {/* What of this deposit publishes, and what stays here.
+                      Shown before the publish button, not after it. */}
+                  <RedactionPreview
+                    redaction={documentRedactionOf(d)}
+                    record={documentToRepositoryRecord(d, 'preview', 'IIA-PREVIEW')}
+                  />
                   <div className="mod-card-actions">
                     <a className="ph-btn ghost" href={d.fileUrl} target="_blank" rel="noreferrer">Open the file</a>
                     <button className="ph-btn primary" onClick={() => publishDoc(d)} disabled={docBusy === d.id}>

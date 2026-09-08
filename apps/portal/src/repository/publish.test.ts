@@ -208,6 +208,61 @@ describe('citations on a published dispatch record', () => {
   });
 });
 
+describe('the published report body', () => {
+  it('publishes a report, not only an abstract', () => {
+    const rec = publish();
+    expect(rec.sections?.length).toBeGreaterThan(2);
+    const words = rec.sections!.flatMap((x) => x.paragraphs).join(' ').split(/\s+/).length;
+    expect(words).toBeGreaterThan(250);
+  });
+
+  it('describes how the measurements were made', () => {
+    const method = publish().sections!.find((x) => x.id === 'method');
+    expect(method?.paragraphs[0]).toMatch(/stake/);
+  });
+
+  it('puts the readings behind a figure rather than only in prose', () => {
+    const readings = publish().sections!.find((x) => x.id === 'readings');
+    expect(readings?.figure?.kind).toBe('chart');
+    expect(readings?.figure?.chart?.data).toHaveLength(3);
+  });
+
+  it('falls back to a table of readings when the numbers cannot carry a chart', () => {
+    const one: Measurement[] = [{ fieldId: 'surface', label: 'Surface type', value: 'Wind slab', unit: null }];
+    const d = approvedDispatch();
+    const rec = toRepositoryRecord(d, draftPublicSummary(d, one), one, 'admin-uid', 'IIA-2026-0042', 0);
+    const readings = rec.sections!.find((x) => x.id === 'readings');
+    expect(readings?.figure?.kind).toBe('table');
+    expect(readings?.figure?.rows).toEqual([{ label: 'Surface type', value: 'Wind slab' }]);
+  });
+
+  it('records the conditions the work was done in', () => {
+    const conditions = publish().sections!.find((x) => x.id === 'conditions');
+    expect(conditions?.paragraphs[0]).toContain('-24 °C');
+    expect(conditions?.paragraphs[0]).toContain('blowing snow');
+  });
+
+  it('attributes every section to a source the record lists', () => {
+    const rec = publish();
+    const ids = new Set(rec.sources!.map((x) => x.id));
+    for (const section of rec.sections!) {
+      expect(section.sourceId).toBeTruthy();
+      expect(ids.has(section.sourceId!)).toBe(true);
+    }
+  });
+
+  it('gives every section an anchor a contents list can link to', () => {
+    const ids = publish().sections!.map((x) => x.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const id of ids) expect(id).toMatch(/^[a-z0-9-]+$/);
+  });
+
+  it('carries no internal material into the report body either', () => {
+    const serialised = JSON.stringify(publish().sections);
+    for (const secret of Object.values(SECRETS)) expect(serialised).not.toContain(secret);
+  });
+});
+
 describe('identifiers', () => {
   it('formats to a citable, sortable, zero-padded id', () => {
     expect(formatIdentifier(2026, 42)).toBe('IIA-2026-0042');
@@ -298,6 +353,23 @@ describe('repository documents publish through the same projection', () => {
     const rec = documentToRepositoryRecord(researchDoc, 'admin-uid', 'IIA-2025-0007');
     expect(rec.sources![0].label).toBe('Submission summary');
     expect(rec.citations![0].spans[0].locator).toBe('Summary supplied with the upload');
+  });
+
+  it('puts a submitted report in its own section, leaving the abstract alone', () => {
+    const withReport: ResearchDocument = {
+      ...researchDoc,
+      fullText: 'First paragraph of the report.\n\nSecond paragraph of the report.',
+    };
+    const rec = documentToRepositoryRecord(withReport, 'admin-uid', 'IIA-2025-0007');
+    expect(rec.sections).toHaveLength(1);
+    expect(rec.sections![0].paragraphs).toHaveLength(2);
+    expect(rec.sections![0].sourceId).toBe('document');
+  });
+
+  it('publishes no report section when no report was submitted', () => {
+    const rec = documentToRepositoryRecord(researchDoc, 'admin-uid', 'IIA-2025-0007');
+    expect(rec.sections).toBeUndefined();
+    expect(rec.body).toEqual([researchDoc.description]);
   });
 
   it('populates videoUrl and drops the file row when the upload was a video', () => {

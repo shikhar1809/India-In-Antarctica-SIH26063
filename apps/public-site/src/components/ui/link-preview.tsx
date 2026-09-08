@@ -85,11 +85,6 @@ export const LinkPreview = ({
   const src = isStatic ? imageSrc : microlinkScreenshot(url, width, height)
 
   const [isOpen, setOpen] = React.useState(false)
-  const [isMounted, setIsMounted] = React.useState(false)
-
-  React.useEffect(() => {
-    setIsMounted(true)
-  }, [])
 
   const springConfig = { stiffness: 100, damping: 15 }
   const x = useMotionValue(0)
@@ -107,13 +102,13 @@ export const LinkPreview = ({
 
   return (
     <>
-      {/* Warm the screenshot before the card opens, so hovering doesn't
-          show an empty frame while microlink renders the page. */}
-      {isMounted ? (
-        <div className="hidden">
-          <img src={src} width={width} height={height} alt="" />
-        </div>
-      ) : null}
+      {/* Warm the screenshot before the card opens, so hovering doesn't show
+          an empty frame while microlink renders the page. The original
+          component gates this on a mounted flag to avoid an SSR mismatch;
+          this app renders only in the browser, so it just renders. */}
+      <div className="hidden">
+        <img src={src} width={width} height={height} alt="" />
+      </div>
 
       <HoverCardPrimitive.Root openDelay={50} closeDelay={100} onOpenChange={setOpen}>
         <HoverCardPrimitive.Trigger asChild onMouseMove={handleMouseMove}>

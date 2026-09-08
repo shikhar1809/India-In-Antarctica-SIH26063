@@ -132,7 +132,13 @@ const records = RECORDS.map((r, i) => {
     // Firestore rejects nested arrays, so [label, value] tuples become maps.
     ...(r.table ? { table: r.table.map(([label, value]) => ({ label, value })) } : {}),
     ...(r.credit ? { credit: r.credit } : {}),
-    photoUrls: [],
+    // The report proper, the dataset's own description, and what the record
+    // cites. All optional: a record that has none of them publishes exactly
+    // as historical records did before archiveData carried them.
+    ...(r.sections ? { sections: r.sections } : {}),
+    ...(r.dataset ? { dataset: r.dataset } : {}),
+    ...(r.references ? { references: r.references } : {}),
+    photoUrls: r.photos ?? [],
     videoUrl: null,
     measurements: [],
     metadata: {
@@ -170,9 +176,9 @@ const banner = `/* GENERATED FILE — do not edit by hand.
  * in apps/public-site/src/data/archiveData.ts, which meant the public archive was a
  * fixed list rather than a repository.
  *
- * Seeded into the publicArchive collection by the admin "Import historical
- * records" action, so every record the public site shows — historical and
- * newly published alike — comes from the same live collection.
+ * Seeded into the publicArchive collection by the admin "Refresh records"
+ * action, so every record the public site shows — historical and newly
+ * published alike — comes from the same live collection.
  *
  * Regenerate with: node scripts/generate-historical-records.mjs
  */

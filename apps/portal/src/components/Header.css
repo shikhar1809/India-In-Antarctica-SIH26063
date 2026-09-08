@@ -132,3 +132,18 @@
   .ph-role-switcher { display: none; }
   .ph-user-name { display: none; }
 }
+
+/* Role is displayed, never chosen — see RoleBadge in Header.tsx. */
+.ph-role-badge {
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.ph-role-badge.role-admin     { color: #f0b429; }
+.ph-role-badge.role-publisher { color: #58a6ff; }
+.ph-role-badge.role-scientist { color: #8b949e; }

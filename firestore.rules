@@ -2,10 +2,22 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isAdmin() {
+    /* Role lookup, null-safe.
+     *
+     * A signed-in user with no roles/{uid} document is not an error — it is a
+     * new sign-up, and the correct reading is "lowest privilege". Reading
+     * .data.role straight off a missing document aborts rule evaluation
+     * instead, so the existence check here is load-bearing, not defensive
+     * noise. Rules cache identical get() calls within one request, so naming
+     * the lookup once costs nothing over inlining it everywhere. */
+    function roleOf() {
       return request.auth != null
-        && get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role == 'admin';
+        && exists(/databases/$(database)/documents/roles/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role
+        : 'none';
     }
+    function isAdmin()     { return roleOf() == 'admin'; }
+    function isPublisher() { return roleOf() == 'publisher'; }
 
     // Knowledge Repository submissions: readable by anyone (the catalogue is
     // public), created by any signed-in user, but a submission only becomes
@@ -94,13 +106,10 @@ service cloud.firestore {
     // Role assignments: each user can read and set their own role (self-service
     // switcher in the portal UI). Admins can set anyone's role.
     match /roles/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
+      allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
       allow write: if request.auth != null
         && request.resource.data.role in ['scientist', 'publisher', 'admin']
-        && (
-          request.auth.uid == uid
-          || get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role == 'admin'
-        );
+        && (request.auth.uid == uid || isAdmin());
     }
 
     // Field dispatches: Scientist → Publisher → Admin pipeline.
@@ -109,7 +118,18 @@ service cloud.firestore {
     // Update: publisher can draft (→ 'drafted'), admin can approve/flag.
     // Delete: only the author.
     match /dispatches/{dispatchId} {
-      allow read: if request.auth != null;
+      /* A raw dispatch is the most sensitive document in the system: it
+       * carries the scientist's unedited notes, the names of everyone in the
+       * field party, sample identifiers, admin notes and — on an incident
+       * report — injuries. `request.auth != null` meant any Google account
+       * could read all of it; the "publisher and admin only" in the comment
+       * above was enforced nowhere but a client-side filter, which is UI, not
+       * a boundary. Scientists see their own work, reviewers see the queue. */
+      allow read: if request.auth != null && (
+        resource.data.authorUid == request.auth.uid
+        || isPublisher()
+        || isAdmin()
+      );
       allow create: if request.auth != null
         && request.resource.data.authorUid == request.auth.uid
         && request.resource.data.status == 'raw'
@@ -130,7 +150,7 @@ service cloud.firestore {
           // disabled Submit button client-side — a client check alone is
           // just UI, not enforcement.
           (
-            get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role == 'publisher'
+            isPublisher()
             && request.resource.data.status in ['drafted']
             && request.resource.data.keys().hasAll(['caption', 'status', 'publisherName', 'publisherUid', 'sopChecklist', 'adminNotes', 'updatedAt'])
             && request.resource.data.publisherUid == request.auth.uid
@@ -145,7 +165,7 @@ service cloud.firestore {
           ||
           // Admin: approve or flag
           (
-            get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role == 'admin'
+            isAdmin()
             && request.resource.data.status in ['approved', 'flagged']
           )
         );
@@ -153,12 +173,55 @@ service cloud.firestore {
         && resource.data.authorUid == request.auth.uid;
     }
 
+    /* Scheduled social posts — the dissemination queue.
+     *
+     * Internal: the queue is a working surface for publishers and admins, and
+     * it carries scheduling intent and failure reasons that are nobody else's
+     * business. What reaches the public is the post itself, on the platform.
+     *
+     * The rule that matters is the recordId check. A queue entry may only
+     * point at a document that already exists in publicArchive — which is to
+     * say, material that survived the projection in publish.ts and an admin's
+     * approval. This is the same boundary publish.ts draws, enforced a second
+     * time at the only other place content can escape the building. Without
+     * it, a publisher could schedule straight from a dispatch id and put raw
+     * field notes on a government timeline.
+     *
+     * Deleting draws a line at whether the post ever went out. A queue entry
+     * that was scheduled and thought better of can be removed outright —
+     * keeping it would clutter the queue with things that never happened.
+     * One that reached a timeline cannot: the public saw it, and a system
+     * that can erase its own record of what it published is not an audit
+     * trail. 'cancelled' therefore remains available for pulling something
+     * you want to keep a note of, and delete is for tidying up.            */
+    match /socialPosts/{postId} {
+      allow read: if isPublisher() || isAdmin();
+
+      allow create: if (isPublisher() || isAdmin())
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.platform in ['x', 'linkedin', 'instagram']
+        && request.resource.data.status == 'queued'
+        && request.resource.data.caption is string
+        && request.resource.data.caption.size() > 0
+        && request.resource.data.caption.size() <= 3000
+        && request.resource.data.scheduledFor is int
+        && request.resource.data.recordId is string
+        && exists(/databases/$(database)/documents/publicArchive/$(request.resource.data.recordId));
+
+      allow update: if (isPublisher() || isAdmin())
+        && request.resource.data.recordId == resource.data.recordId
+        && request.resource.data.status in ['queued', 'ready', 'posted', 'failed', 'cancelled'];
+
+      allow delete: if (isPublisher() || isAdmin())
+        && resource.data.status != 'posted';
+    }
+
     // Public website CMS content — readable by anyone (powers iia-public.web.app),
     // writable only by signed-in admins via the portal Site Builder.
     match /publicSiteData/{docId} {
       allow read: if true;
       allow write: if request.auth != null
-        && get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role == 'admin';
+        && isAdmin();
     }
 
     // No other collection exists yet — default deny.

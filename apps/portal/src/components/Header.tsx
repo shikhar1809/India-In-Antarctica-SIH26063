@@ -38,6 +38,7 @@ function RoleSwitcher() {
   );
 }
 
+
 export function Header() {
   const { user, signIn, signOut, loading } = useAuth();
   const { role } = useRole();
@@ -53,12 +54,20 @@ export function Header() {
         </NavLink>
 
         <nav className="ph-nav">
-          <NavLink to="/" end className={({ isActive }) => isActive ? 'active' : ''}>Home</NavLink>
+          {/* Publishers and admins land on a working console rather than a
+              landing page, so "Menu" describes it better than "Home". A
+              scientist still sees a home page, and still calls it that. */}
+          <NavLink to="/" end className={({ isActive }) => isActive ? 'active' : ''}>
+            {isStaff ? 'Menu' : 'Home'}
+          </NavLink>
           <NavLink to="/repository" className={({ isActive }) => isActive ? "active" : ""}>Repository</NavLink>
           {user && isStaff && (
             <>
               <NavLink to="/social" className={({ isActive }) => isActive ? 'active' : ''}>
                 {role === 'publisher' ? 'Queue' : 'Review'}
+              </NavLink>
+              <NavLink to="/analytics" className={({ isActive }) => isActive ? 'active' : ''}>
+                Dashboard
               </NavLink>
               {role === 'admin' && (
                 <>

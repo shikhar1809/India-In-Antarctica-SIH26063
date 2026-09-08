@@ -1,0 +1,173 @@
+/* Scheduling dialog. Dark surface to match the portal's field-report tools. */
+
+.sd-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(4, 8, 16, 0.72);
+  backdrop-filter: blur(4px);
+  overflow-y: auto;
+}
+
+.sd-panel {
+  width: min(640px, 100%);
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 22px 24px 20px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #0d1420;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+}
+
+.sd-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.sd-head h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+/* The board is a fixed drawing; let it scroll rather than squash on narrow
+   screens, since a squashed circuit reads as a broken one. */
+.sd-flow {
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+  padding: 10px 0 18px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sd-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 16px;
+}
+
+.sd-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sd-field > span {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.sd-field small {
+  font-size: 0.76rem;
+  opacity: 0.55;
+}
+
+.sd-field small.sd-over {
+  color: #e5534b;
+  opacity: 1;
+}
+
+.sd-field select,
+.sd-field textarea,
+.sd-field input {
+  width: 100%;
+  padding: 9px 11px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.28);
+  color: inherit;
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.sd-field textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.sd-field select:disabled,
+.sd-field textarea:disabled {
+  opacity: 0.45;
+}
+
+.sd-platforms {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sd-platform {
+  flex: 1 1 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  font: inherit;
+  font-size: 0.86rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sd-platform small { opacity: 0.5; font-size: 0.72rem; }
+
+.sd-platform.selected {
+  border-color: rgba(120, 190, 255, 0.7);
+  background: rgba(120, 190, 255, 0.1);
+}
+
+.sd-issues {
+  margin: 16px 0 0;
+  padding: 10px 12px 10px 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(229, 83, 75, 0.4);
+  background: rgba(229, 83, 75, 0.08);
+  font-size: 0.84rem;
+}
+
+.sd-error {
+  margin: 12px 0 0;
+  font-size: 0.84rem;
+  color: #e5534b;
+}
+
+.sd-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+/* The record being disseminated — fixed, not chosen. */
+.sd-record {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(63, 185, 80, 0.4);
+  background: rgba(63, 185, 80, 0.07);
+}
+
+.sd-record code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.74rem;
+  opacity: 0.7;
+}
+
+.sd-record strong { font-size: 0.9rem; font-weight: 600; line-height: 1.35; }

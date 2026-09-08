@@ -45,24 +45,30 @@ try {
   // The archive is a two-screen PS5-style flow: a carousel that SELECTS a
   // record, then a detail screen for the one chosen. There is no list, so the
   // page is driven through the same affordances a player uses.
-  await page.waitForSelector('.arch2-page[data-record-count]:not([data-record-count="0"])', { timeout: 45000 });
+  // Wait for the count to SETTLE, not merely to become non-zero. The page
+  // renders a static fallback catalogue first and replaces it wholesale when
+  // the Firestore snapshot lands, so the first non-zero value it shows is a
+  // number the repository never claimed. Waiting for the live total is what
+  // the assertion below is actually about; if it never arrives, the check
+  // fails on the real value rather than on a transient one.
+  await page
+    .waitForFunction(
+      (expected) => document.querySelector('.arch2-page')?.dataset.recordCount === String(expected),
+      apiRecords.length,
+      { timeout: 45000 },
+    )
+    .catch(() => {});
 
   const apiTitles = apiRecords.map((r) => r.title.replace(/\n/g, ' '));
 
-  /** Step the carousel until it lands on `id`, then open that record. */
-  const openRecord = async (id) => {
-    if (await page.getAttribute('.arch2-page', 'data-view') === 'detail') {
-      await page.click('.arch2-back-btn');
-      await page.waitForSelector('.arch2-page[data-view="selector"]', { timeout: 10000 });
-    }
-    for (let i = 0; i < apiRecords.length + 2; i++) {
-      if (await page.getAttribute('.arch2-page', 'data-active-record') === id) break;
-      await page.click('.arch2-hero button[aria-label="Next"], .arch2-hero [data-carousel-next]')
-        .catch(async () => { await page.keyboard.press('ArrowRight'); });
-      await page.waitForTimeout(260);
-    }
-    await page.click('.arch2-open-btn');
-    await page.waitForSelector('.arch2-page[data-view="detail"]', { timeout: 10000 });
+  /** Open a record by its own address. The shelf is a 3D scene whose books
+   *  are picked by clicking the model, which is not something a test should
+   *  be aiming a cursor at; every record is addressable at /archive/<id>,
+   *  so the test opens them the way a shared link does. */
+  const openRecord = async (record) => {
+    await page.goto(`${BASE}/archive/${record.metadata?.identifier ?? record.id}`,
+      { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.waitForSelector('.arch2-page[data-view="detail"]', { timeout: 20000 });
   };
 
   /* ── 1. The page is driven by live data ─────────────────────────────── */
@@ -71,24 +77,44 @@ try {
   check('the page holds one record per published record',
     pageCount === apiRecords.length, `page ${pageCount}, API ${apiRecords.length}`);
 
-  const countLabel = await page.$eval('.arch2-count', (e) => e.textContent.trim());
-  check('the record counter reflects the live total',
-    countLabel.startsWith(String(apiRecords.length)), `got "${countLabel}"`);
+  // (The archive used to print a record counter in its header. The PS5
+  //  two-screen redesign removed it, and data-record-count above already
+  //  asserts the same thing against live data.)
 
   const activeId = await page.getAttribute('.arch2-page', 'data-active-record');
   check('the selected record is one the repository actually lists',
     apiRecords.some((r) => r.id === activeId), `active "${activeId}"`);
 
-  /* ── 2. Opening a record shows live content, not a hardcoded array ──── */
-  await page.click('.arch2-open-btn');
-  await page.waitForSelector('.arch2-page[data-view="detail"]', { timeout: 10000 });
+  /* ── 2. Every record has an address of its own ──────────────────────── */
+  const sample = apiRecords[0];
+  await openRecord(sample);
   const openedTitle = await page.$eval('.arch2-detail-title', (e) => e.textContent.trim());
+  check('a record opens straight from its own URL',
+    openedTitle === sample.title.replace(/\n/g, ' '), `got "${openedTitle}"`);
   check('the opened record’s title came from the repository',
     apiTitles.includes(openedTitle), `got "${openedTitle}"`);
 
+  // The citable identifier is the address, and case is not part of it.
+  if (sample.metadata?.identifier) {
+    await page.goto(`${BASE}/archive/${sample.metadata.identifier.toLowerCase()}`,
+      { waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.waitForSelector('.arch2-page[data-view="detail"]', { timeout: 20000 });
+    const lower = await page.$eval('.arch2-detail-title', (e) => e.textContent.trim());
+    check('the identifier works as a link however it is cased', lower === openedTitle, `got "${lower}"`);
+  }
+
+  // An address that names nothing must not fall through to whatever record
+  // happens to sit at that position.
+  await page.goto(`${BASE}/archive/not-a-real-record`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForSelector('.arch2-page[data-view="selector"]', { timeout: 20000 });
+  check('an unknown record id falls back to the shelf', true);
+
+  await openRecord(sample);
   await page.click('.arch2-back-btn');
   await page.waitForSelector('.arch2-page[data-view="selector"]', { timeout: 10000 });
   check('the back control returns to the selector', true);
+  check('going back drops the record from the URL',
+    new URL(page.url()).pathname.replace(/\/$/, '') === '/archive', page.url());
 
   /* ── 3. Charts ──────────────────────────────────────────────────────── */
   console.log('\nCharts');
@@ -96,7 +122,7 @@ try {
   if (!charted) {
     console.log('  SKIP  no published record currently carries a chart');
   } else {
-    await openRecord(charted.id);
+    await openRecord(charted);
     await page.waitForSelector('.rc-figure .recharts-surface', { timeout: 15000 });
 
     const bars = await page.$$eval('.recharts-rectangle', (els) => els.length);
@@ -125,8 +151,7 @@ try {
   // The citation block lives on the detail screen; make sure we are on one
   // whichever branch the chart section above took.
   if (await page.getAttribute('.arch2-page', 'data-view') !== 'detail') {
-    await page.click('.arch2-open-btn');
-    await page.waitForSelector('.arch2-page[data-view="detail"]', { timeout: 10000 });
+    await openRecord(sample);
   }
   const metaText = await page.$eval('.arch2-meta', (e) => e.textContent).catch(() => '');
   check('the citation block is on the page', metaText.length > 0);
@@ -135,19 +160,30 @@ try {
 
   /* ── 5. Category filters ────────────────────────────────────────────── */
   console.log('\nInteraction');
-  const chipCount = await page.$$eval('.arch2-chip', (els) => els.length);
-  check('category filters are rendered', chipCount >= 5, `${chipCount} chips`);
-
-  // Chips live on the selector screen, so come back to it before filtering.
+  // Category filters used to be chips on the selector screen; the two-screen
+  // redesign moved them into the shelf's Menu.
   if (await page.getAttribute('.arch2-page', 'data-view') === 'detail') {
     await page.click('.arch2-back-btn');
     await page.waitForSelector('.arch2-page[data-view="selector"]', { timeout: 10000 });
   }
-  await page.click('.arch2-chip:nth-child(3)');
-  await page.waitForTimeout(400);
+  await page.click('.arch2-topbar-btn:has-text("Menu")');
+  await page.waitForSelector('.arch2-menu', { timeout: 10000 });
+  const filterCount = await page.$$eval('.arch2-menu-item', (els) => els.length);
+  check('category filters are rendered', filterCount >= 5, `${filterCount} filters`);
+
+  // Pick a category the repository actually holds records in, so a failure
+  // means a broken jump rather than an empty category.
+  const CATEGORY_LABEL = {
+    expedition: 'Expedition Reports', dataset: 'Datasets', publication: 'Publications',
+    media: 'Photographs & Video', institution: 'Institutional',
+  };
+  const cat = Object.keys(CATEGORY_LABEL).find((c) => apiRecords.some((r) => r.cat === c));
+  await page.click(`.arch2-menu-item:has-text("${CATEGORY_LABEL[cat]}")`);
+  await page.waitForTimeout(600);
   const afterFilter = await page.getAttribute('.arch2-page', 'data-active-record');
+  const landedOn = apiRecords.find((r) => r.id === afterFilter);
   check('choosing a category moves the selection to a record of that type',
-    !!afterFilter && apiRecords.some((r) => r.id === afterFilter), `active "${afterFilter}"`);
+    !!landedOn && landedOn.cat === cat, `active "${afterFilter}" (${landedOn?.cat}), wanted ${cat}`);
 
   /* ── 6. Console hygiene ─────────────────────────────────────────────── */
   console.log('\nConsole');

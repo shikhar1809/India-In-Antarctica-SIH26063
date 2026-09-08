@@ -533,7 +533,7 @@ function HistoricalImportAction() {
         n++;
       }
       setState('done');
-      setMessage(`Imported ${n} historical records.`);
+      setMessage(`Refreshed ${n} historical records.`);
     } catch (err) {
       setState('error');
       setMessage(err instanceof Error ? err.message : 'Import failed.');
@@ -545,7 +545,7 @@ function HistoricalImportAction() {
       {message && <span className={'rs-admin-msg' + (state === 'error' ? ' error' : '')}>{message}</span>}
       <button type="button" className="rs-btn" onClick={run} disabled={state === 'working'}>
         <Sparkles size={14} strokeWidth={2} />
-        {state === 'working' ? 'Importing…' : state === 'done' ? 'Imported' : 'Import historical'}
+        {state === 'working' ? 'Refreshing…' : state === 'done' ? 'Refreshed' : 'Refresh records'}
       </button>
     </>
   );

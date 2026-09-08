@@ -28,6 +28,7 @@
     "seed:deposits": "node scripts/seed-repository-deposits.mjs",
     "seed:demo": "node scripts/seed-field-demo.mjs",
     "generate:records": "node scripts/generate-historical-records.mjs",
+    "role": "node scripts/set-role.mjs",
 
     "deploy": "firebase deploy",
     "deploy:rules": "firebase deploy --only firestore:rules,storage",

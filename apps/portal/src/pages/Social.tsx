@@ -11,6 +11,11 @@ import { MEASUREMENT_SCHEMA } from '../types';
 import { normaliseDispatch } from '../repository/normalise';
 import { draftPublicSummary } from '../repository/summarise';
 import { canPublishDispatch, mintIdentifier, publishRecord, unpublishRecord, toRepositoryRecord } from '../repository/publish';
+import { redactionOf } from '../repository/redaction';
+import type { RepositoryRecord } from '../repository/contract';
+import { RedactionPreview } from '../components/RedactionPreview';
+import { QueueTab } from '../social/QueueTab';
+import { ScheduleDialog } from '../social/ScheduleDialog';
 import { Studio } from '../studio/Studio';
 import { PostCanvas } from '../studio/PostCanvas';
 import { paletteById } from '../studio/brand';
@@ -143,7 +148,7 @@ export function Social() {
   // are, skip the normal padded/centered page shell entirely — the
   // workspace gets the whole page below the header, not another card
   // squeezed into a narrow column.
-  const [pubTab, setPubTab] = useState<'review' | 'mine'>('review');
+  const [pubTab, setPubTab] = useState<'review' | 'mine' | 'queue'>('review');
   const [pubActiveId, setPubActiveId] = useState<string | null>(null);
   const composeDispatch = role === 'publisher' && pubTab === 'review'
     ? toReview.find((d) => d.id === pubActiveId) ?? null
@@ -224,8 +229,8 @@ function PublisherView({
   toReview: Dispatch[];
   live: Dispatch[];
   dispatches: Dispatch[];
-  tab: 'review' | 'mine';
-  setTab: (t: 'review' | 'mine') => void;
+  tab: 'review' | 'mine' | 'queue';
+  setTab: (t: 'review' | 'mine' | 'queue') => void;
   setActiveId: (id: string | null) => void;
 }) {
   const openInReview = (id: string) => { setTab('review'); setActiveId(id); };
@@ -239,16 +244,20 @@ function PublisherView({
         <button role="tab" aria-selected={tab === 'mine'} className={'fld-tab' + (tab === 'mine' ? ' active' : '')} onClick={() => setTab('mine')}>
           My Submissions
         </button>
+        <button role="tab" aria-selected={tab === 'queue'} className={'fld-tab' + (tab === 'queue' ? ' active' : '')} onClick={() => setTab('queue')}>
+          Dissemination
+        </button>
       </div>
       {tab === 'review' && <ReviewTab items={toReview} setActiveId={setActiveId} />}
       {tab === 'mine'   && <MySubmissionsTab dispatches={dispatches} onRevise={openInReview} />}
+      {tab === 'queue'  && <QueueTab />}
     </>
   );
 }
 
 /* ============================================================= Admin view */
 function AdminView({ toApprove, live }: { toApprove: Dispatch[]; live: Dispatch[] }) {
-  const [tab, setTab] = useState<'approve' | 'feed' | 'roles'>('approve');
+  const [tab, setTab] = useState<'approve' | 'feed' | 'roles' | 'queue'>('approve');
   return (
     <>
       <div className="fld-tabs" role="tablist">
@@ -257,10 +266,12 @@ function AdminView({ toApprove, live }: { toApprove: Dispatch[]; live: Dispatch[
         </button>
         <button role="tab" aria-selected={tab === 'feed'} className={'fld-tab' + (tab === 'feed' ? ' active' : '')} onClick={() => setTab('feed')}>Live feed</button>
         <button role="tab" aria-selected={tab === 'roles'} className={'fld-tab' + (tab === 'roles' ? ' active' : '')} onClick={() => setTab('roles')}>Manage roles</button>
+        <button role="tab" aria-selected={tab === 'queue'} className={'fld-tab' + (tab === 'queue' ? ' active' : '')} onClick={() => setTab('queue')}>Dissemination</button>
       </div>
       {tab === 'approve' && <ApproveTab items={toApprove} />}
       {tab === 'feed'    && <FeedTab items={live} />}
       {tab === 'roles'   && <RolesTab />}
+      {tab === 'queue'   && <QueueTab />}
     </>
   );
 }
@@ -407,7 +418,7 @@ function MySubmissionsTab({ dispatches, onRevise }: { dispatches: Dispatch[]; on
  * judge: whether the public wording is actually supported by the notes.
  * The model can never block a publish; only a rule does that.
  */
-export function ApproveTab({ items }: { items: Dispatch[] }) {
+function ApproveTab({ items }: { items: Dispatch[] }) {
   const { user } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(items[0]?.id ?? null);
   const [flagging, setFlagging] = useState(false);
@@ -416,6 +427,11 @@ export function ApproveTab({ items }: { items: Dispatch[] }) {
   const [error, setError] = useState<string | null>(null);
   const [ai, setAi] = useState<AiReview | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
+  /* Set when a reviewer chose "Approve & schedule": the record has been
+     published, and the scheduling dialog opens on top of it. Held here rather
+     than derived, because the dispatch leaves the queue the moment it is
+     approved and the dialog still needs the record it was about. */
+  const [scheduleFor, setScheduleFor] = useState<(RepositoryRecord & { id: string }) | null>(null);
 
   const active = items.find((d) => d.id === activeId) ?? items[0] ?? null;
 
@@ -449,7 +465,11 @@ export function ApproveTab({ items }: { items: Dispatch[] }) {
     setAi(null);          // advice belongs to the dispatch it was asked about
   };
 
-  const approve = async () => {
+  /** Publish the active dispatch. `andSchedule` keeps the freshly published
+   *  record around so the scheduling dialog can open on it — approving and
+   *  announcing are the same thought, and making the reviewer go and find the
+   *  record again afterwards is how announcements get forgotten. */
+  const approve = async (andSchedule = false) => {
     if (!active || !user) return;
     setBusy(true); setError(null);
     try {
@@ -472,6 +492,7 @@ export function ApproveTab({ items }: { items: Dispatch[] }) {
         publicIdentifier: identifier,
         updatedAt: Date.now(),
       });
+      if (andSchedule) setScheduleFor(record);
       setActiveId(null); setAi(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not publish this record. Nothing was changed.');
@@ -503,6 +524,25 @@ export function ApproveTab({ items }: { items: Dispatch[] }) {
     .map((f) => [f.label, active.measurements?.[f.id], f.unit] as const)
     .filter((r): r is readonly [string, string, string | undefined] => !!r[1]);
 
+  /* The record exactly as publishing would build it, so the preview shows
+     the real projection rather than a description of one. A dispatch that
+     cannot be published has no projection to show — the guard says why. */
+  const allowed = canPublishDispatch({ ...active, status: 'approved' });
+  let publishPreview: RepositoryRecord | null = null;
+  let publishBlocked: string | null = allowed.ok ? null : allowed.reason;
+  if (allowed.ok) {
+    try {
+      const { dispatch: clean, measurements: ms } = normaliseDispatch(active);
+      const stored = active.publicSummary;
+      const draft = stored
+        ? { title: stored.title, body: stored.body, table: stored.table, chart: stored.chart ?? undefined }
+        : draftPublicSummary(clean, ms);
+      publishPreview = toRepositoryRecord(clean, draft, ms, 'preview', 'IIA-PREVIEW');
+    } catch {
+      publishBlocked = 'The public record could not be built from this dispatch.';
+    }
+  }
+
   const verdictClass = worst ?? 'clear';
   const verdictText = blocked
     ? 'Cannot be published'
@@ -511,6 +551,7 @@ export function ApproveTab({ items }: { items: Dispatch[] }) {
     : 'Nothing flagged';
 
   return (
+    <>
     <div className="ad-desk">
       {/* ── queue ───────────────────────────────────────────────── */}
       <div className="ad-col ad-col--queue">
@@ -775,8 +816,13 @@ export function ApproveTab({ items }: { items: Dispatch[] }) {
         <div className="ad-actions">
           {!flagging ? (
             <>
-              <button className="ph-btn primary" onClick={approve} disabled={busy || blocked}>
+              <button className="ph-btn primary" onClick={() => approve(false)} disabled={busy || blocked}>
                 {busy ? 'Publishing…' : blocked ? 'Blocked — cannot publish' : 'Approve — publish it'}
+              </button>
+              {/* Publishing and announcing are one decision. This does both,
+                  then opens the scheduler on the record it just created. */}
+              <button className="ph-btn ghost" onClick={() => approve(true)} disabled={busy || blocked}>
+                Approve &amp; schedule a post
               </button>
               <button className="ph-btn ghost" onClick={() => setFlagging(true)} disabled={busy}>
                 Send back with a note
@@ -795,6 +841,29 @@ export function ApproveTab({ items }: { items: Dispatch[] }) {
         </div>
       </div>
     </div>
+
+    {/* ── raw, redacted, public ─────────────────────────────────────
+        The two columns above show the field record and the public wording
+        side by side. Neither says what is being *withheld* — which is the
+        part a reviewer is actually certifying when they approve. It sits
+        below the desk rather than inside it because the desk is a
+        fixed-height grid sized to the viewport. */}
+    <RedactionPreview
+      redaction={redactionOf(active)}
+      record={publishPreview}
+      blockedReason={publishBlocked}
+    />
+
+    {/* Opened by "Approve & schedule". The record exists by this point — it
+        was published a moment ago — so the dialog needs no picker. */}
+    {scheduleFor && user && (
+      <ScheduleDialog
+        record={scheduleFor}
+        createdBy={user.uid}
+        onClose={() => setScheduleFor(null)}
+      />
+    )}
+    </>
   );
 }
 
@@ -830,6 +899,7 @@ function FeedTab({ items }: { items: Dispatch[] }) {
 const ROLES: Role[] = ['scientist', 'publisher', 'admin'];
 
 function RolesTab() {
+  const { user } = useAuth();
   const [uid, setUid] = useState('');
   const [currentRole, setCurrentRole] = useState<Role | null>(null);
   const [selectedRole, setSelectedRole] = useState<Role>('scientist');
@@ -845,7 +915,7 @@ function RolesTab() {
       const snap = await getDoc(doc(db, 'roles', trimmed));
       const role: Role = (snap.data()?.role as Role) ?? 'scientist';
       setCurrentRole(role); setSelectedRole(role);
-    } catch { setErr('Could not fetch — check the UID.'); }
+    } catch { setErr('Could not read that role. Either the UID is wrong, or you are not an admin — only admins can look up other people.'); }
     finally { setLooking(false); }
   };
 
@@ -860,6 +930,25 @@ function RolesTab() {
   return (
     <div className="fld-pane">
       <p className="fld-field-label" style={{ marginBottom: 12 }}>Enter a Firebase UID to look up and change a team member's role.</p>
+      {/* Roles are keyed by UID, but nobody knows their own UID by heart and
+          the console is three clicks away — so the one UID we can always
+          supply is shown here. It is also what seeds the very first admin:
+          `npm run role -- <uid> admin`, which is the only way in, because
+          firestore.rules deliberately refuses self-elevation. */}
+      {user && (
+        <div className="fld-own-uid">
+          <span className="fld-field-label">Your own UID</span>
+          <code title={user.uid}>{user.uid}</code>
+          <button
+            className="ph-btn ghost"
+            onClick={() => { void navigator.clipboard?.writeText(user.uid); }}
+          >Copy</button>
+          <button
+            className="ph-btn ghost"
+            onClick={() => { setUid(user.uid); setCurrentRole(null); }}
+          >Use mine</button>
+        </div>
+      )}
       <div className="fld-role-lookup">
         <input className="fld-uid-input" type="text" placeholder="Firebase UID" value={uid} onChange={(e) => { setUid(e.target.value); setCurrentRole(null); }} />
         <button className="ph-btn ghost" onClick={lookup} disabled={looking || !uid.trim()}>{looking ? 'Looking…' : 'Look up'}</button>

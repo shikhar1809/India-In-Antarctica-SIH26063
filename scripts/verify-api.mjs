@@ -46,7 +46,7 @@ check('publicArchive is readable anonymously', pub.status === 200, `got HTTP ${p
 
 const docs = pub.body?.documents ?? [];
 check('publicArchive returns at least one published record', docs.length > 0,
-  'none found — run the "Import historical records" action in the portal, or approve a dispatch');
+  'none found — run the "Refresh records" action in the portal, or approve a dispatch');
 
 /* ── 2. Raw dispatches are NOT readable. The security assertion. ───────── */
 console.log('\nPrivate data stays private');

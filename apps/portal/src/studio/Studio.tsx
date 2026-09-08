@@ -40,9 +40,10 @@ import { TEMPLATES, templateById, simpler, bolder, DEFAULT_TEMPLATE } from './te
 import type { TemplateId } from './templates';
 import {
   AUDIENCES, TONES, COPY_REFINEMENTS, DEFAULT_BRIEF,
-  draftVariants, generateVariants, refineCopy,
+  draftVariants, generateVariants, refineCopy, withSourceLink,
 } from './copy';
 import type { Brief, PostCopy, Variant } from './copy';
+import { KnowledgeBase } from './KnowledgeBase';
 import { PostCanvas } from './PostCanvas';
 import { downloadPng } from './export';
 import { PreviewX, PreviewInstagram, PreviewLinkedIn } from './PlatformPreview';
@@ -57,6 +58,8 @@ const STEPS = [
   { id: 'public', label: 'Public page', hint: 'The plain-language version for the Knowledge Repository. Different job from a social post: this one is the permanent record.' },
   { id: 'review', label: 'Review',     hint: 'How it looks in each feed, the checks that gate submission, then over to an admin.' },
 ] as const;
+
+const LINE_BREAK = String.fromCharCode(10);
 
 export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSubmitted: () => void }) {
   const { user } = useAuth();
@@ -129,7 +132,7 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
     setGenNote(null);
     try {
       const result = await generateVariants(clean, measurements, brief);
-      setVariants(result.variants);
+      setVariants(withSourceLink(result.variants, brief.source));
       setGenNote(
         result.generated
           ? 'Written by the generator. Read it before you submit — it can get details wrong.'
@@ -138,7 +141,7 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
       setStepIdx(1);
     } catch {
       const fallback = draftVariants(clean, measurements, brief);
-      setVariants(fallback);
+      setVariants(withSourceLink(fallback, brief.source));
       setGenNote('Using the offline draft.');
       setStepIdx(1);
     } finally {
@@ -289,6 +292,33 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
               placeholder="e.g. We measured ice thickness at twelve stakes across the shelf this week…"
             />
           </label>
+
+          {/* Not every post follows a fresh field report. Pulling a published
+              record in gives the generator the archive's own facts to write
+              from, and carries the record's permanent link along with it. */}
+          <details className="stu-kb">
+            <summary>
+              <span className="stu-label">From existing knowledge base</span>
+              <span className="stu-sub">Build the post on a published record or dataset — the 1998 Maitri series, a station history, an expedition report.</span>
+            </summary>
+            <KnowledgeBase
+              onPick={(material, source) =>
+                setBrief((b) => ({
+                  ...b,
+                  // Appended, not replaced: a publisher who already wrote a
+                  // line of their own should not lose it to a click.
+                  topic: b.topic.trim() ? b.topic.trim() + LINE_BREAK + LINE_BREAK + material : material,
+                  source,
+                }))
+              }
+            />
+            {brief.source && (
+              <p className="stu-kb-note">
+                Linking to <code>{brief.source.identifier}</code> — the address is added to
+                each caption after the text is written, so it is always the real one.
+              </p>
+            )}
+          </details>
 
           <div className="stu-chiprow">
             <span className="stu-label">Who is it for?</span>

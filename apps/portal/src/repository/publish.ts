@@ -17,9 +17,10 @@
 import { doc, setDoc, updateDoc, deleteDoc, runTransaction } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { Dispatch, ResearchDocument } from '../types';
-import type { Measurement, RepositoryRecord, RecordMetadata, ResourceType } from './contract';
+import type { Measurement, RepositoryRecord, RecordMetadata, ReportSection, ResourceType } from './contract';
 import { STATION_COVER_KEY, CATEGORY_COVER, ACTIVITY_RESOURCE_TYPE } from './contract';
 import type { PublicSummary } from './summarise';
+import { draftSections } from './summarise';
 import { citeDispatchBody, citeDocumentBody } from './citations';
 
 export const PUBLIC_COLLECTION = 'publicArchive';
@@ -94,6 +95,10 @@ export function toRepositoryRecord(
   // material the summary was, and cited by name only — see citations.ts for
   // why a dispatch is never linked.
   const cited = citeDispatchBody(d, summary.body, measurements, d.publisherName ?? null);
+  // The report body. Derived from the dispatch rather than from the
+  // publisher's summary, so it always describes what was actually done —
+  // see draftSections() for why that separation matters.
+  const sections = draftSections(d, measurements);
   const resourceType: ResourceType = ACTIVITY_RESOURCE_TYPE[d.activity] ?? 'Report';
   const cover = resourceType === 'Dataset'
     ? CATEGORY_COVER['Dataset']
@@ -149,6 +154,7 @@ export function toRepositoryRecord(
     videoUrl: null,
     measurements,
     ...(summary.chart ? { chart: summary.chart } : {}),
+    sections,
     sources: cited.sources,
     citations: cited.citations,
     metadata,
@@ -175,13 +181,32 @@ export function documentToRepositoryRecord(
   // A written-out report reads as paragraphs, not one 500-char summary —
   // that's the whole point of the field. No report on file falls back to
   // exactly what every record before this showed.
-  const body = docRec.fullText?.trim()
+  const fullReport = docRec.fullText?.trim()
     ? docRec.fullText.trim().split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)
-    : [docRec.description];
+    : null;
+  // `body` is the abstract, and stays the short summary the contributor
+  // wrote. Before the record carried sections there was nowhere else for a
+  // full report to go, so it was flattened into `body`; now it has its own
+  // place and the abstract can be the abstract.
+  const body = fullReport ?? [docRec.description];
 
   // Paragraph N of the public text is paragraph N of the submitted report,
   // so the citation can say so precisely and link the file itself.
   const cited = citeDocumentBody(docRec, body);
+
+  // A submitted report is already a document: its own paragraphs are the
+  // report body, and the abstract is the summary the contributor wrote for
+  // it. Splitting them this way means the archive shows the same two things
+  // a repository entry anywhere else shows — a summary to decide from and
+  // the full text underneath — rather than one undifferentiated block.
+  const sections: ReportSection[] | undefined = docRec.fullText?.trim()
+    ? [{
+        id: 'full-report',
+        heading: 'The report as submitted',
+        paragraphs: body,
+        sourceId: 'document',
+      }]
+    : undefined;
 
   const isVideo = docRec.mediaKind === 'video';
   // A video plays inline instead of being one more download-link row.
@@ -209,6 +234,7 @@ export function documentToRepositoryRecord(
     photoUrls: [],
     videoUrl: isVideo ? docRec.fileUrl : null,
     measurements: [],
+    ...(sections ? { sections } : {}),
     sources: cited.sources,
     citations: cited.citations,
     metadata: {

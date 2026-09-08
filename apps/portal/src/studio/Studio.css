@@ -368,3 +368,34 @@
   .stu-variant, .stu-swatch { transition: none; }
   .stu-variant:hover { transform: none; }
 }
+
+/* "From existing knowledge base" — collapsed by default, because most posts
+   still come from the field report the studio was opened on. */
+.stu-kb {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 12px 14px;
+}
+
+.stu-kb > summary {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  list-style: none;
+}
+
+.stu-kb > summary::-webkit-details-marker { display: none; }
+
+.stu-kb[open] > summary { margin-bottom: 12px; }
+
+.stu-kb-note {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  opacity: 0.65;
+}
+
+.stu-kb-note code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}

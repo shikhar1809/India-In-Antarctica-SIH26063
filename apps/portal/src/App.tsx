@@ -7,10 +7,10 @@ import { Repository } from './pages/Repository';
 import { Social } from './pages/Social';
 import { SiteEditor } from './pages/SiteEditor';
 import { Moderation } from './pages/Moderation';
+import { Analytics } from './pages/Analytics';
 import { CanvasGallery } from './studio/CanvasGallery';
 import { StudioHarness } from './studio/StudioHarness';
 import { RecordEditorHarness } from './components/RecordEditorHarness';
-import { ApproveHarness } from './pages/__ApproveHarness';
 import './pages/shared.css';
 
 function Gate() {
@@ -28,7 +28,6 @@ function Gate() {
     if (path === '/__canvas') return <CanvasGallery />;
     if (path === '/__studio') return <StudioHarness />;
     if (path === '/__recordeditor') return <RecordEditorHarness />;
-    if (path === '/__approve') return <ApproveHarness />;
   }
 
   if (loading) {
@@ -55,6 +54,7 @@ function Gate() {
         <Route path="/social"  element={<Social />} />
         <Route path="/editor"  element={<SiteEditor />} />
         <Route path="/moderation" element={<Moderation />} />
+        <Route path="/analytics" element={<Analytics />} />
         {/* Scientist-facing Upload/MyRecords removed — scientists use the desktop app */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

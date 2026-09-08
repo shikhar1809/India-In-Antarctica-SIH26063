@@ -1,0 +1,198 @@
+/* Archive dashboard. Panels match the portal's dark surfaces so the charts
+   sit on the colour they were validated against (#0d1420 family). */
+
+.an-page { padding-bottom: 64px; }
+
+.an-head { margin-bottom: 24px; }
+
+.an-head h1 {
+  margin: 0 0 6px;
+  font-size: 1.45rem;
+  font-weight: 600;
+}
+
+.an-head p {
+  margin: 0;
+  max-width: 60ch;
+  opacity: 0.65;
+  line-height: 1.55;
+}
+
+/* ── Stat tiles ───────────────────────────────────────────────────────── */
+
+.an-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.an-tile {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.an-tile-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 9px;
+  background: rgba(47, 159, 201, 0.14);
+  color: #2f9fc9;
+}
+
+.an-tile-value {
+  font-size: 1.7rem;
+  font-weight: 600;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.an-tile-label {
+  font-size: 0.82rem;
+  opacity: 0.75;
+  margin-top: 2px;
+}
+
+.an-tile-hint {
+  font-size: 0.74rem;
+  opacity: 0.5;
+  margin-top: 4px;
+}
+
+/* ── Pipeline ─────────────────────────────────────────────────────────── */
+
+.an-pipeline {
+  padding: 18px 20px 20px;
+  margin-bottom: 28px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.an-pipeline h2 {
+  margin: 0 0 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+/* Fixed-size drawing: scroll it rather than squash it. */
+.an-pipeline-board {
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+  padding: 8px 0 4px;
+}
+
+.an-pipeline-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
+
+.an-pipeline-legend li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* Status is never colour alone — every dot sits beside its own sentence. */
+.an-pipeline-legend .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.an-pipeline-legend .dot.waiting { background: #c8762a; }
+.an-pipeline-legend .dot.ok      { background: #2f9fc9; }
+.an-pipeline-legend .dot.bad     { background: #e5534b; }
+
+/* ── Figures ──────────────────────────────────────────────────────────── */
+
+.an-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.an-figure {
+  margin: 0 0 16px;
+  padding: 18px 20px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.an-figure figcaption { margin-bottom: 12px; }
+
+.an-figure h3 {
+  margin: 0 0 2px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.an-figure figcaption p {
+  margin: 0;
+  font-size: 0.8rem;
+  opacity: 0.6;
+}
+
+.an-chart { width: 100%; }
+
+.an-empty {
+  font-size: 0.85rem;
+  opacity: 0.5;
+  padding: 24px 0;
+  text-align: center;
+}
+
+.an-table { margin-top: 10px; }
+
+.an-table summary {
+  cursor: pointer;
+  font-size: 0.78rem;
+  opacity: 0.6;
+}
+
+.an-table table {
+  width: 100%;
+  margin-top: 10px;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.an-table th,
+.an-table td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.an-table th {
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.an-table td:last-child,
+.an-table th:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

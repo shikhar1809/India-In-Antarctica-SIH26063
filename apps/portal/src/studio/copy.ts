@@ -40,6 +40,92 @@ export interface Brief {
   topic: string;
   audience: Audience;
   tone: Tone;
+  /** Set when the post was built on an existing archive record rather than
+   *  only on this dispatch — see `describeRecordForBrief()`. Kept beside the
+   *  prose instead of inside it so the link can be attached to the finished
+   *  captions without the model ever being asked to reproduce a URL, which is
+   *  the one thing a language model is reliably bad at. */
+  source?: PostSource;
+}
+
+export interface PostSource {
+  identifier: string;
+  title: string;
+  url: string;
+}
+
+/** The public address of a published record. The citable identifier is the
+ *  handle, matching recordSlug() on the public site — /archive/IIA-2026-0001
+ *  is the address of the thing a citation names, not a database key. */
+export function recordUrl(identifier: string, origin = 'https://iia-public.web.app'): string {
+  return `${origin}/archive/${identifier}`;
+}
+
+/**
+ * Turn an archive record into brief material the generator can write from.
+ *
+ * The model is handed facts, never asked to recall them: the title, when and
+ * where the work happened, and the record's own key figures. That is the
+ * difference between "write a post about the 1998 Maitri ozone record" — which
+ * invites invention — and giving it the record and asking it to write about
+ * what is there.
+ */
+export function describeRecordForBrief(record: {
+  title: string;
+  body?: string[];
+  year?: string;
+  station?: string;
+  kind?: string;
+  measurements?: { label: string; value: string | number; unit?: string | null }[];
+  table?: { label: string; value: string }[];
+}): string {
+  const lines: string[] = [];
+  lines.push(record.title);
+
+  const locator = [record.kind, record.station, record.year].filter(Boolean).join(' · ');
+  if (locator) lines.push(locator);
+
+  const lead = (record.body ?? []).slice(0, 2).join(' ');
+  if (lead) lines.push(lead);
+
+  const facts = [
+    ...(record.table ?? []).map((f) => `${f.label}: ${f.value}`),
+    ...(record.measurements ?? []).map(
+      (m) => `${m.label}: ${m.value}${m.unit ? ' ' + m.unit : ''}`,
+    ),
+  ].slice(0, 8);
+  if (facts.length) lines.push(facts.join('; '));
+
+  return lines.join(NEWLINE);
+}
+
+const NEWLINE = String.fromCharCode(10);
+
+/**
+ * Attach the source link to every caption.
+ *
+ * Done after generation rather than in the prompt, because a model asked to
+ * include a URL will cheerfully invent a plausible one. The link is appended
+ * only where it fits — a caption already at the platform's ceiling is left
+ * alone rather than silently truncated into nonsense.
+ */
+export function withSourceLink<T extends { copy: PostCopy }>(
+  variants: T[],
+  source: PostSource | undefined,
+  limits: Record<keyof PostCopy['captions'], number> = { x: 280, linkedin: 3000, instagram: 2200 },
+): T[] {
+  if (!source) return variants;
+  const suffix = ' ' + source.url;
+
+  return variants.map((v) => {
+    const captions = { ...v.copy.captions };
+    for (const key of Object.keys(captions) as (keyof PostCopy['captions'])[]) {
+      const current = captions[key];
+      if (current.includes(source.url)) continue;
+      if (current.length + suffix.length <= limits[key]) captions[key] = current + suffix;
+    }
+    return { ...v, copy: { ...v.copy, captions } };
+  });
 }
 
 export const DEFAULT_BRIEF: Omit<Brief, 'topic'> = { audience: 'public', tone: 'plain' };

@@ -12,7 +12,7 @@
  */
 
 import type { Dispatch } from '../types';
-import type { Measurement, RecordChart, RecordFact } from './contract';
+import type { Measurement, RecordChart, RecordFact, ReportSection } from './contract';
 import { measurementValue, isPlausible } from './contract';
 
 export interface PublicSummary {
@@ -212,6 +212,154 @@ export function draftPublicSummary(d: Dispatch, measurements: Measurement[]): Pu
     table: keyFacts(d, measurements),
     chart: deriveChart(measurements, d.activity),
   };
+}
+
+/* ──────────────────────────────────────────────────────── report body ──
+ * The abstract above answers "what is this". It is not a report, and a
+ * published observation that stops there gives a reader no way to judge it:
+ * they cannot see how the measurement was made, what the conditions were, or
+ * what the numbers actually say.
+ *
+ * These sections are built from the dispatch at publish time rather than
+ * stored on it, for the same reason the citations are: they are a
+ * deterministic function of the field record, so they can never drift from
+ * it, and a publisher editing the public wording cannot leave a methods
+ * section describing something that no longer happened.
+ *
+ * Every section names the source it was written from, so the archive can
+ * attribute it the way it attributes the abstract.
+ */
+
+/** How each activity's measurements were actually taken. Written for a
+ *  reader who wants to know whether to trust the number. */
+const METHOD_NOTE: Record<string, string> = {
+  'Ice / glaciology survey':
+    'Ice and snow measurements are made at a marked stake so that the same spot can be revisited season after season. Thickness is measured by drilling through to the water or the bed; snow depth and freeboard are probed and measured against the stake. The point of returning to a fixed site is that a single reading means very little while a series from the same stake means a great deal.',
+  'Wildlife observation':
+    'Counts follow the survey protocol recorded with the observation, and are logged with the species name, life stage and behaviour so that a count can be compared with counts made elsewhere. Terminology follows Darwin Core, which is what allows these records to be contributed to international biodiversity databases rather than staying in a national archive.',
+  'Atmospheric / meteorology':
+    'Atmospheric readings are taken with the instrument named in the record, at the standard height or column for that measurement, and are logged with the QC flag the observer assigned at the time. A reading whose instrument was known to be out of calibration is published with that stated rather than quietly dropped.',
+  'Oceanography / CTD':
+    'Casts are made from a station whose number and position are fixed in advance, lowering the instrument package to the recorded maximum depth and firing bottles at planned levels on the way back up. Depth, cast number and bottle count are logged together because a profile cannot be interpreted without knowing how it was collected.',
+  'Equipment check / maintenance':
+    'Instrument checks are logged against the asset identifier so that the maintenance history of a specific instrument can be reconstructed. This matters for the data as much as for the hardware: a long measurement series is only trustworthy if the state of the instrument behind it is known for every part of the record.',
+  'Base operations':
+    'Station operations are logged for the record, with the task and the number of people involved. Logistics are recorded to the same standard as science because the science depends on them.',
+  'Other':
+    'The observation was logged in the field with its position, time and conditions, following standard station reporting practice.',
+};
+
+/** What the reader should take from the numbers, per activity. */
+const READING_NOTE: Record<string, string> = {
+  'Ice / glaciology survey':
+    'Read on its own, one set of ice measurements describes one site on one day. Its value comes from the series it joins: the same stake, measured season after season, is how a bad year is told apart from a trend.',
+  'Wildlife observation':
+    'A single count is a snapshot of a population that moves, breeds and moults on its own schedule. Counts become useful when repeated at the same colony across seasons, which is what turns them into a population trend rather than an anecdote.',
+  'Atmospheric / meteorology':
+    'Atmospheric measurements from Antarctica are baseline measurements — they describe air about as far from industrial sources as the planet offers. Their worth is as a reference the rest of the world is compared against.',
+  'Oceanography / CTD':
+    'A profile describes one column of water at one moment. Repeated across a station grid and across seasons, profiles like this one are how the formation and movement of Antarctic bottom water is tracked.',
+  'Equipment check / maintenance':
+    'Maintenance records are rarely read on their own. They are read when a measurement series looks strange, and they are what explains whether the instrument or the world changed.',
+  'Base operations':
+    'Operational records document what it takes to keep a station running through a season — the part of Antarctic work that makes the rest possible.',
+  'Other':
+    'The record is published so that the observation is available and citable, whatever later use is made of it.',
+};
+
+/**
+ * The report sections for a published dispatch. Built from the dispatch, so
+ * they describe what was actually done rather than what was written about it.
+ */
+export function draftSections(d: Dispatch, measurements: Measurement[]): ReportSection[] {
+  const sections: ReportSection[] = [];
+  const station = d.station;
+  const when = new Date(d.observedAt).toLocaleDateString('en-IN', {
+    day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
+  });
+
+  /* 1 — what was done. */
+  const where = d.lat !== null && d.lon !== null
+    ? `The position was fixed at ${Math.abs(d.lat).toFixed(4)}° ${d.lat < 0 ? 'S' : 'N'}, ${Math.abs(d.lon).toFixed(4)}° ${(d.lon ?? 0) < 0 ? 'W' : 'E'}${d.elevationM != null ? ` at ${d.elevationM} m elevation` : ''}, recorded on WGS84.`
+    : 'The observation was made in the field, away from a surveyed position.';
+  sections.push({
+    id: 'the-observation',
+    heading: 'The observation',
+    paragraphs: [
+      `This record covers a ${d.activity.toLowerCase().replace(' / ', ' and ')} carried out from ${station} on ${when}. It was filed from the field on the day it was made, reviewed, and published to this archive as an individual record rather than aggregated into a seasonal summary — so it can be cited on its own.`,
+      where,
+    ],
+    sourceId: 'dispatch',
+  });
+
+  /* 2 — how it was done. */
+  sections.push({
+    id: 'method',
+    heading: 'How the measurements were made',
+    paragraphs: [METHOD_NOTE[d.activity] ?? METHOD_NOTE['Other']],
+    sourceId: 'outreach',
+  });
+
+  /* 3 — the readings, with the chart as the section's figure when the
+     numbers support one. A single reading is a fact, not a comparison. */
+  if (measurements.length) {
+    const chart = deriveChart(measurements, d.activity);
+    sections.push({
+      id: 'readings',
+      heading: 'What was recorded',
+      paragraphs: [
+        `${measurements.length === 1 ? 'One reading was' : `${measurements.length} readings were`} logged at this site. Each is published with its units, exactly as it was entered in the field.`,
+        READING_NOTE[d.activity] ?? READING_NOTE['Other'],
+      ],
+      figure: chart
+        ? { kind: 'chart', caption: chart.caption, chart }
+        : {
+            kind: 'table',
+            caption: 'The readings as logged in the field, with units.',
+            rows: measurements.map((m) => ({
+              label: m.label,
+              value: m.unit ? `${m.value} ${m.unit}` : m.value,
+            })),
+          },
+      sourceId: 'dispatch',
+    });
+  }
+
+  /* 4 — the conditions they were made in. */
+  const w = d.weather;
+  if (w) {
+    const bits: string[] = [];
+    if (w.airTempC !== null && isPlausible('airTempC', w.airTempC)) bits.push(`air temperature ${w.airTempC} °C`);
+    if (w.windSpeedKt !== null && isPlausible('windSpeedKt', w.windSpeedKt)) {
+      bits.push(w.windDir === 'Calm' ? 'calm wind' : `wind ${w.windDir} at ${w.windSpeedKt} knots`);
+    }
+    if (w.visibilityKm !== null) bits.push(`visibility ${w.visibilityKm} km`);
+    if (w.cloudOktas !== null) bits.push(`cloud cover ${w.cloudOktas}/8`);
+    if (bits.length) {
+      sections.push({
+        id: 'conditions',
+        heading: 'Conditions at the time',
+        paragraphs: [
+          `Present weather was recorded as ${w.present.toLowerCase()}, with ${joinWords(bits)}. Conditions are logged with every observation to WMO field practice — in oktas for cloud, knots for wind — because they are part of the measurement, not background colour.`,
+          'Weather determines what can be measured and how well. A reading taken in blowing snow carries a different uncertainty from the same reading taken in still air, and publishing the conditions alongside the number is what lets a later user judge which they are looking at.',
+        ],
+        sourceId: 'conditions',
+      });
+    }
+  }
+
+  /* 5 — how to use it. */
+  sections.push({
+    id: 'using-this-record',
+    heading: 'Using this record',
+    paragraphs: [
+      'This record is published under a Creative Commons Attribution licence and carries a stable identifier, listed with the citation metadata below. It may be reused for research, teaching and public communication provided NCPOR and the observer are credited.',
+      'The archive is also readable as an API, so a record like this one can be pulled into an analysis directly rather than copied out of a web page by hand.',
+    ],
+    sourceId: 'outreach',
+  });
+
+  return sections;
 }
 
 /** One plain sentence describing what was actually measured. Uses the
