@@ -1,43 +1,68 @@
 /**
- * What the archive actually contains, and what is moving through it.
+ * What a government outreach programme actually needs to track.
  *
- * The portal could report plenty of numbers; this page reports the ones that
- * would change a decision. Four tiles say how big the archive is and whether
- * anything is stuck; the pipeline diagram says *where* it is stuck; the charts
- * say what the collection is made of and whether it is still growing.
+ * This used to be four tiles, a pipeline diagram and two bar charts — a
+ * reasonable "is the archive growing" view, but not what an accountability
+ * review asks. A government body funding a public outreach portal is not
+ * primarily asking "how many records exist" — it is asking four different
+ * questions, and this page is organised around them rather than around what
+ * happened to be easy to compute:
+ *
+ *   1. Service delivery — is content moving, or is it stuck? How long does
+ *      the public wait between an observation and it being published?
+ *   2. Governance & safety — is the safety gate actually gating anything, or
+ *      is canPublishDispatch() a rule nobody has ever tripped? How much
+ *      quality-control rework is happening?
+ *   3. Reach — is what gets published actually reaching people, on which
+ *      channels, and how often does dissemination fail?
+ *   4. Coverage & currency — which stations and categories are represented,
+ *      and is any part of the archive going stale?
+ *
+ * Every number here is computed from data the portal already holds — no new
+ * collection, no new write path, nothing tracked that wasn't already being
+ * recorded for an operational reason. A metric that needs its own
+ * instrumentation is a metric nobody trusts six months later, once the
+ * person who wired it up has moved on.
  *
  * ── On colour ────────────────────────────────────────────────────────────
  * The bar charts use one hue, not five. Category and station are named on the
  * axis, so colouring each bar separately would encode identity twice and buy
  * nothing — while forcing a five-hue categorical palette that cannot clear
  * deutan separation once it contains both a green and a red. Colour is used
- * only where state *is* the data (the dissemination row), and there it always
- * ships with a label. #2f9fc9 and #c8762a are the two marks already validated
- * against this project's dark panels in public-site/components/RecordChart.
+ * only where state IS the data (status badges, the pipeline board), and there
+ * it always ships with a label, never alone. #2f9fc9 and #c8762a are the two
+ * marks already validated against this project's dark panels in
+ * public-site/components/RecordChart.
  *
  * Every chart is also rendered as a table below it, so the page works for a
- * screen reader and in print.
+ * screen reader and in print — which matters more here than on most
+ * dashboards, since "what did we report to the Ministry" is a realistic use
+ * of this exact page.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer,
   Tooltip, XAxis, YAxis,
 } from 'recharts';
-import { Archive, CheckCircle2, Radio, Send } from 'lucide-react';
+import {
+  Archive, CalendarClock, CheckCircle2, Radio, Send, ShieldAlert, TimerReset,
+} from 'lucide-react';
 import { CircuitBoard } from '@/components/ui/circuit-board';
 import { useAuth } from '../context/AuthContext';
 import { useRole } from '../hooks/useRole';
 import { usePublicArchive } from '../hooks/usePublicArchive';
 import { useDispatches } from '../hooks/useDispatches';
 import { useSocialQueue } from '../hooks/useSocialQueue';
-import { effectiveStatus } from '../social/queue';
+import { effectiveStatus, PLATFORM_LIMITS, type SocialPlatform } from '../social/queue';
 import './Analytics.css';
 
 const SERIES = '#2f9fc9';
 const SERIES_WARM = '#c8762a';
 const INK_DIM = '#9fbdd6';
 const INK_FAINT = '#6c8399';
+
+const DAY = 86_400_000;
 
 const CATEGORY_LABEL: Record<string, string> = {
   expedition: 'Expedition',
@@ -65,11 +90,23 @@ function countBy<T>(items: T[], key: (item: T) => string | undefined): Record<st
   return out;
 }
 
+function daysAgo(ts: number, now: number): number {
+  return Math.max(0, Math.floor((now - ts) / DAY));
+}
+
 function StatTile({
-  label, value, hint, icon,
-}: { label: string; value: number | string; hint?: string; icon: React.ReactNode }) {
+  label, value, hint, icon, tone,
+}: {
+  label: string; value: number | string; hint?: string; icon: React.ReactNode;
+  /** 'warn' recolours the tile so a number that deserves attention (an aging
+   *  backlog, a weak success rate) doesn't sit visually identical to routine
+   *  ones — the whole point of a dashboard a government body checks
+   *  periodically is that the thing needing attention should not require
+   *  reading every number to find. */
+  tone?: 'default' | 'warn';
+}) {
   return (
-    <div className="an-tile">
+    <div className={'an-tile' + (tone === 'warn' ? ' an-tile-warn' : '')}>
       <div className="an-tile-icon">{icon}</div>
       <div>
         <div className="an-tile-value">{value}</div>
@@ -119,6 +156,24 @@ function Figure({
   );
 }
 
+/** One of the four accountability questions the page is organised around.
+ *  Every section states, in one sentence, what question its numbers answer
+ *  — a dashboard read once a quarter needs that reminder every time, not
+ *  just on the day someone designed it. */
+function Section({
+  title, note, children,
+}: { title: string; note: string; children: React.ReactNode }) {
+  return (
+    <section className="an-section">
+      <div className="an-section-head">
+        <h2>{title}</h2>
+        <p>{note}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
+
 export function Analytics() {
   const { user } = useAuth();
   const { role, loading: roleLoading } = useRole();
@@ -127,6 +182,90 @@ export function Analytics() {
   const { posts } = useSocialQueue();
 
   const isStaff = role === 'publisher' || role === 'admin';
+  // Date.now() is impure — reading it during render can differ between
+  // renders of the same props, which React (correctly) flags. A dashboard
+  // has no need for "now" to tick live, so it is captured once, on mount.
+  const [now] = useState(() => Date.now());
+
+  /* ── 1. Service delivery ────────────────────────────────────────────── */
+
+  const pipeline = useMemo(() => ({
+    raw: dispatches.filter((d) => d.status === 'raw').length,
+    drafted: dispatches.filter((d) => d.status === 'drafted').length,
+    flagged: dispatches.filter((d) => d.status === 'flagged').length,
+  }), [dispatches]);
+
+  const backlog = useMemo(
+    () => dispatches.filter((d) => d.status === 'raw' || d.status === 'drafted' || d.status === 'flagged'),
+    [dispatches],
+  );
+
+  const oldestBacklogDays = useMemo(
+    () => backlog.reduce((max, d) => Math.max(max, daysAgo(d.createdAt, now)), 0),
+    [backlog, now],
+  );
+
+  /* Turnaround: submission (dispatch.createdAt) to publication
+     (record.metadata.provenance.approvedAt), matched by sourceId. Only
+     dispatches that actually became a public record contribute — a
+     turnaround figure is a claim about how the pipeline performs when it
+     works, not diluted by everything still in flight. */
+  const turnaroundDays = useMemo(() => {
+    const byId = new Map(dispatches.map((d) => [d.id, d]));
+    const spans: number[] = [];
+    for (const r of records) {
+      const sourceId = r.metadata?.provenance?.sourceId;
+      const approvedAt = r.metadata?.provenance?.approvedAt;
+      if (!sourceId || !approvedAt) continue;
+      const d = byId.get(sourceId);
+      if (!d) continue; // dispatch not readable here — skip rather than guess
+      const span = (approvedAt - d.createdAt) / DAY;
+      if (span >= 0) spans.push(span);
+    }
+    if (spans.length === 0) return null;
+    const avg = spans.reduce((a, b) => a + b, 0) / spans.length;
+    return { avg, n: spans.length };
+  }, [records, dispatches]);
+
+  /* ── 2. Governance & safety ─────────────────────────────────────────── */
+
+  /* Every dispatch this reviewer's role can see that was ever flagged
+     unsafe. safetyFlag dispatches are refused publication outright by
+     canPublishDispatch() regardless of what an admin clicks — this is the
+     evidence that the gate has something to gate, not just a rule that has
+     never fired. */
+  const safetyWithheld = useMemo(
+    () => dispatches.filter((d) => d.safetyFlag).length,
+    [dispatches],
+  );
+
+  /* ── 3. Reach & dissemination ───────────────────────────────────────── */
+
+  const disseminationByPlatform = useMemo(() => {
+    const platforms = Object.keys(PLATFORM_LIMITS) as SocialPlatform[];
+    return platforms
+      .map((platform) => {
+        const mine = posts.filter((p) => p.platform === platform);
+        return { label: PLATFORM_LIMITS[platform].label, value: mine.filter((p) => p.status === 'posted').length, total: mine.length };
+      })
+      .filter((p) => p.total > 0);
+  }, [posts]);
+
+  const disseminationTotals = useMemo(() => {
+    const posted = posts.filter((p) => p.status === 'posted').length;
+    const failed = posts.filter((p) => p.status === 'failed').length;
+    const pending = posts.filter((p) => {
+      const s = effectiveStatus(p);
+      return s === 'queued' || s === 'ready';
+    }).length;
+    const concluded = posted + failed;
+    return {
+      posted, failed, pending,
+      successRate: concluded > 0 ? Math.round((posted / concluded) * 100) : null,
+    };
+  }, [posts]);
+
+  /* ── 4. Coverage & currency ─────────────────────────────────────────── */
 
   const byCategory = useMemo(() => {
     const counts = countBy(records, (r) => r.cat);
@@ -142,8 +281,24 @@ export function Analytics() {
       .sort((a, b) => b.value - a.value);
   }, [records]);
 
-  /** Cumulative, because the question is "is the archive growing?" — a
-   *  per-month count of a collection this size is mostly noise. */
+  /* One row per station that has ever published, showing how long ago its
+     most recent record went up — the question "has anyone forgotten
+     Dakshin Gangotri" answered directly rather than left to be noticed. */
+  const stationFreshness = useMemo(() => {
+    const latest = new Map<string, number>();
+    for (const r of records) {
+      const station = r.metadata?.station;
+      if (!station || !r.publishedAt) continue;
+      const prev = latest.get(station);
+      if (!prev || r.publishedAt > prev) latest.set(station, r.publishedAt);
+    }
+    return [...latest.entries()]
+      .map(([station, publishedAt]) => ({ station, publishedAt, days: daysAgo(publishedAt, now) }))
+      .sort((a, b) => b.days - a.days); // stalest first
+  }, [records, now]);
+
+  /* Cumulative, because the question is "is the archive growing?" — a
+     per-month count of a collection this size is mostly noise. */
   const overTime = useMemo(() => {
     const months = countBy(records, (r) =>
       r.publishedAt ? new Date(r.publishedAt).toISOString().slice(0, 7) : undefined);
@@ -156,22 +311,6 @@ export function Analytics() {
       [],
     );
   }, [records]);
-
-  const pipeline = useMemo(() => ({
-    raw: dispatches.filter((d) => d.status === 'raw').length,
-    drafted: dispatches.filter((d) => d.status === 'drafted').length,
-    approved: dispatches.filter((d) => d.status === 'approved').length,
-  }), [dispatches]);
-
-  const dissemination = useMemo(() => {
-    const live = posts.map((p) => effectiveStatus(p));
-    return {
-      waiting: live.filter((s) => s === 'queued').length,
-      due: live.filter((s) => s === 'ready').length,
-      posted: live.filter((s) => s === 'posted').length,
-      failed: live.filter((s) => s === 'failed').length,
-    };
-  }, [posts]);
 
   const thisYear = new Date().getUTCFullYear();
   const publishedThisYear = records.filter(
@@ -190,46 +329,42 @@ export function Analytics() {
 
   return (
     <div className="ph-page an-page">
-        <header className="an-head">
-          <h1>Archive dashboard</h1>
-          <p>
-            What the public archive holds, what is still moving through review,
-            and what has been disseminated.
-          </p>
-        </header>
+      <header className="an-head">
+        <h1>Archive dashboard</h1>
+        <p>Service delivery, governance, reach and coverage — what a public outreach programme is accountable for.</p>
+      </header>
 
+      {/* ── 1. Service delivery ────────────────────────────────────────── */}
+      <Section title="Service delivery" note="Is content moving, and how long does the public wait for it?">
         <div className="an-tiles">
           <StatTile
             icon={<Archive className="w-5 h-5" />}
             label="Published records"
             value={recordsLoading ? '—' : records.length}
-            hint="Live on the public site and the API"
+            hint={`${publishedThisYear} in ${thisYear}`}
           />
           <StatTile
-            icon={<CheckCircle2 className="w-5 h-5" />}
-            label={`Published in ${thisYear}`}
-            value={recordsLoading ? '—' : publishedThisYear}
+            icon={<TimerReset className="w-5 h-5" />}
+            label="Average turnaround"
+            value={turnaroundDays ? `${turnaroundDays.avg.toFixed(1)}d` : '—'}
+            hint={turnaroundDays ? `field to public, over ${turnaroundDays.n} records` : 'no completed records yet'}
           />
           <StatTile
             icon={<Radio className="w-5 h-5" />}
             label="Awaiting review"
-            value={pipeline.raw + pipeline.drafted}
-            hint={`${pipeline.raw} unread · ${pipeline.drafted} drafted`}
+            value={backlog.length}
+            hint={`${pipeline.raw} unread · ${pipeline.drafted} drafted · ${pipeline.flagged} sent back`}
           />
           <StatTile
-            icon={<Send className="w-5 h-5" />}
-            label="Posts sent"
-            value={dissemination.posted}
-            hint={`${dissemination.waiting + dissemination.due} in the queue`}
+            tone={oldestBacklogDays > 7 ? 'warn' : 'default'}
+            icon={<CalendarClock className="w-5 h-5" />}
+            label="Oldest item waiting"
+            value={backlog.length > 0 ? `${oldestBacklogDays}d` : '—'}
+            hint={oldestBacklogDays > 7 ? 'over a week — worth a look' : 'within a week'}
           />
         </div>
 
-        {/* The pipeline as it actually stands. Each stage carries its own
-            count, and a stage with work waiting pulses rather than merely
-            being a different shade — the thing a publisher needs to spot from
-            across a room is where the backlog is. */}
-        <section className="an-pipeline">
-          <h2>Pipeline</h2>
+        <div className="an-pipeline">
           <div className="an-pipeline-board">
             <CircuitBoard
               variant="dark"
@@ -240,12 +375,12 @@ export function Analytics() {
                 { id: 'field',    x: 60,  y: 66, label: `Field · ${pipeline.raw}`,        icon: <Radio className="w-4 h-4" />,       status: pipeline.raw > 0 ? 'processing' : 'inactive' },
                 { id: 'review',   x: 200, y: 66, label: `Review · ${pipeline.drafted}`,   icon: <CheckCircle2 className="w-4 h-4" />, status: pipeline.drafted > 0 ? 'processing' : 'inactive' },
                 { id: 'archive',  x: 350, y: 66, label: `Archive · ${records.length}`,    icon: <Archive className="w-4 h-4" />,      status: records.length > 0 ? 'active' : 'inactive' },
-                { id: 'social',   x: 500, y: 66, label: `Queue · ${dissemination.waiting + dissemination.due}`, icon: <Send className="w-4 h-4" />, status: dissemination.failed > 0 ? 'error' : dissemination.due > 0 ? 'processing' : 'active' },
+                { id: 'social',   x: 500, y: 66, label: `Queue · ${disseminationTotals.pending}`, icon: <Send className="w-4 h-4" />, status: disseminationTotals.failed > 0 ? 'error' : disseminationTotals.pending > 0 ? 'processing' : 'active' },
               ]}
               connections={[
                 { from: 'field',   to: 'review',  animated: pipeline.raw > 0 },
                 { from: 'review',  to: 'archive', animated: pipeline.drafted > 0 },
-                { from: 'archive', to: 'social',  animated: dissemination.waiting + dissemination.due > 0 },
+                { from: 'archive', to: 'social',  animated: disseminationTotals.pending > 0 },
               ]}
             />
           </div>
@@ -253,12 +388,74 @@ export function Analytics() {
             <li><span className="dot waiting" />{pipeline.raw} awaiting a publisher</li>
             <li><span className="dot waiting" />{pipeline.drafted} drafted, awaiting an admin</li>
             <li><span className="dot ok" />{records.length} published</li>
-            {dissemination.failed > 0 && (
-              <li><span className="dot bad" />{dissemination.failed} post{dissemination.failed === 1 ? '' : 's'} failed to send</li>
+            {disseminationTotals.failed > 0 && (
+              <li><span className="dot bad" />{disseminationTotals.failed} post{disseminationTotals.failed === 1 ? '' : 's'} failed to send</li>
             )}
           </ul>
-        </section>
+        </div>
+      </Section>
 
+      {/* ── 2. Governance & safety ───────────────────────────────────────── */}
+      <Section title="Governance & safety" note="Evidence that the safety gate and the review step are actually doing something.">
+        <div className="an-tiles">
+          <StatTile
+            icon={<ShieldAlert className="w-5 h-5" />}
+            label="Withheld under safety protocol"
+            value={safetyWithheld}
+            hint="Flagged reports — never eligible for publication, regardless of admin action"
+          />
+          <StatTile
+            icon={<CheckCircle2 className="w-5 h-5" />}
+            label="Sent back for revision"
+            value={pipeline.flagged}
+            hint="Currently with a publisher, following admin notes"
+          />
+        </div>
+      </Section>
+
+      {/* ── 3. Reach & dissemination ───────────────────────────────────── */}
+      <Section title="Reach & dissemination" note="What was scheduled for social media, and whether it actually went out.">
+        <div className="an-tiles">
+          <StatTile
+            icon={<Send className="w-5 h-5" />}
+            label="Posts sent"
+            value={disseminationTotals.posted}
+            hint={`${disseminationTotals.pending} waiting in the queue`}
+          />
+          <StatTile
+            tone={disseminationTotals.successRate !== null && disseminationTotals.successRate < 90 ? 'warn' : 'default'}
+            icon={<CheckCircle2 className="w-5 h-5" />}
+            label="Dissemination success rate"
+            value={disseminationTotals.successRate !== null ? `${disseminationTotals.successRate}%` : '—'}
+            hint={disseminationTotals.failed > 0 ? `${disseminationTotals.failed} failed` : 'no failures'}
+          />
+        </div>
+
+        {disseminationByPlatform.length > 0 && (
+          <Figure
+            title="By platform"
+            note="Posts actually sent, per channel."
+            headers={['Platform', 'Posted']}
+            rows={disseminationByPlatform}
+          >
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={disseminationByPlatform} margin={{ top: 8, right: 8, bottom: 8, left: 0 }}>
+                <CartesianGrid stroke={INK_FAINT} strokeOpacity={0.18} vertical={false} />
+                <XAxis dataKey="label" tick={{ fill: INK_DIM, fontSize: 12 }} tickLine={false} axisLine={{ stroke: INK_FAINT, strokeOpacity: 0.3 }} />
+                <YAxis allowDecimals={false} tick={{ fill: INK_DIM, fontSize: 12 }} tickLine={false} axisLine={false} width={32} />
+                <Tooltip
+                  cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                  contentStyle={{ background: '#0d1420', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, color: INK_DIM }}
+                />
+                <Bar dataKey="value" name="Posted" fill={SERIES} radius={[4, 4, 0, 0]} maxBarSize={40} />
+              </BarChart>
+            </ResponsiveContainer>
+          </Figure>
+        )}
+      </Section>
+
+      {/* ── 4. Coverage & currency ─────────────────────────────────────── */}
+      <Section title="Coverage & currency" note="What the archive holds, and whether any part of it has gone stale.">
         <div className="an-grid">
           <Figure
             title="What the archive holds"
@@ -301,6 +498,27 @@ export function Analytics() {
           </Figure>
         </div>
 
+        {stationFreshness.length > 0 && (
+          <div className="an-figure an-freshness">
+            <figcaption>
+              <h3>Station freshness</h3>
+              <p>Days since each station's most recent published record — stalest first.</p>
+            </figcaption>
+            <table className="an-freshness-table">
+              <thead><tr><th>Station</th><th>Last published</th><th>Days ago</th></tr></thead>
+              <tbody>
+                {stationFreshness.map((s) => (
+                  <tr key={s.station} className={s.days > 90 ? 'an-stale' : undefined}>
+                    <td>{STATION_LABEL[s.station.toLowerCase()] ?? s.station}</td>
+                    <td>{new Date(s.publishedAt).toLocaleDateString()}</td>
+                    <td>{s.days}d</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         <Figure
           title="Archive growth"
           note="Total published records over time, cumulative."
@@ -334,6 +552,7 @@ export function Analytics() {
             </AreaChart>
           </ResponsiveContainer>
         </Figure>
+      </Section>
     </div>
   );
 }

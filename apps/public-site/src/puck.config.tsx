@@ -1,6 +1,7 @@
 import { type Config, DropZone } from '@measured/puck';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar } from 'recharts';
 import MorphSlider from './components/MorphSlider';
+import { useHeroSlides } from './components/useHeroSlides';
 import { ArchiveGallerySection } from './components/ui/sticky-scroll';
 import { ParallaxComponent } from './components/ui/parallax-scrolling';
 import './blocks.css';
@@ -38,6 +39,37 @@ type Props = {
   ChartBlock: { title: string; subtitle: string; type: 'line' | 'bar'; dataJson: string; color: string; yAxisLabel: string };
 };
 
+/** The hero's slideshow. A named function component rather than an inline arrow in HeroBlock's `render` field, because it calls useHeroSlides() — a hook needs a real component to live in, and Puck's per-block config object is not one on its own.
+ *
+ *  This used to be three fixed Wikimedia photos. It now shows the archive's own most recent published work — see useHeroSlides.ts for the selection rule and its fallback. This is the literal mechanism behind "content generated on the portal appears on the public site": nothing here is hand-curated. */
+function HeroBlockRender() {
+  const { slides } = useHeroSlides();
+  return (
+    <div className="block-hero" style={{ position: 'relative', height: '100vh', width: '100vw' }}>
+      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+        <MorphSlider
+          items={slides}
+          transition="melt"
+          intensity={0.55}
+          aberration={0.35}
+          drift={0.4}
+          autoplay={true}
+          overlayColor="#05060a"
+          duration={1.1}
+          ease="power2.inOut"
+          scale={2.4}
+          autoplayDelay={4}
+          loop
+          radius={0}
+          showCaptions
+          showControls={true}
+          showIndicators={true}
+        />
+      </div>
+    </div>
+  );
+}
+
 export const config: Config<Props> = {
   components: {
 
@@ -61,34 +93,7 @@ export const config: Config<Props> = {
         ctaLabel: 'Begin Expedition',     ctaUrl: 'https://iia-game.web.app',
         ctaSecondaryLabel: 'Browse Archive', ctaSecondaryUrl: '#archive',
       },
-      render: () => (
-        <div className="block-hero" style={{ position: 'relative', height: '100vh', width: '100vw' }}>
-          <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-            <MorphSlider
-              items={[
-                { image: 'https://upload.wikimedia.org/wikipedia/commons/4/4d/An_aerial_view_of_the_Indian_Station_Maitri%2C_Antarctica_on_February_2%2C_2005.jpg', caption: 'Maitri Research Station' },
-                { image: 'https://upload.wikimedia.org/wikipedia/commons/3/3a/Bharati_permanent_Antarctic_research_station.jpg', caption: 'Bharati Research Station' },
-                { image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/%E0%A4%A6%E0%A4%95%E0%A5%8D%E0%A4%B7%E0%A4%BF%E0%A4%A3_%E0%A4%97%E0%A4%82%E0%A4%97%E0%A5%8B%E0%A4%A4%E0%A5%8D%E0%A4%B0%E0%A5%80%2C_%E0%A4%85%E0%A4%82%E0%A4%9F%E0%A4%BE%E0%A4%B0%E0%A5%8D%E0%A4%95%E0%A4%9F%E0%A4%BF%E0%A4%95%E0%A4%BE.jpg/1280px-%E0%A4%A6%E0%A4%95%E0%A5%8D%E0%A4%B7%E0%A4%BF%E0%A4%A3_%E0%A4%97%E0%A4%82%E0%A4%97%E0%A5%8B%E0%A4%A4%E0%A5%8D%E0%A4%B0%E0%A5%80%2C_%E0%A4%85%E0%A4%82%E0%A4%9F%E0%A4%BE%E0%A4%B0%E0%A5%8D%E0%A4%95%E0%A4%9F%E0%A4%BF%E0%A4%95%E0%A4%BE.jpg', caption: 'Dakshin Gangotri' }
-              ]}
-              transition="melt"
-              intensity={0.55}
-              aberration={0.35}
-              drift={0.4}
-              autoplay={true}
-              overlayColor="#05060a"
-              duration={1.1}
-              ease="power2.inOut"
-              scale={2.4}
-              autoplayDelay={4}
-              loop
-              radius={0}
-              showCaptions
-              showControls={true}
-              showIndicators={true}
-            />
-          </div>
-        </div>
-      ),
+      render: HeroBlockRender,
     },
 
     StatsBlock: {

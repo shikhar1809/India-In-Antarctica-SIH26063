@@ -258,6 +258,15 @@ export interface Dispatch {
   adminNotes: string | null;
   createdAt: number;
   updatedAt: number;
+  /** Set by the approve desk alongside `status: 'approved'` — the id and
+   *  citable identifier of the public record this dispatch became. Absent
+   *  until approved, and absent forever on anything that never was (most
+   *  dispatches). This is what "Published content" links out to the public
+   *  site with, and it is optional for exactly that reason rather than a
+   *  string default — an empty string would look like a broken link instead
+   *  of an honest "not published". */
+  publicRecordId?: string | null;
+  publicIdentifier?: string | null;
 
   /** @deprecated superseded by structured `weather`; kept so older docs render. */
   conditions?: string;

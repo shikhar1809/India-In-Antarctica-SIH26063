@@ -342,7 +342,7 @@ export function Repository() {
         <div className="rs-overlay">
           <div className="rs-top">
             <div className="rs-title">
-              <strong>Knowledge Repository</strong>
+              <strong>Archive</strong>
               <span>National Centre for Polar and Ocean Research</span>
             </div>
 

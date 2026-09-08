@@ -666,17 +666,29 @@ export default function MorphSlider({
 
       {showCaptions && hasCaptions && (
         <div className="morph-slider-caption" aria-live="polite">
-          {items.map((item: any, i: number) =>
-            item.caption ? (
-              <span
+          {items.map((item: any, i: number) => {
+            if (!item.caption) return null;
+            const active = i === index;
+            const className = `morph-slider-caption-text ${active ? 'is-active' : ''}`;
+            // A slide sourced from a real archive record carries an href — the
+            // caption becomes a link to it. A slide with no href (the static
+            // fallback photos) stays plain text, exactly as before.
+            return item.href ? (
+              <a
                 key={i}
-                aria-hidden={i === index ? undefined : true}
-                className={`morph-slider-caption-text ${i === index ? 'is-active' : ''}`}
+                href={item.href}
+                aria-hidden={active ? undefined : true}
+                tabIndex={active ? undefined : -1}
+                className={className}
               >
                 {item.caption}
+              </a>
+            ) : (
+              <span key={i} aria-hidden={active ? undefined : true} className={className}>
+                {item.caption}
               </span>
-            ) : null
-          )}
+            );
+          })}
         </div>
       )}
 

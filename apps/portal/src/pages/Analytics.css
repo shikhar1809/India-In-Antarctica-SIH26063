@@ -196,3 +196,74 @@
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+
+/* ── Sections — the four accountability questions ────────────────────── */
+
+.an-section {
+  margin-bottom: 32px;
+}
+
+.an-section-head {
+  margin-bottom: 14px;
+}
+
+.an-section-head h2 {
+  margin: 0 0 3px;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.an-section-head p {
+  margin: 0;
+  font-size: 0.82rem;
+  opacity: 0.6;
+}
+
+/* A tile that deserves attention — an aging backlog, a weak dissemination
+   success rate — gets a warm border rather than sitting identical to a
+   routine number. Never colour alone: the hint line beneath always spells
+   out why. */
+.an-tile-warn {
+  border-color: rgba(240, 180, 41, 0.5);
+  background: rgba(240, 180, 41, 0.06);
+}
+
+.an-tile-warn .an-tile-icon {
+  background: rgba(240, 180, 41, 0.18);
+  color: #f0b429;
+}
+
+/* ── Station freshness table ─────────────────────────────────────────── */
+
+.an-freshness-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin-top: 4px;
+}
+
+.an-freshness-table th,
+.an-freshness-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.an-freshness-table th {
+  font-weight: 600;
+  opacity: 0.7;
+  font-size: 0.78rem;
+}
+
+.an-freshness-table td:last-child,
+.an-freshness-table th:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A station that hasn't published in over 90 days — worth a glance, marked
+   the same way a warn tile is: colour plus an explicit number, never colour
+   alone. */
+.an-freshness-table tr.an-stale td {
+  color: #f0b429;
+}

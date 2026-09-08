@@ -69,6 +69,25 @@
   filter: blur(0);
 }
 
+/* The caption stack has pointer-events: none (every caption occupies the
+   same grid cell, stacked, and only the active one is visible) — so a link
+   has to re-enable pointer events on itself once it is the one showing.
+   Plain anchor defaults (underline, visited-color) are reset because this
+   reads as a caption first and a link second. */
+a.morph-slider-caption-text {
+  text-decoration: none;
+  cursor: pointer;
+}
+
+a.morph-slider-caption-text.is-active {
+  pointer-events: auto;
+}
+
+a.morph-slider-caption-text.is-active:hover,
+a.morph-slider-caption-text.is-active:focus-visible {
+  background: rgba(10, 10, 12, 0.62);
+}
+
 .morph-slider-controls {
   position: absolute;
   top: 50%;

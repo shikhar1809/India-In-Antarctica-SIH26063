@@ -60,19 +60,21 @@ export function Header() {
           <NavLink to="/" end className={({ isActive }) => isActive ? 'active' : ''}>
             {isStaff ? 'Menu' : 'Home'}
           </NavLink>
-          <NavLink to="/repository" className={({ isActive }) => isActive ? "active" : ""}>Repository</NavLink>
+          <NavLink to="/repository" className={({ isActive }) => isActive ? "active" : ""}>Archive</NavLink>
           {user && isStaff && (
             <>
-              <NavLink to="/social" className={({ isActive }) => isActive ? 'active' : ''}>
-                {role === 'publisher' ? 'Queue' : 'Review'}
-              </NavLink>
-              <NavLink to="/analytics" className={({ isActive }) => isActive ? 'active' : ''}>
-                Dashboard
+              {/* Media is a hub, not a direct link to the review desk — it
+                  opens on a choice of Track analytics / View schedule /
+                  Generate media rather than always landing on Review. The
+                  old standalone "Dashboard" link is gone; its page is one of
+                  the hub's three options now, not a fourth thing to find. */}
+              <NavLink to="/media" className={({ isActive }) => isActive ? 'active' : ''}>
+                Media
               </NavLink>
               {role === 'admin' && (
                 <>
-                  <NavLink to="/editor" className={({ isActive }) => isActive ? 'active' : ''}>
-                    Site Editor
+                  <NavLink to="/site" className={({ isActive }) => isActive ? 'active' : ''}>
+                    Site Management
                   </NavLink>
                   <NavLink to="/moderation" className={({ isActive }) => isActive ? 'active' : ''}>
                     Q&A Moderation

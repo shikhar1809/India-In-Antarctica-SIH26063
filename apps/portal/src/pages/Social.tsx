@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ChevronDown, FileSpreadsheet, Paperclip, RotateCcw, Sparkles, TriangleAlert } from 'lucide-react';
 import { addDoc, collection, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -46,6 +47,7 @@ const PLATFORMS = [
 ];
 
 const PORTAL_URL = 'https://iia-portal.web.app';
+const PUBLIC_SITE_URL = 'https://iia-public.web.app';
 
 // Instagram has no share-intent URL scheme at all — Meta doesn't support
 // cross-app posting from a web link, unlike X/LinkedIn/WhatsApp above.
@@ -138,6 +140,11 @@ const ROLE_LABEL: Record<Role, string> = { scientist: 'Scientist', publisher: 'P
 export function Social() {
   const { role, loading: roleLoading } = useRole();
   const { dispatches } = useDispatches();
+  // The Media hub links here with ?tab=queue / ?tab=review / ?tab=approve
+  // so "View schedule" and "Generate media" land on the right tab instead
+  // of always opening on the default one.
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab');
 
   const toReview  = useMemo(() => dispatches.filter((d) => d.status === 'raw' || d.status === 'flagged'), [dispatches]);
   const toApprove = useMemo(() => dispatches.filter((d) => d.status === 'drafted'), [dispatches]);
@@ -148,7 +155,9 @@ export function Social() {
   // are, skip the normal padded/centered page shell entirely — the
   // workspace gets the whole page below the header, not another card
   // squeezed into a narrow column.
-  const [pubTab, setPubTab] = useState<'review' | 'mine' | 'queue'>('review');
+  const [pubTab, setPubTab] = useState<'review' | 'mine' | 'queue'>(
+    initialTab === 'queue' || initialTab === 'mine' ? initialTab : 'review',
+  );
   const [pubActiveId, setPubActiveId] = useState<string | null>(null);
   const composeDispatch = role === 'publisher' && pubTab === 'review'
     ? toReview.find((d) => d.id === pubActiveId) ?? null
@@ -186,7 +195,7 @@ export function Social() {
             setActiveId={setPubActiveId}
           />
         )}
-        {role === 'admin'     && <AdminView toApprove={toApprove} live={live} />}
+        {role === 'admin'     && <AdminView toApprove={toApprove} live={live} initialTab={initialTab} />}
       </div>
     </div>
   );
@@ -256,15 +265,19 @@ function PublisherView({
 }
 
 /* ============================================================= Admin view */
-function AdminView({ toApprove, live }: { toApprove: Dispatch[]; live: Dispatch[] }) {
-  const [tab, setTab] = useState<'approve' | 'feed' | 'roles' | 'queue'>('approve');
+function AdminView({
+  toApprove, live, initialTab,
+}: { toApprove: Dispatch[]; live: Dispatch[]; initialTab?: string | null }) {
+  const [tab, setTab] = useState<'approve' | 'feed' | 'roles' | 'queue'>(
+    initialTab === 'queue' || initialTab === 'feed' || initialTab === 'roles' ? initialTab : 'approve',
+  );
   return (
     <>
       <div className="fld-tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'approve'} className={'fld-tab' + (tab === 'approve' ? ' active' : '')} onClick={() => setTab('approve')}>
           Approve {toApprove.length > 0 && <span className="fld-count">{toApprove.length}</span>}
         </button>
-        <button role="tab" aria-selected={tab === 'feed'} className={'fld-tab' + (tab === 'feed' ? ' active' : '')} onClick={() => setTab('feed')}>Live feed</button>
+        <button role="tab" aria-selected={tab === 'feed'} className={'fld-tab' + (tab === 'feed' ? ' active' : '')} onClick={() => setTab('feed')}>Published content</button>
         <button role="tab" aria-selected={tab === 'roles'} className={'fld-tab' + (tab === 'roles' ? ' active' : '')} onClick={() => setTab('roles')}>Manage roles</button>
         <button role="tab" aria-selected={tab === 'queue'} className={'fld-tab' + (tab === 'queue' ? ' active' : '')} onClick={() => setTab('queue')}>Dissemination</button>
       </div>
@@ -868,8 +881,16 @@ function ApproveTab({ items }: { items: Dispatch[] }) {
 }
 
 /* ================================================================ Feed tab */
+/** What went public, as a reviewer sees it — the "Published content" tab.
+ *
+ *  Every card here is a dispatch that already crossed the projection in
+ *  publish.ts, so `publicIdentifier` is set. The button links straight to
+ *  the record's permanent address on the public site (recordSlug's own
+ *  scheme: /archive/<identifier>), which is the fastest way to answer "did
+ *  this actually go live, and does it read right?" without hunting for it
+ *  in the archive by hand. */
 function FeedTab({ items }: { items: Dispatch[] }) {
-  if (items.length === 0) return <p className="fld-empty">Nothing live yet.</p>;
+  if (items.length === 0) return <p className="fld-empty">Nothing published yet.</p>;
   return (
     <div className="fld-feed">
       {items.map((d) => (
@@ -884,6 +905,14 @@ function FeedTab({ items }: { items: Dispatch[] }) {
               <span>{new Date(d.updatedAt).toLocaleDateString()}</span>
             </div>
             <div className="fld-feed-share">
+              {d.publicIdentifier && (
+                <a
+                  href={`${PUBLIC_SITE_URL}/archive/${d.publicIdentifier}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ph-btn primary small"
+                >View on main site</a>
+              )}
               {PLATFORMS.map((p) => (
                 <a key={p.id} href={p.share(d.caption, PORTAL_URL)} target="_blank" rel="noreferrer" className="ph-btn ghost small">{p.label}</a>
               ))}

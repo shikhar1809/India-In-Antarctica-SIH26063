@@ -84,6 +84,8 @@ export const FIELD_RULES: Record<keyof Dispatch, FieldRule> = {
   createdAt:      { label: 'Filed at', disposition: 'internal', reason: 'When the dispatch was submitted, as distinct from when the observation was made.' },
   updatedAt:      { label: 'Last edited', disposition: 'internal', reason: 'When the dispatch was last edited in the portal. A pipeline timestamp, not a fact about the observation.' },
   conditions:     { label: 'Conditions (legacy)', disposition: 'withheld', reason: 'Superseded by the structured weather observation. Kept so older dispatches still render in the portal.' },
+  publicRecordId: { label: 'Public record id', disposition: 'internal', reason: 'The publicArchive document this dispatch became once approved. A pipeline cross-reference, not a fact about the observation — the record itself is what publishes.' },
+  publicIdentifier: { label: 'Public identifier', disposition: 'published', reason: 'The citable IIA-<year>-<seq> handle. It IS what is published — it is the address of the record itself, so a reviewer sees the same identifier here as the public does.' },
 };
 
 /* ───────────────────────────────────────────────────────── derivation ── */

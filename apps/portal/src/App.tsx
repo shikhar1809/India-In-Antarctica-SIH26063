@@ -8,6 +8,8 @@ import { Social } from './pages/Social';
 import { SiteEditor } from './pages/SiteEditor';
 import { Moderation } from './pages/Moderation';
 import { Analytics } from './pages/Analytics';
+import { MediaHub } from './pages/MediaHub';
+import { SiteHub } from './pages/SiteHub';
 import { CanvasGallery } from './studio/CanvasGallery';
 import { StudioHarness } from './studio/StudioHarness';
 import { RecordEditorHarness } from './components/RecordEditorHarness';
@@ -55,6 +57,8 @@ function Gate() {
         <Route path="/editor"  element={<SiteEditor />} />
         <Route path="/moderation" element={<Moderation />} />
         <Route path="/analytics" element={<Analytics />} />
+        <Route path="/media" element={<MediaHub />} />
+        <Route path="/site" element={<SiteHub />} />
         {/* Scientist-facing Upload/MyRecords removed — scientists use the desktop app */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

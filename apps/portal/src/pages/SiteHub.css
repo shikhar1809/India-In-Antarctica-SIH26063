@@ -1,0 +1,62 @@
+.sh-page { padding-bottom: 64px; }
+
+.sh-head { margin-bottom: 28px; }
+.sh-head h1 { margin: 0 0 6px; font-size: 1.45rem; font-weight: 600; }
+.sh-head p { margin: 0; opacity: 0.65; }
+
+.sh-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.sh-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px 22px 20px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.sh-card:not(.sh-card-disabled):hover {
+  border-color: rgba(120, 190, 255, 0.5);
+  background: rgba(120, 190, 255, 0.06);
+}
+
+.sh-card-disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.sh-card-disabled code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sh-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 11px;
+  background: rgba(200, 118, 42, 0.16);
+  color: #c8762a;
+}
+
+.sh-card strong { font-size: 1.05rem; font-weight: 600; }
+
+.sh-card p {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  opacity: 0.65;
+}
