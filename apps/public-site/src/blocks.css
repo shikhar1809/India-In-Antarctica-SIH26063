@@ -545,13 +545,20 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  /* This pill used to hold a one-line title and nothing else; it now
+     sometimes carries a title plus a badge-and-button row, so it needs
+     room to wrap onto two or three lines rather than being squeezed onto
+     one — .morph-slider-caption's max-width (below) is what actually
+     bounds it. */
+  white-space: normal;
 }
 
 .hero-card-title {
   font-weight: 600;
+  line-height: 1.3;
 }
 
-.hero-card-social {
+.hero-card-row {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -566,4 +573,23 @@
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* ── Mobile: the caption card and the slide indicator dots both anchor to
+   the bottom of the hero, and .morph-slider-caption's 70% max-width — fine
+   on a wide screen — leaves the card overlapping the centred dot row on a
+   narrow one. Give the card the full width and push it above the dots
+   instead of fighting them for the same strip. ─────────────────────── */
+@media (max-width: 640px) {
+  .morph-slider-caption {
+    left: 14px;
+    right: 14px;
+    bottom: 56px;
+    max-width: none;
+  }
+
+  .hero-card-title {
+    font-size: 0.92rem;
+  }
 }

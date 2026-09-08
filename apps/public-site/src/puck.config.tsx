@@ -49,24 +49,32 @@ function HeroBlockRender() {
 
   // MorphSlider's own item shape is just { image, caption, href } — caption
   // renders as whatever ReactNode it's given (see MorphSlider.tsx's caption
-  // block), so the richer card (title, platform badges, an explicit "View
-  // post" button) is composed here rather than by changing that component.
-  // Slides with no href (the static fallback photos) keep a plain title —
-  // there is nothing to badge or link when nothing was ever posted about a
-  // stock photo of a station.
+  // block), so the richer card (title, platform badges, a "View in
+  // archive" button) is composed here rather than by changing that
+  // component.
+  //
+  // Platform badges and the archive button used to be gated behind the
+  // same condition — s.platforms.length > 0 — which meant a record nobody
+  // had shared on social media yet showed *no button at all*, even though
+  // its archive page exists and is exactly one click away either way. The
+  // two are independent facts about a record: "has an archive page" (true
+  // for every real slide) and "was shared on social media" (true for
+  // some). Each now has its own condition.
   const items = slides.map((s) => ({
     image: s.image,
     href: s.href,
     caption: (
       <span className="hero-card">
         <span className="hero-card-title">{[s.title, s.station].filter(Boolean).join(' — ')}</span>
-        {s.platforms.length > 0 && (
-          <span className="hero-card-social">
+        {(s.platforms.length > 0 || s.href) && (
+          <span className="hero-card-row">
             {s.platforms.map((p) => <SocialBadge key={p} platform={p} />)}
             {/* Same destination as clicking the caption itself — the whole
                 card is already one <a>, so this reads as a button without
-                being a second, nested link. */}
-            <span className="hero-card-viewpost">View post</span>
+                being a second, nested link. Shown for every real record,
+                not only ones that have been posted about — the archive
+                page exists regardless. */}
+            {s.href && <span className="hero-card-viewpost">View in archive</span>}
           </span>
         )}
       </span>
