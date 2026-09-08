@@ -14,12 +14,13 @@
  * to deliberately add the field here. publish.test.ts asserts it stays that way.
  */
 
-import { doc, setDoc, deleteDoc, runTransaction } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, deleteDoc, runTransaction } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { Dispatch, ResearchDocument } from '../types';
 import type { Measurement, RepositoryRecord, RecordMetadata, ResourceType } from './contract';
 import { STATION_COVER_KEY, CATEGORY_COVER, ACTIVITY_RESOURCE_TYPE } from './contract';
 import type { PublicSummary } from './summarise';
+import { citeDispatchBody, citeDocumentBody } from './citations';
 
 export const PUBLIC_COLLECTION = 'publicArchive';
 
@@ -89,6 +90,10 @@ export function toRepositoryRecord(
   identifier: string,
   now = Date.now(),
 ): RepositoryRecord {
+  // Where each sentence of `summary.body` came from. Built from the same
+  // material the summary was, and cited by name only — see citations.ts for
+  // why a dispatch is never linked.
+  const cited = citeDispatchBody(d, summary.body, measurements, d.publisherName ?? null);
   const resourceType: ResourceType = ACTIVITY_RESOURCE_TYPE[d.activity] ?? 'Report';
   const cover = resourceType === 'Dataset'
     ? CATEGORY_COVER['Dataset']
@@ -144,6 +149,8 @@ export function toRepositoryRecord(
     videoUrl: null,
     measurements,
     ...(summary.chart ? { chart: summary.chart } : {}),
+    sources: cited.sources,
+    citations: cited.citations,
     metadata,
     publishedAt: now,
   };
@@ -165,6 +172,23 @@ export function documentToRepositoryRecord(
     : docRec.category === 'Institutional' ? 'Institutional'
     : 'Report';
 
+  // A written-out report reads as paragraphs, not one 500-char summary —
+  // that's the whole point of the field. No report on file falls back to
+  // exactly what every record before this showed.
+  const body = docRec.fullText?.trim()
+    ? docRec.fullText.trim().split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)
+    : [docRec.description];
+
+  // Paragraph N of the public text is paragraph N of the submitted report,
+  // so the citation can say so precisely and link the file itself.
+  const cited = citeDocumentBody(docRec, body);
+
+  const isVideo = docRec.mediaKind === 'video';
+  // A video plays inline instead of being one more download-link row.
+  const fileRow = isVideo
+    ? []
+    : [{ label: 'File', value: `${docRec.fileName} (${Math.max(1, Math.round(docRec.fileSizeBytes / 1024))} KB)` }];
+
   return {
     id: docRec.id,
     cat: cover.cat,
@@ -173,18 +197,20 @@ export function documentToRepositoryRecord(
     station: STATION_COVER_KEY[docRec.station] ?? 'ncpor',
     year: yearOf(docRec.observedAt),
     pills: [docRec.category, docRec.station].filter(Boolean),
-    body: [docRec.description],
+    body,
     table: [
       { label: 'Station', value: docRec.station },
       { label: 'Recorded', value: new Date(docRec.observedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }) },
       { label: 'Instrument / method', value: docRec.instrument || '—' },
       { label: 'Licence', value: docRec.license },
-      { label: 'File', value: `${docRec.fileName} (${Math.max(1, Math.round(docRec.fileSizeBytes / 1024))} KB)` },
+      ...fileRow,
     ],
     credit: `Submitted by ${docRec.authorName}`,
     photoUrls: [],
-    videoUrl: null,
+    videoUrl: isVideo ? docRec.fileUrl : null,
     measurements: [],
+    sources: cited.sources,
+    citations: cited.citations,
     metadata: {
       identifier,
       creators: [{ name: docRec.authorName, affiliation: 'NCPOR' }],
@@ -215,4 +241,25 @@ export async function publishRecord(record: RepositoryRecord): Promise<void> {
  *  something that needs a console visit. */
 export async function unpublishRecord(id: string): Promise<void> {
   await deleteDoc(doc(db, PUBLIC_COLLECTION, id));
+}
+
+/** What an admin is allowed to change on a record that is already live —
+ *  the visible public content, and nothing about its identity or
+ *  provenance. Re-running `publishRecord` would work too, but it replaces
+ *  the whole document; this only ever touches the fields a human actually
+ *  edited, so a stray client-side bug can't silently drop metadata that
+ *  was never part of the edit. */
+export interface PublishedRecordPatch {
+  title?: string;
+  /** Editing published prose invalidates the citations attached to it. This
+   *  patch deliberately cannot carry `citations`, and iia-public re-joins
+   *  each paragraph's spans before trusting them — so an edited paragraph
+   *  simply falls back to being shown uncited rather than keeping an
+   *  attribution it has outgrown. */
+  body?: string[];
+  table?: RepositoryRecord['table'];
+}
+
+export async function updatePublishedRecord(id: string, patch: PublishedRecordPatch): Promise<void> {
+  await updateDoc(doc(db, PUBLIC_COLLECTION, id), { ...patch });
 }

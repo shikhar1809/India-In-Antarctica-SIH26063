@@ -1,0 +1,375 @@
+/* ── approvals desk ───────────────────────────────────────────────────
+   Three columns instead of one long scroll: the queue stays put so an
+   approver can move between dispatches without going back, the field
+   record and the public text sit side by side because the whole job is
+   comparing them, and the verdict column carries the checks and the two
+   buttons. Each column scrolls on its own, so no column's length pushes
+   another out of view. */
+
+.ad-desk {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr) minmax(0, 1fr) 320px;
+  gap: 14px;
+  align-items: stretch;
+  /* fill the viewport under the page header rather than growing the page */
+  height: calc(100vh - 260px);
+  min-height: 460px;
+}
+
+.ad-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: rgba(255, 255, 255, 0.02);
+  overflow: hidden;
+}
+
+.ad-col-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(6, 16, 25, 0.5);
+  flex: none;
+}
+
+.ad-col-head strong {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ice-dim);
+  font-weight: 600;
+}
+
+.ad-col-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ── queue ─────────────────────────────────────────────────────────── */
+
+.ad-queue { padding: 6px; gap: 4px; }
+
+.ad-queue-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: left;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: none;
+  cursor: pointer;
+  transition: background 0.14s, border-color 0.14s;
+}
+
+.ad-queue-item:hover { background: rgba(150, 200, 240, 0.07); }
+
+.ad-queue-item.is-active {
+  background: rgba(95, 217, 255, 0.12);
+  border-color: rgba(95, 217, 255, 0.45);
+}
+
+.ad-queue-name {
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ice);
+}
+
+.ad-queue-meta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ice-faint);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* A dot per severity so the queue itself shows which need attention. */
+.ad-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+  display: inline-block;
+}
+
+.ad-dot.blocker { background: var(--danger); }
+.ad-dot.missing { background: var(--warn); }
+.ad-dot.caution { background: var(--cyan); }
+.ad-dot.clear   { background: var(--green); }
+
+/* ── field blocks ──────────────────────────────────────────────────── */
+
+.ad-block { display: flex; flex-direction: column; gap: 5px; }
+
+.ad-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+}
+
+.ad-value {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ice);
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.ad-mono {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--ice-dim);
+  line-height: 1.6;
+}
+
+/* Measurements as a dense grid — the single biggest source of vertical
+   scroll in the old stacked layout. */
+.ad-measures {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 8px;
+}
+
+.ad-measure {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 9px;
+  min-width: 0;
+}
+
+.ad-measure dt {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+  margin: 0 0 2px;
+}
+
+.ad-measure dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ice);
+  overflow-wrap: anywhere;
+}
+
+.ad-photos {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ad-photos img {
+  width: 66px;
+  height: 66px;
+  object-fit: cover;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+}
+
+.ad-photos img.is-cover { border-color: var(--cyan); }
+
+.ad-banner {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  font-weight: 600;
+  background: rgba(255, 106, 106, 0.14);
+  border: 1px solid rgba(255, 106, 106, 0.45);
+  color: var(--danger);
+}
+
+/* ── public preview ────────────────────────────────────────────────── */
+
+.ad-preview-title {
+  font-family: var(--font-disp);
+  font-size: 19px;
+  line-height: 1.2;
+  color: var(--ice);
+  margin: 0;
+}
+
+.ad-graphic {
+  display: flex;
+  justify-content: center;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(6, 16, 25, 0.45);
+  overflow: hidden;
+}
+
+.ad-caption {
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ice-dim);
+  background: rgba(6, 16, 25, 0.5);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 11px;
+  margin: 0;
+}
+
+.ad-platforms { display: flex; flex-direction: column; gap: 6px; }
+
+.ad-platform {
+  display: grid;
+  grid-template-columns: 62px 1fr;
+  gap: 8px;
+  align-items: start;
+  font-size: 11.5px;
+}
+
+.ad-platform span:first-child {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+  padding-top: 2px;
+}
+
+.ad-platform span:last-child { color: var(--ice-dim); line-height: 1.5; }
+.ad-platform.is-over span:last-child { color: var(--warn); }
+
+/* ── verdict column ────────────────────────────────────────────────── */
+
+.ad-verdict {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 11px;
+  border-radius: 9px;
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.ad-verdict.clear   { background: rgba(18, 136, 7, 0.16); border: 1px solid rgba(18, 136, 7, 0.5); color: #7fe07a; }
+.ad-verdict.caution { background: rgba(95, 217, 255, 0.12); border: 1px solid rgba(95, 217, 255, 0.4); color: var(--cyan); }
+.ad-verdict.missing { background: rgba(255, 207, 92, 0.13); border: 1px solid rgba(255, 207, 92, 0.45); color: var(--warn); }
+.ad-verdict.blocker { background: rgba(255, 106, 106, 0.14); border: 1px solid rgba(255, 106, 106, 0.5); color: var(--danger); }
+
+.ad-findings { display: flex; flex-direction: column; gap: 7px; }
+
+.ad-finding {
+  display: flex;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-left-width: 3px;
+  border-radius: 8px;
+  background: rgba(6, 16, 25, 0.4);
+}
+
+.ad-finding.blocker { border-left-color: var(--danger); }
+.ad-finding.missing { border-left-color: var(--warn); }
+.ad-finding.caution { border-left-color: var(--cyan); }
+
+.ad-finding-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+
+.ad-finding-label {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ice);
+}
+
+.ad-finding-detail {
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ice-dim);
+  overflow-wrap: anywhere;
+}
+
+.ad-finding-where {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+}
+
+.ad-ai-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ad-ai-note {
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ice-dim);
+  margin: 0;
+}
+
+.ad-ai-muted {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ice-faint);
+}
+
+.ad-actions {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 11px 12px;
+  border-top: 1px solid var(--line);
+  background: rgba(6, 16, 25, 0.5);
+}
+
+.ad-actions .ph-btn { width: 100%; justify-content: center; }
+
+.ad-empty {
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  color: var(--ice-faint);
+  text-align: center;
+  padding: 20px 10px;
+  margin: 0;
+}
+
+/* Two columns at laptop width: the queue folds away and the field record
+   and public text keep their side-by-side comparison, which is the part
+   that matters most. */
+@media (max-width: 1400px) {
+  .ad-desk { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 300px; }
+  .ad-col--queue { display: none; }
+}
+
+@media (max-width: 1040px) {
+  .ad-desk {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 0;
+  }
+  .ad-col { max-height: 62vh; }
+}

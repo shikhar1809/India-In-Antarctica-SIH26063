@@ -72,15 +72,15 @@
   -webkit-backdrop-filter: blur(8px);
 }
 
-/* Scroll/Swipe switch — a fourth header item that wraps onto its own
-   centered row (flex-basis: 100% forces the break under flex-wrap)
-   instead of squeezing into the back/brand/count row, which has no slack
-   left for it on a phone-width header. */
-.gal-mode-toggle {
+/* Toggle column: Photos/Videos on row 1, Scroll/Swipe on row 2 (photos only).
+   flex-basis:100% forces a break out of the back/brand/count row. */
+.gal-toggles {
   flex-basis: 100%;
   display: flex;
-  justify-content: center;
-  margin-top: 0.6rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.5rem;
 }
 
 .gal-mode-toggle-pill {
@@ -108,6 +108,12 @@
   transition: background 0.2s, color 0.2s;
 }
 
+.gal-mode-toggle-pill--sub {
+  /* slightly smaller to read as secondary to the media-type pill above it */
+  transform: scale(0.92);
+  transform-origin: center top;
+}
+
 .gal-mode-toggle-pill button.is-active {
   background: var(--cyan);
   color: #06131c;
@@ -131,10 +137,183 @@
   max-width: 900px;
 }
 
+/* ── videos ────────────────────────────────────────────────────────── */
+
+.gal-videos {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  padding: 8rem 1.5rem 3rem;
+}
+
+.gal-videos-empty {
+  max-width: 46ch;
+  margin: 4rem auto 0;
+  text-align: center;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--ice-dim);
+}
+
+/* ── video stage (single-up player + nav) ─── */
+
+.gal-video-stage {
+  display: grid;
+  /* side-btn | player | side-btn */
+  grid-template-columns: 2.8rem 1fr 2.8rem;
+  grid-template-rows: auto auto;
+  column-gap: 0.75rem;
+  row-gap: 1rem;
+  max-width: 960px;
+  margin: 0 auto;
+  align-items: center;
+}
+
+.gal-video-main {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Deliberately no entrance animation. Anything that starts the clip and its
+   caption at opacity 0 leaves them invisible for as long as the animation
+   fails to progress — and an animation paused mid-flight holds its `from`
+   keyframe, so a backgrounded tab strands the whole column blank rather
+   than merely skipping a flourish. The swap already reads clearly from the
+   content changing and the thumbnail highlight moving. */
+
+.gal-video-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.8rem;
+  height: 2.8rem;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: rgba(6, 16, 25, 0.55);
+  color: var(--ice);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: background 0.18s, border-color 0.18s, transform 0.15s;
+  align-self: center;
+  grid-row: 1;
+}
+
+.gal-video-nav:hover {
+  background: rgba(94, 227, 227, 0.15);
+  border-color: var(--cyan, #5ee3e3);
+  transform: scale(1.08);
+}
+
+.gal-video-nav--prev { grid-column: 1; }
+.gal-video-nav--next { grid-column: 3; }
+
+/* meta label below player */
+.gal-video-meta {
+  margin-top: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.gal-video-meta strong {
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--ice);
+}
+
+.gal-video-meta span {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--ice-faint);
+}
+
+/* thumbnail strip */
+.gal-video-strip {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: flex;
+  gap: 0.6rem;
+  overflow-x: auto;
+  padding-bottom: 0.4rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+.gal-video-thumb {
+  flex: 0 0 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.18s, transform 0.15s;
+  padding: 0;
+}
+
+.gal-video-thumb video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: block;
+  pointer-events: none;
+  background: rgba(6, 16, 25, 0.6);
+}
+
+/* Two lines, clipped cleanly. Not -webkit-line-clamp: this is a direct flex
+   child, and flex blockifies `display: -webkit-box` to `flow-root`, which
+   drops the clamp silently. A fixed content height set to an exact multiple
+   of line-height does the same job here and cannot leave a sliver of a
+   third line showing the way a rounded height does. */
+.gal-video-thumb-title {
+  display: block;
+  flex: none;
+  box-sizing: content-box;
+  line-height: 1.35;
+  height: 2.7em;
+  overflow: hidden;
+  padding: 0.3rem 0.5rem 0.45rem;
+  font-family: var(--font-ui);
+  font-size: 0.68rem;
+  color: var(--ice-dim);
+  text-align: left;
+}
+
+.gal-video-thumb.is-active {
+  border-color: var(--cyan, #5ee3e3);
+}
+
+.gal-video-thumb.is-active .gal-video-thumb-title {
+  color: var(--ice);
+}
+
+.gal-video-thumb:hover {
+  border-color: rgba(94, 227, 227, 0.5);
+  transform: translateY(-2px);
+}
+
 @media (max-width: 640px) {
   .gal-header { padding: 0.8rem 1rem; }
   .gal-brand,
   .gal-count { font-size: 0.72rem; }
   .gal-swipe { padding-top: 7.5rem; }
+  .gal-videos { padding-top: 9rem; }
   .gal-mode-toggle-pill button { padding: 0.6rem 1rem; font-size: 0.8rem; }
+  .gal-video-stage {
+    grid-template-columns: 2rem 1fr 2rem;
+    column-gap: 0.4rem;
+  }
+  .gal-video-nav {
+    width: 2rem;
+    height: 2rem;
+  }
+  .gal-video-thumb {
+    flex: 0 0 110px;
+  }
 }

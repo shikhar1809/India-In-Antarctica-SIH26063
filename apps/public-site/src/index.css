@@ -15,6 +15,25 @@
   --color-muted: #0f2740;
   --color-muted-foreground: #9fbdd6;
   --color-ring: #5fd9ff;
+  --color-amber-600: var(--ds-amber-600);
+  --color-gray-200: var(--ds-gray-200);
+  --color-gray-1000: var(--ds-gray-1000);
+  --color-gray-alpha-400: var(--ds-gray-alpha-400);
+  --color-background-200: var(--ds-background-200);
+  --shadow-book: var(--ds-shadow-book);
+  --shadow-book-border: var(--ds-shadow-book-border);
+}
+
+/* Book component DS tokens */
+:root {
+  --ds-amber-600: oklch(80.25% 0.1953 73.59);
+  --ds-gray-200: hsla(0, 0%, 92%, 1);
+  --ds-gray-1000: hsla(0, 0%, 9%, 1);
+  --ds-gray-alpha-400: hsla(0, 0%, 0%, 0.08);
+  --ds-background-200: hsla(0, 0%, 98%, 1);
+  --ds-book-bind: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0) 12%, rgba(255,255,255,0.25) 29.25%, rgba(255,255,255,0) 50.5%, rgba(255,255,255,0) 75.25%, rgba(255,255,255,0.25) 91%, rgba(255,255,255,0)), linear-gradient(90deg, rgba(0,0,0,0.03), rgba(0,0,0,0.1) 12%, rgba(0,0,0,0) 30%, rgba(0,0,0,0.02) 50%, rgba(0,0,0,0.2) 73.5%, rgba(0,0,0,0.5) 75.25%, rgba(0,0,0,0.15) 85.25%, rgba(0,0,0,0));
+  --ds-shadow-book: 0 1px 1px 0 rgba(0,0,0,.02), 0 4px 8px -4px rgba(0,0,0,.1), 0 16px 24px -8px rgba(0,0,0,.03);
+  --ds-shadow-book-border: inset 0 1px 2px 0 rgba(255,255,255,.3);
 }
 
 :root {
@@ -72,6 +91,15 @@ html, body {
 }
 
 a { color: inherit; text-decoration: none; }
+
+/* Book component 3-D tilt on hover */
+.book-rotate:hover {
+  transform: rotateY(-15deg);
+}
+
+.bg-book-gradient {
+  background: linear-gradient(180deg, var(--ds-background-200) 0%, #f0f0ee 100%);
+}
 
 h1, h2, h3 {
   font-family: var(--font-disp);

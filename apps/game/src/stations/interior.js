@@ -550,15 +550,38 @@ export function buildFloorPlan(spec) {
  * POOL is deliberately small. Two lights cover the room you are standing in;
  * the rest cover the doorways you can see through. Beyond that you are paying
  * for lights nobody can tell are there.
+ *
+ * THE VISIBILITY RULE — do not break this again.
+ * ----------------------------------------------
+ * These lights are created invisible and MUST STAY invisible for the whole
+ * session. Engine.js's LightBudget collects every non-budget point light as a
+ * *source*, hides it, and shades it through a constant-size pool of its own;
+ * that indirection exists for one reason, spelled out in its header: the
+ * number of VISIBLE lights is baked into every material's shader as
+ * `NUM_POINT_LIGHTS`, so changing it invalidates the whole program cache and
+ * three.js recompiles every material in the scene.
+ *
+ * This function used to toggle `pl.visible` on a 45 m distance test. Walking
+ * up to a station took the scene's visible point-light count 9 -> 13 -> 27 ->
+ * 28 across a ~15 m band, recompiling all ~70 programs at each step — ~430 ms
+ * per program on ANGLE/D3D11. That is the multi-second freeze that appeared
+ * only while approaching a building, cleared the moment the player stood
+ * still (distances stop changing, so the count stops changing), and never
+ * came back once inside (the count saturates). Modulate `intensity`, never
+ * `visible`, and the count is constant for the whole session — which also
+ * means the programs compiled during warmUp stay valid instead of being
+ * thrown away on the approach.
  */
+const BASE_INTENSITY = 1.5;
+
 function buildLightPool(out, g, lowLights) {
   const spots = out.lightSpots;
   if (!spots.length) return;
   const POOL = Math.min(spots.length, lowLights ? 4 : 8);
   const lights = [];
   for (let i = 0; i < POOL; i++) {
-    const pl = new THREE.PointLight(0xfff1cf, 1.5, 10, 2);
-    pl.visible = false;
+    const pl = new THREE.PointLight(0xfff1cf, BASE_INTENSITY, 10, 2);
+    pl.visible = false;   // permanent — see THE VISIBILITY RULE above
     g.add(pl);
     lights.push(pl);
     out.lights.push(pl);
@@ -585,9 +608,16 @@ function buildLightPool(out, g, lowLights) {
       for (let i = 0; i < lights.length; i++) {
         const sp = spots[i];
         const pl = lights[i];
-        // Nothing within 45 m is worth lighting from here.
-        if (!sp || sp.d > 45 * 45) { pl.visible = false; continue; }
-        pl.visible = true;
+        // NEVER touch pl.visible here — see the note above about the light
+        // count being a shader #define. Park an unwanted light at intensity 0
+        // and far below the map so Engine's LightBudget sorts it last and it
+        // never occupies one of the budget's slots.
+        if (!sp || sp.d > 45 * 45) {
+          pl.intensity = 0;
+          pl.position.set(0, -9999, 0);
+          continue;
+        }
+        pl.intensity = BASE_INTENSITY;
         pl.position.set(sp.x, sp.y, sp.z);
         pl.distance = sp.r;
       }

@@ -1,3 +1,14 @@
+/* Tailwind, utilities only — deliberately NOT `@import "tailwindcss"`.
+   That shorthand pulls in Preflight, whose global reset restyles buttons,
+   images and headings across the whole portal. Every screen here is plain
+   CSS written against browser defaults plus the small reset below, so
+   Preflight would silently reshuffle pages nothing in this change touches.
+   Importing theme + utilities alone gives the utility classes the hero
+   carousel needs and leaves existing styling exactly as it was. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
 :root {
   --ink: #061019;
   --ink-2: #0a1a2b;

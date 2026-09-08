@@ -1,0 +1,490 @@
+/* ── Repository studio ────────────────────────────────────────────────
+   The Repository page is one full-bleed component: the carousel is the
+   page, and every control (search, filters, the record view, edit, the
+   admin tools) is overlaid on it rather than stacked around it. So this
+   shell deliberately escapes .ph-page's max-width and padding. */
+
+.rs-page {
+  /* even split: carousel left, record right */
+  --rs-panel-w: 50%;
+  position: relative;
+  width: 100%;
+  /* #root is a flex column (index.css) with the sticky header as the
+     first item, so flex:1 fills exactly what's left under it — measured
+     by layout rather than guessed at with a vh calc that would drift the
+     moment the header's padding or font changes. */
+  flex: 1;
+  min-height: 560px;
+  overflow: hidden;
+  background: var(--ink);
+}
+
+.rs-stage {
+  position: absolute;
+  inset: 0;
+  /* HeroCarousel's own w-full/h-full would over-constrain the box: with
+     left, right and width all set, CSS drops `right`, so the inset below
+     (.has-panel) silently would not apply. inset alone defines the box. */
+  width: auto;
+  height: auto;
+}
+
+/* everything overlaid sits above the carousel */
+.rs-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.rs-overlay > * {
+  pointer-events: auto;
+}
+
+/* ── top control bar ─────────────────────────────────────────── */
+
+.rs-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 20px;
+  background: linear-gradient(180deg, rgba(4, 12, 20, 0.82) 0%, rgba(4, 12, 20, 0) 100%);
+}
+
+.rs-title {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-right: 4px;
+}
+
+.rs-title strong {
+  font-family: var(--font-disp);
+  font-size: 18px;
+  letter-spacing: 0.02em;
+  color: var(--ice);
+}
+
+.rs-title span {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+}
+
+/* Search sits on its own generous row: it is the primary way into a
+   catalogue of this size, and sharing a line with six category chips left
+   it squeezed to a stub. */
+.rs-searchrow {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rs-searchwrap {
+  position: relative;
+  flex: 1 1 420px;
+  min-width: 220px;
+  max-width: 620px;
+  display: flex;
+  align-items: center;
+}
+
+.rs-searchwrap > svg {
+  position: absolute;
+  left: 15px;
+  color: var(--ice-faint);
+  pointer-events: none;
+}
+
+.rs-search {
+  width: 100%;
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  color: var(--ice);
+  background: rgba(6, 16, 25, 0.78);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 12px 38px 12px 40px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: border-color 0.16s, background 0.16s;
+}
+
+.rs-search::placeholder { color: var(--ice-faint); }
+.rs-search:focus {
+  outline: none;
+  border-color: var(--cyan);
+  background: rgba(6, 16, 25, 0.9);
+}
+
+.rs-search-clear {
+  position: absolute;
+  right: 10px;
+  display: flex;
+  padding: 4px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(150, 200, 240, 0.14);
+  color: var(--ice-dim);
+  cursor: pointer;
+}
+
+.rs-search-clear:hover { color: var(--ice); background: rgba(150, 200, 240, 0.26); }
+
+/* Relevance ranking is invisible unless it is named. */
+.rs-relevance {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  white-space: nowrap;
+}
+
+/* source switch + category chips share one pill treatment */
+.rs-seg {
+  display: inline-flex;
+  background: rgba(6, 16, 25, 0.72);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.rs-seg button {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ice-dim);
+  background: none;
+  border: none;
+  border-radius: 999px;
+  padding: 7px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.16s, color 0.16s;
+}
+
+.rs-seg button.is-active { background: var(--cyan); color: #06131c; }
+.rs-seg button:not(.is-active):hover { color: var(--ice); }
+
+.rs-cats {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.rs-cat {
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ice-dim);
+  background: rgba(6, 16, 25, 0.7);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 9px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: background 0.16s, color 0.16s, border-color 0.16s;
+}
+
+.rs-cat.is-active {
+  background: rgba(95, 217, 255, 0.16);
+  border-color: var(--cyan);
+  color: var(--cyan);
+}
+
+.rs-cat:not(.is-active):hover { color: var(--ice); border-color: var(--line-strong); }
+
+.rs-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ice-faint);
+  font-variant-numeric: tabular-nums;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* ── bottom action bar ───────────────────────────────────────── */
+
+.rs-actions {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px 20px;
+  background: linear-gradient(0deg, rgba(4, 12, 20, 0.8) 0%, rgba(4, 12, 20, 0) 100%);
+}
+
+.rs-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-ui);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ice);
+  background: rgba(6, 16, 25, 0.75);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 9px 16px;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: background 0.16s, border-color 0.16s;
+}
+
+.rs-btn:hover { background: rgba(95, 217, 255, 0.18); border-color: var(--cyan); }
+.rs-btn.primary { background: rgba(95, 217, 255, 0.16); border-color: var(--cyan); }
+.rs-btn:disabled { opacity: 0.55; cursor: default; }
+
+/* With the panel open the carousel is inset to sit beside it rather than
+   underneath: an overlay panel would cover the right third of the stage,
+   which is exactly where the filmstrip's cards are. */
+.rs-page.has-panel .rs-stage,
+.rs-page.has-panel .rs-overlay {
+  right: var(--rs-panel-w);
+}
+
+/* ── record view panel (docked right) ─────────────────────────── */
+
+.rs-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  width: var(--rs-panel-w);
+  display: flex;
+  flex-direction: column;
+  background: rgba(5, 14, 23, 0.93);
+  border-left: 1px solid var(--line-strong);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  overflow-y: auto;
+}
+
+.rs-panel-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 18px 18px 12px;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  background: rgba(5, 14, 23, 0.97);
+  z-index: 1;
+}
+
+.rs-panel-head h2 {
+  font-family: var(--font-disp);
+  font-size: 20px;
+  line-height: 1.2;
+  color: var(--ice);
+  margin: 0;
+  flex: 1;
+}
+
+.rs-panel-close {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ice-dim);
+  cursor: pointer;
+  padding: 5px;
+  display: flex;
+  flex: none;
+}
+
+.rs-panel-close:hover { color: var(--ice); border-color: var(--line-strong); }
+
+.rs-panel-body {
+  padding: 14px 18px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.rs-badges { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.rs-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ice-dim);
+  background: rgba(150, 200, 240, 0.1);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 3px 7px;
+}
+
+.rs-badge.warn { color: var(--warn); border-color: rgba(255, 207, 92, 0.4); background: rgba(255, 207, 92, 0.1); }
+.rs-badge.cyan { color: var(--cyan); border-color: rgba(95, 217, 255, 0.4); background: rgba(95, 217, 255, 0.1); }
+
+.rs-desc {
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ice-dim);
+  margin: 0;
+}
+
+.rs-desc + .rs-desc { margin-top: -4px; }
+
+.rs-facts {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.rs-fact {
+  display: flex;
+  gap: 10px;
+  padding: 8px 11px;
+  font-size: 12.5px;
+  border-bottom: 1px solid var(--line);
+}
+
+.rs-fact:last-child { border-bottom: none; }
+
+.rs-fact dt {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+  flex: 0 0 38%;
+  margin: 0;
+  padding-top: 1px;
+}
+
+.rs-fact dd {
+  margin: 0;
+  color: var(--ice);
+  font-family: var(--font-ui);
+  flex: 1;
+  word-break: break-word;
+}
+
+.rs-fact a { color: var(--cyan); text-decoration: underline; text-underline-offset: 2px; }
+
+.rs-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--cyan);
+  background: rgba(95, 217, 255, 0.1);
+  border: 1px solid rgba(95, 217, 255, 0.35);
+  border-radius: 8px;
+  padding: 9px 12px;
+  text-decoration: none;
+}
+
+.rs-file:hover { background: rgba(95, 217, 255, 0.18); }
+.rs-file.locked { color: var(--warn); border-color: rgba(255, 207, 92, 0.35); background: rgba(255, 207, 92, 0.08); }
+
+/* ── states ──────────────────────────────────────────────────── */
+
+.rs-state {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 32px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--ice-dim);
+  z-index: 2;
+}
+
+.rs-state p { max-width: 44ch; line-height: 1.6; margin: 0; }
+
+/* ── admin strip ─────────────────────────────────────────────── */
+
+.rs-admin-msg {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ice-dim);
+  margin-right: auto;
+}
+
+.rs-admin-msg.error { color: var(--danger); }
+
+@media (max-width: 720px) {
+  .rs-page { flex: none; min-height: 0; }
+  .rs-stage { position: relative; height: 62vh; min-height: 380px; }
+  .rs-overlay { position: absolute; }
+  .rs-page.has-panel .rs-stage,
+  .rs-page.has-panel .rs-overlay { right: 0; }
+  .rs-panel {
+    position: relative;
+    width: 100%;
+    max-height: none;
+    border-left: none;
+    border-top: 1px solid var(--line-strong);
+  }
+  .rs-top { padding: 10px 12px; gap: 8px; }
+  .rs-actions { padding: 12px; }
+  .rs-count { margin-left: 0; }
+}
+
+/* The search row is a second band under the title row; it must not repaint
+   the scrim gradient, or the two stack into a visible dark step. */
+.rs-searchrow-outer {
+  background: none;
+  padding-top: 0;
+  padding-bottom: 18px;
+}
+
+/* The carousel sets its headline in leading-[0.88], so the line box is
+   shorter than the glyphs, and wraps each line in overflow-hidden for the
+   reveal — which shaves the descenders off any title containing g, y, p or
+   j ("Logistics by Sea" lost its tails). A little bottom room restores them
+   and leaves the reveal alone, since that animates in from the top. */
+.rs-stage h2 > span {
+  padding-bottom: 0.14em;
+}
+
+/* Edit sits at the end of the record's own details, where you are already
+   reading it — the action bar copy is for when the panel is closed. */
+.rs-panel-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 2px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cyan);
+  background: rgba(95, 217, 255, 0.12);
+  border: 1px solid rgba(95, 217, 255, 0.4);
+  border-radius: 10px;
+  padding: 11px 16px;
+  cursor: pointer;
+  transition: background 0.16s, border-color 0.16s;
+}
+
+.rs-panel-edit:hover {
+  background: rgba(95, 217, 255, 0.22);
+  border-color: var(--cyan);
+}

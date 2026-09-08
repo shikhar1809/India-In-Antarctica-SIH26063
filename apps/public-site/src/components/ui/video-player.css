@@ -1,0 +1,153 @@
+.vp-wrap {
+  position: relative;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #080e15;
+  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.5);
+}
+
+.vp-video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: block;
+  cursor: pointer;
+}
+
+.vp-big-play {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 16, 25, 0.35);
+  border: none;
+  cursor: pointer;
+  color: var(--ice);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  opacity: 1;
+  transition: background 0.2s, opacity 0.25s;
+}
+
+.vp-big-play:hover {
+  background: rgba(6, 16, 25, 0.5);
+}
+
+.vp-big-play--hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vp-big-play { transition: none; }
+}
+
+/* Centred by margin, not by translateX: framer-motion owns `transform` on
+   this element for the slide-up, and an inline transform would drop the
+   centring half of it. */
+.vp-controls {
+  position: absolute;
+  bottom: 0.75rem;
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  width: min(92%, 560px);
+  background: rgba(6, 16, 25, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.65rem 0.9rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.vp-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.vp-row--seek {
+  gap: 0.6rem;
+}
+
+.vp-row--btns {
+  justify-content: space-between;
+}
+
+.vp-row--left,
+.vp-row--right {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.vp-time {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ice-dim);
+  white-space: nowrap;
+  min-width: 2.8ch;
+}
+
+/* track (seek + volume) */
+.vp-track {
+  position: relative;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 99px;
+  cursor: pointer;
+}
+
+.vp-seek {
+  flex: 1;
+}
+
+.vp-vol {
+  width: 72px;
+}
+
+.vp-track-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: var(--cyan, #5ee3e3);
+  border-radius: 99px;
+  pointer-events: none;
+}
+
+.vp-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--ice);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.vp-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.vp-speed {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  width: auto;
+  padding: 0 0.45rem;
+  color: var(--ice-dim);
+}
+
+.vp-speed--active {
+  background: rgba(94, 227, 227, 0.18);
+  color: var(--cyan, #5ee3e3);
+}

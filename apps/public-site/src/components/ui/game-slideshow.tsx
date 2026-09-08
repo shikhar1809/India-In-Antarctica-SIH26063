@@ -1,27 +1,25 @@
 import { useState, useEffect, useCallback } from "react";
 
-// Game screenshots — replace these URLs with actual uploaded game screenshots.
-// Crop applied via object-position so the HUD chrome is trimmed on all sides.
 const SLIDES = [
   {
-    src: "https://images.unsplash.com/photo-1551415923-a2297c7fda79?w=1400&q=90",
+    src: "/game/Screenshot (8).png",
     caption: "Maitri Station · Queen Maud Land, Antarctica",
   },
   {
-    src: "https://images.unsplash.com/photo-1609385510105-81ae06198c53?w=1400&q=90",
-    caption: "Blizzard Warning · Visibility dropping fast",
+    src: "/game/Screenshot (9).png",
+    caption: "Cargo Drop · A Season's Supply on One Helicopter",
   },
   {
-    src: "https://images.unsplash.com/photo-1642928614293-ba6ff94b4a75?w=1400&q=90",
-    caption: "Cargo Delivery · Supply chain until next summer",
+    src: "/game/Screenshot (10).png",
+    caption: "Radio / OPS Room · Talk to the Field Team",
   },
   {
-    src: "https://images.unsplash.com/photo-1535752385016-16aa049b6a8d?w=1400&q=90",
+    src: "/game/Screenshot (11).png",
     caption: "Bharati Station · Larsemann Hills, East Antarctica",
   },
   {
-    src: "https://images.unsplash.com/photo-1493329025335-18542a61595f?w=1400&q=90",
-    caption: "Radio / OPS Room · Talk to the field team",
+    src: "/game/Screenshot (12).png",
+    caption: "Power Plant · Keeping the Lights On at Bharati",
   },
 ];
 
@@ -53,8 +51,8 @@ export function GameSlideshow() {
           className="absolute inset-0 transition-opacity duration-300"
           style={{ opacity: i === current ? 1 : 0, pointerEvents: i === current ? "auto" : "none" }}
         >
-          {/* Crop: use negative inset so HUD chrome disappears on all sides */}
-          <div className="absolute" style={{ inset: "-6% -4%" }}>
+          {/* Crop: negative inset removes browser chrome (top), taskbar+HUD (bottom), sides */}
+          <div className="absolute" style={{ inset: "-26% -3% -14% -3%" }}>
             <img
               src={s.src}
               alt={s.caption}

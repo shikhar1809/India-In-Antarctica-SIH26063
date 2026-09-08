@@ -31,6 +31,14 @@ export interface ResearchDocument {
   // ── What ──────────────────────────────────────────────────────────────
   title: string;
   description: string;       // 1-2 sentences, max 500 chars
+  /** The full report, optional — several paragraphs, blank-line separated.
+   *  `description` stays the required short summary that drives cards and
+   *  search; this is what makes the published archive record read like an
+   *  actual report instead of only that summary. Absent on every record
+   *  uploaded before this field existed, and on any upload where the
+   *  contributor chose not to write one — both cases fall back to
+   *  `description` alone, exactly as before this field was added. */
+  fullText?: string | null;
   category: string;
   instrument: string;        // method or instrument used to collect the data
 
@@ -54,6 +62,11 @@ export interface ResearchDocument {
   fileName: string;
   fileUrl: string;
   fileSizeBytes: number;
+  /** Read off the browser's File at upload time (`file.type.startsWith
+   *  ('video/')`) — never asked of the contributor. Absent means "a plain
+   *  downloadable file", which is how every record before this field
+   *  existed behaves and keeps behaving. */
+  mediaKind?: 'file' | 'video';
 
   // ── Provenance ────────────────────────────────────────────────────────
   authorUid: string;

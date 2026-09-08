@@ -151,6 +151,63 @@ describe('the projection itself', () => {
   });
 });
 
+describe('citations on a published dispatch record', () => {
+  it('cites every published paragraph', () => {
+    const rec = publish();
+    expect(rec.citations).toHaveLength(rec.body.length);
+    for (const p of rec.citations!) expect(p.spans.length).toBeGreaterThan(0);
+  });
+
+  it('reproduces each paragraph exactly when its spans are re-joined', () => {
+    const rec = publish();
+    rec.citations!.forEach((p, i) => {
+      expect(p.spans.map((s) => s.text).join(' ')).toBe(rec.body[i]);
+    });
+  });
+
+  it('separates the measured observation from NCPOR’s standing background', () => {
+    const rec = publish();
+    const first = rec.citations![0].spans;
+    expect(first[0].sourceId).toBe('dispatch');
+    expect(first[0].text).toContain('112 centimetres thick');
+    expect(first[1].sourceId).toBe('station-context');
+    expect(first[1].text).toContain('Schirmacher Oasis');
+  });
+
+  it('does not attribute the outreach paragraph to the field record', () => {
+    const rec = publish();
+    expect(rec.citations![1].spans[0].sourceId).toBe('outreach');
+  });
+
+  it('credits the publisher for a paragraph they rewrote themselves', () => {
+    const d = approvedDispatch();
+    const summary = draftPublicSummary(d, MEASUREMENTS);
+    const edited = { ...summary, body: [...summary.body, 'A sentence the publisher wrote by hand.'] };
+    const rec = toRepositoryRecord(d, edited, MEASUREMENTS, 'admin-uid', 'IIA-2026-0042', 0);
+    const last = rec.citations![rec.citations!.length - 1].spans[0];
+    expect(last.sourceId).toBe('publisher');
+    expect(rec.sources!.find((s) => s.id === 'publisher')?.author).toBe('P. Publisher');
+  });
+
+  it('never links a source that points back at internal material', () => {
+    for (const source of publish().sources!) expect(source.url).toBeNull();
+  });
+
+  it('lists only sources something in the text actually cites', () => {
+    const rec = publish();
+    const ids = new Set(rec.citations!.flatMap((p) => p.spans.map((s) => s.sourceId)));
+    for (const source of rec.sources!) expect(ids.has(source.id)).toBe(true);
+  });
+
+  it('every cited span resolves to a listed source', () => {
+    const rec = publish();
+    const ids = new Set(rec.sources!.map((s) => s.id));
+    for (const p of rec.citations!) {
+      for (const span of p.spans) if (span.sourceId) expect(ids.has(span.sourceId)).toBe(true);
+    }
+  });
+});
+
 describe('identifiers', () => {
   it('formats to a citable, sortable, zero-padded id', () => {
     expect(formatIdentifier(2026, 42)).toBe('IIA-2026-0042');
@@ -180,5 +237,73 @@ describe('repository documents publish through the same projection', () => {
     const rec = documentToRepositoryRecord(researchDoc, 'admin-uid', 'IIA-2025-0007');
     expect(rec.metadata.license).toBe('CC BY 4.0');
     expect(rec.metadata.resourceType).toBe('Dataset');
+  });
+
+  it('falls back to the short description alone when no full report was written', () => {
+    const rec = documentToRepositoryRecord(researchDoc, 'admin-uid', 'IIA-2025-0007');
+    expect(rec.body).toEqual(['Daily temperature logging from six freshwater lakes.']);
+  });
+
+  it('splits a written full report into paragraphs, blank-line separated', () => {
+    const withReport: ResearchDocument = {
+      ...researchDoc,
+      fullText:
+        'Six loggers were deployed across the freshwater lakes of the Schirmacher Oasis in January 2024.\n\n' +
+        'Readings were taken at fifteen-minute intervals through the following season.\n\n' +
+        'The full series is archived alongside site coordinates and calibration records.',
+    };
+    const rec = documentToRepositoryRecord(withReport, 'admin-uid', 'IIA-2025-0007');
+    expect(rec.body).toHaveLength(3);
+    expect(rec.body[0]).toMatch(/^Six loggers were deployed/);
+    expect(rec.body[2]).toMatch(/calibration records\.$/);
+  });
+
+  it('treats a full report of only whitespace the same as none written', () => {
+    const rec = documentToRepositoryRecord({ ...researchDoc, fullText: '   \n\n  ' }, 'admin-uid', 'IIA-2025-0007');
+    expect(rec.body).toEqual([researchDoc.description]);
+  });
+
+  it('leaves videoUrl null and keeps the file row for an ordinary document', () => {
+    const rec = documentToRepositoryRecord(researchDoc, 'admin-uid', 'IIA-2025-0007');
+    expect(rec.videoUrl).toBeNull();
+    expect(rec.table?.some((f) => f.label === 'File')).toBe(true);
+  });
+
+  it('cites each published paragraph to its paragraph in the submitted report', () => {
+    const withReport: ResearchDocument = {
+      ...researchDoc,
+      fullText: 'First paragraph of the report.\n\nSecond paragraph of the report.',
+    };
+    const rec = documentToRepositoryRecord(withReport, 'admin-uid', 'IIA-2025-0007');
+    expect(rec.citations).toHaveLength(2);
+    expect(rec.citations![0].spans[0]).toMatchObject({
+      text: 'First paragraph of the report.',
+      sourceId: 'document',
+      locator: 'Paragraph 1 of the submitted report',
+    });
+    expect(rec.citations![1].spans[0].locator).toBe('Paragraph 2 of the submitted report');
+  });
+
+  it('links the submitted file as the original, which storage.rules makes public', () => {
+    const rec = documentToRepositoryRecord(researchDoc, 'admin-uid', 'IIA-2025-0007');
+    expect(rec.sources).toHaveLength(1);
+    expect(rec.sources![0]).toMatchObject({
+      kind: 'document',
+      author: 'Dr M. Iyer',
+      url: 'https://example.invalid/lakes.csv',
+    });
+  });
+
+  it('says so when the published text is only the upload summary', () => {
+    const rec = documentToRepositoryRecord(researchDoc, 'admin-uid', 'IIA-2025-0007');
+    expect(rec.sources![0].label).toBe('Submission summary');
+    expect(rec.citations![0].spans[0].locator).toBe('Summary supplied with the upload');
+  });
+
+  it('populates videoUrl and drops the file row when the upload was a video', () => {
+    const videoDoc: ResearchDocument = { ...researchDoc, mediaKind: 'video', fileUrl: 'https://example.invalid/survey.mp4' };
+    const rec = documentToRepositoryRecord(videoDoc, 'admin-uid', 'IIA-2025-0007');
+    expect(rec.videoUrl).toBe('https://example.invalid/survey.mp4');
+    expect(rec.table?.some((f) => f.label === 'File')).toBe(false);
   });
 });

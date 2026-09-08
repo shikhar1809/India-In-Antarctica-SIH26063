@@ -28,6 +28,7 @@
  */
 
 const { onRequest } = require('firebase-functions/v2/https');
+const review = require('./review');
 
 const MODEL = 'gemini-2.5-flash';
 const ENDPOINT = (model) =>
@@ -219,6 +220,12 @@ exports.studio = onRequest(
     if (req.method !== 'POST') return res.status(405).json({ error: 'Only POST is supported.' });
 
     const path = (req.path || '/').replace(/\/+$/, '') || '/';
+
+    /* Editorial review of a drafted dispatch for the approvals desk. Its
+     * own module, sharing this deployment and this API key rather than
+     * standing up a second function for one more endpoint. */
+    if (path === '/review') return review.handle(req, res);
+
     if (path !== '/copy' && path !== '/') {
       return res.status(404).json({ error: 'Unknown endpoint.' });
     }

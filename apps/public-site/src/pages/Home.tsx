@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Render } from '@measured/puck';
 import { config } from '../puck.config';
 import RouteLoading from '../components/RouteLoading';
+import BookShelf from '../components/ui/book-shelf';
 import './Home.css';
 import '../blocks.css';
 
@@ -63,6 +64,7 @@ function withGalleryAfterLegacy(data: any) {
 }
 
 export default function Home() {
+  const navigate = useNavigate();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -178,37 +180,10 @@ export default function Home() {
         }
       </main>
 
-      {/* ✨ Did You Know Section ✨ */}
-      <section className="home-dyk">
-        <div className="home-dyk-inner">
-          <div className="home-dyk-header">
-            <h2>DID YOU KNOW?</h2>
-            <p>Fascinating facts about India's legacy in the icy continent.</p>
-          </div>
-          <div className="home-dyk-grid">
-            <div className="home-dyk-card">
-              <div className="dyk-icon">❄️</div>
-              <h3>Dakshin Gangotri</h3>
-              <p>India's first scientific base in Antarctica was established in 1983. It was decommissioned in 1990 after being submerged in ice.</p>
-            </div>
-            <div className="home-dyk-card">
-              <div className="dyk-icon">💧</div>
-              <h3>Lake Priyadarshini</h3>
-              <p>A freshwater lake near the Maitri station was built by India and named after former Prime Minister Indira Gandhi.</p>
-            </div>
-            <div className="home-dyk-card">
-              <div className="dyk-icon">📡</div>
-              <h3>Active Stations</h3>
-              <p>India currently operates two permanent, year-round research stations: Maitri (built 1989) and Bharati (built 2012).</p>
-            </div>
-            <div className="home-dyk-card">
-              <div className="dyk-icon">🚢</div>
-              <h3>Operation Gangotri</h3>
-              <p>The first Indian Antarctic expedition was launched in 1981, secretly departing from Goa and led by Dr. S.Z. Qasim.</p>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* ── The Complete Shelf ── */}
+      {/* Clicking a book here jumps straight to its record on the Archive
+        * page — no need to open the picker there and find it again. */}
+      <BookShelf onOpenRecord={(id) => navigate(`/archive/${id}`)} />
 
       {/* ── Footer ── */}
       <footer className="home-footer">

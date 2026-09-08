@@ -21,6 +21,9 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/archive" element={<Archive />} />
+        {/* Deep link into one record — the target Home's bookshelf jumps to
+            so "open this book" never has to reopen Archive's own picker. */}
+        <Route path="/archive/:id" element={<Archive />} />
         <Route path="/ask" element={<Ask />} />
         <Route path="/gallery" element={<Gallery />} />
       </Routes>

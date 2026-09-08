@@ -1,0 +1,261 @@
+/* Raw-vs-redacted editor for an already-published record.
+ * Rides on the portal's dark tokens (--panel, --ink-2, --cyan, --line …)
+ * so it reads as part of the same tool as everything else in Repository. */
+
+.re-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(3, 8, 14, 0.72);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.re-panel {
+  width: 100%;
+  max-width: 1080px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  padding: 24px 28px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.re-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.re-head-kicker {
+  display: block;
+  font: 500 11px/1 var(--font-mono);
+  letter-spacing: 0.06em;
+  color: var(--cyan);
+  margin-bottom: 4px;
+}
+
+.re-head h2 {
+  margin: 0;
+  font-family: var(--font-disp);
+  font-size: 1.5rem;
+  font-weight: 500;
+  color: var(--ice);
+}
+
+.re-close {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ice-dim);
+  cursor: pointer;
+}
+
+.re-close:hover { color: var(--ice); border-color: var(--line-strong); }
+
+.re-columns {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.3fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.re-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+.re-col-label {
+  font: 600 11px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+}
+
+/* ── raw column ────────────────────────────────────────────────────── */
+
+.re-col-raw {
+  background: var(--ink-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.re-raw { display: flex; flex-direction: column; gap: 10px; }
+
+.re-raw-dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+}
+
+.re-raw-dl dt {
+  font: 500 11.5px/1.5 var(--font-ui);
+  color: var(--ice-faint);
+}
+
+.re-raw-dl dd {
+  margin: 0;
+  font: 400 12.5px/1.5 var(--font-ui);
+  color: var(--ice-dim);
+}
+
+.re-raw-subhead {
+  display: block;
+  margin-top: 4px;
+  font: 600 11px/1 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+}
+
+.re-raw-notes {
+  margin: 0;
+  font: 400 13px/1.6 var(--font-ui);
+  color: var(--ice-dim);
+  white-space: pre-wrap;
+}
+
+.re-raw-empty {
+  margin: 0;
+  padding: 20px 4px;
+  font: 400 13px/1.6 var(--font-ui);
+  color: var(--ice-faint);
+  font-style: italic;
+}
+
+.re-raw-error { color: var(--danger); font-style: normal; }
+
+/* ── redacted (editable) column ───────────────────────────────────── */
+
+.re-col-redacted { gap: 16px; }
+
+.re-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.re-field > span:first-child {
+  font: 600 12px/1.3 var(--font-ui);
+  color: var(--ice);
+}
+
+.re-field input,
+.re-field textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--ink-2);
+  color: var(--ice);
+  font: 400 13px/1.5 var(--font-ui);
+  resize: vertical;
+}
+
+.re-field input:focus-visible,
+.re-field textarea:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 1px;
+  border-color: transparent;
+}
+
+.re-paragraphs, .re-table-edit { display: flex; flex-direction: column; gap: 8px; }
+
+.re-paragraph-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.re-table-row {
+  display: grid;
+  grid-template-columns: minmax(100px, 0.7fr) 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.re-icon-btn {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ice-faint);
+  cursor: pointer;
+}
+
+.re-icon-btn:hover:not(:disabled) { color: var(--danger); border-color: var(--danger); }
+.re-icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.re-add-btn {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ice-faint);
+  font: 500 12px/1 var(--font-ui);
+  cursor: pointer;
+}
+
+.re-add-btn:hover { color: var(--cyan); border-color: var(--cyan); }
+
+.re-error { margin: 0; color: var(--danger); font-size: 12.5px; }
+
+.re-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 820px) {
+  .re-columns { grid-template-columns: 1fr; }
+}
+
+/* A deposit has no raw/redacted split to show, so its editor uses the same
+   shell with one column instead of two. */
+.re-columns--single {
+  grid-template-columns: 1fr;
+}
+
+.re-field select {
+  font-family: var(--font-ui);
+  font-size: 13.5px;
+  color: var(--ice);
+  background: rgba(6, 16, 25, 0.8);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 11px;
+  width: 100%;
+}
+
+.re-field span em {
+  font-style: normal;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--ice-faint);
+  margin-left: 8px;
+}
+
+.re-field span em.de-over { color: var(--danger); }

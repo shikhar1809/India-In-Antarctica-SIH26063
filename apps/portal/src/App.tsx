@@ -9,20 +9,26 @@ import { SiteEditor } from './pages/SiteEditor';
 import { Moderation } from './pages/Moderation';
 import { CanvasGallery } from './studio/CanvasGallery';
 import { StudioHarness } from './studio/StudioHarness';
+import { RecordEditorHarness } from './components/RecordEditorHarness';
+import { ApproveHarness } from './pages/__ApproveHarness';
 import './pages/shared.css';
 
 function Gate() {
   const { user, loading } = useAuth();
 
-  /* Studio dev harnesses, ahead of the auth gate on purpose: checking a
-   * template change or walking the compose flow should not require a Google
-   * sign-in. Both are dropped from the production bundle by the DEV guard.
-   *   /__canvas  every template and platform size at once
-   *   /__studio  the real five-step flow against a mock dispatch */
+  /* Dev harnesses, ahead of the auth gate on purpose: checking a template
+   * change, walking the compose flow, or checking the raw/redacted editor
+   * should not require a Google sign-in. All dropped from the production
+   * bundle by the DEV guard.
+   *   /__canvas        every post template and platform size at once
+   *   /__studio         the real five-step compose flow against a mock dispatch
+   *   /__recordeditor   the raw/redacted editor against a mock published record */
   if (import.meta.env.DEV) {
     const path = window.location.pathname;
     if (path === '/__canvas') return <CanvasGallery />;
     if (path === '/__studio') return <StudioHarness />;
+    if (path === '/__recordeditor') return <RecordEditorHarness />;
+    if (path === '/__approve') return <ApproveHarness />;
   }
 
   if (loading) {

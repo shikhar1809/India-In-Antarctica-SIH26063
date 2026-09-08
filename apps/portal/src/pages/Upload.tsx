@@ -9,6 +9,10 @@ import { CATEGORIES, STATIONS, LICENSES, EMBARGO_OPTIONS } from '../types';
 import type { DocumentStatus } from '../types';
 import './Upload.css';
 
+// Shared with every upload type, video included. 50 MB is tight for real
+// footage — raising it is a real capacity/cost decision for whoever owns
+// the Storage bucket, not something to change silently as a side effect
+// of adding video support.
 const MAX_SIZE = 50 * 1024 * 1024;
 const DESC_MAX = 500;
 
@@ -32,6 +36,7 @@ export function Upload() {
   // ── What ──────────────────────────────────────────────────────────────
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [fullText, setFullText] = useState('');
   const [category, setCategory] = useState<string>(CATEGORIES[0]);
   const [instrument, setInstrument] = useState('');
 
@@ -49,7 +54,7 @@ export function Upload() {
     setObservedAt(todayLocal());
     setStation(STATIONS[0]);
     setLat(''); setLon('');
-    setTitle(''); setDescription('');
+    setTitle(''); setDescription(''); setFullText('');
     setCategory(CATEGORIES[0]);
     setInstrument('');
     setLicense(LICENSES[0]);
@@ -94,12 +99,17 @@ export function Upload() {
       });
 
       const fileUrl = await getDownloadURL(storageRef);
+      // Read straight off the browser's File — nobody has to remember to
+      // flag a video as a video, and it can't be set wrong.
+      const mediaKind: 'file' | 'video' = file.type.startsWith('video/') ? 'video' : 'file';
 
       await addDoc(collection(db, 'documents'), {
         title: title.trim(),
         description: description.trim(),
+        fullText: fullText.trim() || null,
         category,
         instrument: instrument.trim(),
+        mediaKind,
         station,
         observedAt: new Date(observedAt).getTime(),
         lat: parsedLat,
@@ -232,6 +242,16 @@ export function Upload() {
             />
           </label>
 
+          <label>
+            Full report <span className="up-hint">optional — the complete write-up, as many paragraphs as it needs. Separate paragraphs with a blank line. Without this, the archive shows only the short description above.</span>
+            <textarea
+              rows={7}
+              value={fullText}
+              onChange={(e) => setFullText(e.target.value)}
+              placeholder={'Methods, results, discussion — write it the way you would for the record itself.\n\nA blank line starts a new paragraph.'}
+            />
+          </label>
+
           <div className="up-row">
             <label>
               Category
@@ -278,7 +298,7 @@ export function Upload() {
           <div className="up-section-head">File</div>
 
           <label>
-            Attach file <span className="up-hint">(PDF, CSV, image, NetCDF, spreadsheet — up to 50 MB)</span>
+            Attach file <span className="up-hint">(PDF, CSV, image, video, NetCDF, spreadsheet — up to 50 MB. A video is detected automatically and plays inline in the archive rather than downloading.)</span>
             <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} required />
           </label>
 

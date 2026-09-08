@@ -26,6 +26,51 @@ export interface PublicSummary {
   chart?: RecordChart;
 }
 
+/* ─────────────────────────────────────────────────────── draft provenance ──
+ * A drafted paragraph is not one voice. The opening sentence is the field
+ * observation; the sentence after it is standing station background; the
+ * "why this matters" paragraph is outreach writing that owes nothing to this
+ * particular dispatch. The public site cites each of those differently, so
+ * the draft is assembled as spans and only joined into paragraphs at the
+ * end — one construction, so the prose and its provenance cannot drift. */
+
+export type DraftSourceId = 'dispatch' | 'station-context' | 'outreach' | 'conditions';
+
+export interface DraftSpan {
+  text: string;
+  sourceId: DraftSourceId;
+}
+
+/** The drafted paragraphs, each split into its spans. `draftPublicSummary`
+ *  joins these with a single space to produce `body`, so span text is always
+ *  a verbatim slice of the published paragraph. */
+export function draftParagraphs(d: Dispatch, measurements: Measurement[]): DraftSpan[][] {
+  const voice = ACTIVITY_VOICE[d.activity] ?? ACTIVITY_VOICE['Other'];
+  const paragraphs: DraftSpan[][] = [];
+
+  // Paragraph 1 — what happened, in one plain sentence, plus where.
+  paragraphs.push([
+    { text: describeObservation(d, measurements), sourceId: 'dispatch' },
+    { text: STATION_CONTEXT[d.station] ?? STATION_CONTEXT['Other'], sourceId: 'station-context' },
+  ]);
+
+  // Paragraph 2 — why anyone should care.
+  paragraphs.push([{ text: voice.why, sourceId: 'outreach' }]);
+
+  // Paragraph 3 — the conditions it was done in, when they were notable.
+  const hardship = describeConditions(d);
+  if (hardship) paragraphs.push([{ text: hardship, sourceId: 'conditions' }]);
+
+  return paragraphs;
+}
+
+/** How a paragraph's spans become the paragraph. Exported because the
+ *  citation builder has to reproduce it exactly to check that published text
+ *  still matches the spans attributed to it. */
+export function joinSpans(spans: { text: string }[]): string {
+  return spans.map((s) => s.text).join(' ');
+}
+
 /* ─────────────────────────────────────────────────── per-activity voice ──
  * Two things per activity: how to headline it for a general reader, and why a
  * general reader should care. The "why" lines are the actual outreach value —
@@ -160,23 +205,10 @@ function keyFacts(d: Dispatch, measurements: Measurement[]): RecordFact[] {
  */
 export function draftPublicSummary(d: Dispatch, measurements: Measurement[]): PublicSummary {
   const voice = ACTIVITY_VOICE[d.activity] ?? ACTIVITY_VOICE['Other'];
-  const body: string[] = [];
-
-  // Paragraph 1 — what happened, in one plain sentence, plus where.
-  const opening = describeObservation(d, measurements);
-  const context = STATION_CONTEXT[d.station] ?? STATION_CONTEXT['Other'];
-  body.push(`${opening} ${context}`);
-
-  // Paragraph 2 — why anyone should care.
-  body.push(voice.why);
-
-  // Paragraph 3 — the conditions it was done in, when they were notable.
-  const hardship = describeConditions(d);
-  if (hardship) body.push(hardship);
 
   return {
     title: voice.headline(d.station),
-    body,
+    body: draftParagraphs(d, measurements).map(joinSpans),
     table: keyFacts(d, measurements),
     chart: deriveChart(measurements, d.activity),
   };

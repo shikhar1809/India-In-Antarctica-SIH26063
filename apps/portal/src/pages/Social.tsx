@@ -16,7 +16,10 @@ import { PostCanvas } from '../studio/PostCanvas';
 import { paletteById } from '../studio/brand';
 import type { PlatformId } from '../studio/brand';
 import { templateById } from '../studio/templates';
+import { runChecks, worstSeverity, type Check } from '../review/checks';
+import { reviewDispatch, type AiReview } from '../review/aiReview';
 import './Social.css';
+import './ApproveDesk.css';
 
 const STATUS_LABEL: Record<DispatchStatus, string> = {
   raw: 'Awaiting draft',
@@ -391,19 +394,61 @@ function MySubmissionsTab({ dispatches, onRevise }: { dispatches: Dispatch[]; on
 }
 
 /* ============================================================= Approve tab */
-function ApproveTab({ items }: { items: Dispatch[] }) {
+/* ============================================================ Approve tab
+ *
+ * A review desk rather than a scroll. The queue stays on the left so an
+ * approver moves between dispatches without going back; the field record
+ * and the public text sit side by side because comparing them *is* the
+ * job; the verdict column carries the checks and the two buttons.
+ *
+ * The checks come from two places on purpose. runChecks() is local and
+ * instant and answers everything decidable — empty fields, limits, leaked
+ * field codes. reviewDispatch() asks the model only what a rule cannot
+ * judge: whether the public wording is actually supported by the notes.
+ * The model can never block a publish; only a rule does that.
+ */
+export function ApproveTab({ items }: { items: Dispatch[] }) {
   const { user } = useAuth();
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(items[0]?.id ?? null);
   const [flagging, setFlagging] = useState(false);
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const active = items.find((d) => d.id === activeId) ?? null;
+  const [ai, setAi] = useState<AiReview | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
 
-  /* Approving is the moment something becomes public, so it does two things:
-   * flips the dispatch status, and writes the public record iia-public reads.
-   * The dispatch itself never becomes readable without auth — publish.ts
-   * builds a separate, public-safe projection. */
+  const active = items.find((d) => d.id === activeId) ?? items[0] ?? null;
+
+  /* Local checks are cheap enough to run for every dispatch in the queue,
+     which is what lets the queue itself show a severity dot per row. */
+  const checksById = useMemo(() => {
+    const m = new Map<string, Check[]>();
+    for (const d of items) m.set(d.id, runChecks(d));
+    return m;
+  }, [items]);
+
+  const checks = active ? checksById.get(active.id) ?? [] : [];
+  const worst = worstSeverity(checks);
+  const blocked = checks.some((c) => c.severity === 'blocker');
+
+  /* The reviewer costs a call, so it is asked for rather than automatic. */
+  const runAi = async () => {
+    if (!active) return;
+    setAiBusy(true);
+    setAi(null);
+    const result = await reviewDispatch(active);
+    setAi(result);
+    setAiBusy(false);
+  };
+
+  const select = (id: string) => {
+    setActiveId(id);
+    setFlagging(false);
+    setNotes('');
+    setError(null);
+    setAi(null);          // advice belongs to the dispatch it was asked about
+  };
+
   const approve = async () => {
     if (!active || !user) return;
     setBusy(true); setError(null);
@@ -415,7 +460,7 @@ function ApproveTab({ items }: { items: Dispatch[] }) {
       const stored = active.publicSummary;
       const summary = stored
         ? { title: stored.title, body: stored.body, table: stored.table, chart: stored.chart ?? undefined }
-        : draftPublicSummary(clean, measurements);   // publisher skipped the step — fall back to the draft
+        : draftPublicSummary(clean, measurements);
 
       const identifier = await mintIdentifier();
       const record = toRepositoryRecord(clean, summary, measurements, user.uid, identifier);
@@ -427,14 +472,12 @@ function ApproveTab({ items }: { items: Dispatch[] }) {
         publicIdentifier: identifier,
         updatedAt: Date.now(),
       });
-      setActiveId(null);
+      setActiveId(null); setAi(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not publish this record. Nothing was changed.');
     } finally { setBusy(false); }
   };
 
-  /* Flagging an already-published record has to take it back off the public
-   * site, otherwise "send back" would leave the old version live. */
   const flag = async () => {
     if (!active || !notes.trim()) return;
     setBusy(true); setError(null);
@@ -443,102 +486,315 @@ function ApproveTab({ items }: { items: Dispatch[] }) {
       await updateDoc(doc(db, 'dispatches', active.id), {
         status: 'flagged' satisfies DispatchStatus, adminNotes: notes.trim(), updatedAt: Date.now()
       });
-      setActiveId(null); setFlagging(false); setNotes('');
+      setActiveId(null); setFlagging(false); setNotes(''); setAi(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not send this back.');
     } finally { setBusy(false); }
   };
 
-  if (items.length === 0) return <p className="fld-empty">Nothing waiting on approval.</p>;
+  if (items.length === 0 || !active) return <p className="fld-empty">Nothing waiting on approval.</p>;
 
-  if (active) {
-    return (
-      <div className="fld-pane">
-        <button className="fld-back" onClick={() => { setActiveId(null); setFlagging(false); }}><ArrowLeft size={14} strokeWidth={2.5} style={{ marginRight: 4 }} />Back</button>
-        <DispatchDetail d={active} />
+  const summary = active.publicSummary;
+  const coords = active.lat != null && active.lon != null
+    ? `${Math.abs(active.lat).toFixed(4)}°${active.lat >= 0 ? 'N' : 'S'}, ${Math.abs(active.lon).toFixed(4)}°${active.lon >= 0 ? 'E' : 'W'}`
+    : null;
+  const met = weatherLine(active.weather);
+  const readings = (MEASUREMENT_SCHEMA[active.activity] ?? [])
+    .map((f) => [f.label, active.measurements?.[f.id], f.unit] as const)
+    .filter((r): r is readonly [string, string, string | undefined] => !!r[1]);
 
-        {/* The graphic itself, rebuilt from the design the publisher settled
-          * on. Stored as template/palette/photo ids rather than a rendered
-          * file, so this is the same renderer the studio previewed with —
-          * an approver is never shown something the export would not match. */}
-        {active.postDesign && (
-          <div className="fld-approve-graphic">
-            <span className="fld-field-label">
-              The graphic that goes out
-              {active.postDesign.generated && <em> · wording came from the generator</em>}
-            </span>
-            <PostCanvas
-              platform={active.postDesign.platform as PlatformId}
-              template={templateById(active.postDesign.templateId)}
-              palette={paletteById(active.postDesign.paletteId)}
-              copy={{
-                kicker: active.postDesign.kicker,
-                headline: active.postDesign.headline,
-                standfirst: active.postDesign.standfirst,
-                stat: null,
-                statLabel: null,
-                captions: active.platformCaptions ?? { x: '', linkedin: '', instagram: '' },
-              }}
-              photoUrl={active.imageUrls?.[active.postDesign.photoIndex] ?? active.imageUrls?.[0] ?? null}
-              scale={0.28}
-            />
-          </div>
-        )}
-
-        <p className="fld-caption-preview">{active.caption}</p>
-        <p className="fld-list-author" style={{ marginBottom: 16, fontSize: 12 }}>Drafted by {active.publisherName}</p>
-
-        {active.publicSummary && (
-          <div className="fld-public-preview">
-            <span className="fld-field-label">Goes live on the public site as</span>
-            <h4>{active.publicSummary.title}</h4>
-            {active.publicSummary.body.map((p, i) => <p key={i}>{p}</p>)}
-            {active.publicSummary.chart && (
-              <p className="fld-public-preview-chart">
-                Includes a chart: {active.publicSummary.chart.title} ({active.publicSummary.chart.data.length} readings in {active.publicSummary.chart.unit})
-              </p>
-            )}
-          </div>
-        )}
-
-        {error && <div className="fld-flagnote"><span>Couldn’t publish</span><p>{error}</p></div>}
-
-        {!flagging ? (
-          <div className="fld-approve-actions">
-            <button className="ph-btn primary" onClick={approve} disabled={busy}>
-              {busy ? 'Publishing…' : 'Approve — publish it'}
-            </button>
-            <button className="ph-btn ghost"    onClick={() => setFlagging(true)} disabled={busy}>Flag with a note</button>
-          </div>
-        ) : (
-          <>
-            <label className="fld-caption-label">
-              What needs to change?
-              <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
-            </label>
-            <div className="fld-approve-actions">
-              <button className="ph-btn primary" onClick={flag} disabled={busy || !notes.trim()}>Send back</button>
-              <button className="ph-btn ghost"   onClick={() => setFlagging(false)} disabled={busy}>Cancel</button>
-            </div>
-          </>
-        )}
-      </div>
-    );
-  }
+  const verdictClass = worst ?? 'clear';
+  const verdictText = blocked
+    ? 'Cannot be published'
+    : worst === 'missing' ? 'Publishable, with gaps'
+    : worst === 'caution' ? 'Publishable, worth a look'
+    : 'Nothing flagged';
 
   return (
-    <ul className="fld-list">
-      {items.map((d) => (
-        <li key={d.id} onClick={() => setActiveId(d.id)}>
-          <div className="fld-list-left">
-            <span className={'fld-pill status-' + d.status}>{STATUS_LABEL[d.status]}</span>
-            <span className="fld-list-author">{d.authorName}</span>
-            <span className="fld-list-activity">{d.activity}</span>
+    <div className="ad-desk">
+      {/* ── queue ───────────────────────────────────────────────── */}
+      <div className="ad-col ad-col--queue">
+        <div className="ad-col-head">
+          <strong>Queue</strong>
+          <span className="ad-ai-muted">{items.length}</span>
+        </div>
+        <div className="ad-col-body ad-queue">
+          {items.map((d) => {
+            const w = worstSeverity(checksById.get(d.id) ?? []);
+            return (
+              <button
+                key={d.id}
+                type="button"
+                className={'ad-queue-item' + (d.id === active.id ? ' is-active' : '')}
+                onClick={() => select(d.id)}
+              >
+                <span className="ad-queue-name">{d.authorName}</span>
+                <span className="ad-queue-meta">
+                  <i className={'ad-dot ' + (w ?? 'clear')} />
+                  {d.activity}
+                </span>
+                <span className="ad-queue-meta">
+                  {new Date(d.observedAt ?? d.createdAt).toLocaleDateString()}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── the field record ────────────────────────────────────── */}
+      <div className="ad-col">
+        <div className="ad-col-head">
+          <strong>Field record</strong>
+          <span className="ad-ai-muted">{active.authorName}</span>
+        </div>
+        <div className="ad-col-body">
+          {active.safetyFlag && (
+            <div className="ad-banner">
+              <TriangleAlert size={13} strokeWidth={2.5} /> Flagged for the station leader
+            </div>
+          )}
+
+          <div className="ad-block">
+            <span className="ad-label">Where and when</span>
+            <p className="ad-mono">
+              {active.station}{coords ? ` · ${coords}` : ''}
+              {active.elevationM != null ? ` · ${active.elevationM} m` : ''}
+              {'\n'}{new Date(active.observedAt ?? active.createdAt).toISOString().slice(0, 16).replace('T', ' ')} UTC
+              {'\n'}{active.activity}
+            </p>
           </div>
-          <span className="fld-list-date">{new Date(d.observedAt ?? d.createdAt).toLocaleDateString()}</span>
-        </li>
-      ))}
-    </ul>
+
+          {met && (
+            <div className="ad-block">
+              <span className="ad-label">Conditions</span>
+              <p className="ad-mono">{met}</p>
+            </div>
+          )}
+
+          {readings.length > 0 && (
+            <div className="ad-block">
+              <span className="ad-label">Measurements</span>
+              <dl className="ad-measures">
+                {readings.map(([label, value, unit]) => (
+                  <div key={label} className="ad-measure">
+                    <dt>{label}</dt>
+                    <dd>{unit ? `${value} ${unit}` : value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )}
+
+          {active.notes && (
+            <div className="ad-block">
+              <span className="ad-label">Field notes</span>
+              <p className="ad-value">{active.notes}</p>
+            </div>
+          )}
+
+          {(active.teamMembers || active.sampleIds) && (
+            <div className="ad-block">
+              <span className="ad-label">Party and samples</span>
+              <p className="ad-mono">
+                {[active.teamMembers, active.sampleIds].filter(Boolean).join('\n')}
+              </p>
+            </div>
+          )}
+
+          {!!active.imageUrls?.length && (
+            <div className="ad-block">
+              <span className="ad-label">Photographs ({active.imageUrls.length})</span>
+              <div className="ad-photos">
+                {active.imageUrls.map((u, i) => (
+                  <img
+                    key={u}
+                    src={u}
+                    alt=""
+                    className={i === (active.coverImageIndex ?? 0) ? 'is-cover' : undefined}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── what would go public ────────────────────────────────── */}
+      <div className="ad-col">
+        <div className="ad-col-head">
+          <strong>Goes public as</strong>
+          <span className="ad-ai-muted">by {active.publisherName ?? 'unknown'}</span>
+        </div>
+        <div className="ad-col-body">
+          {active.postDesign && (
+            <div className="ad-graphic">
+              <PostCanvas
+                platform={active.postDesign.platform as PlatformId}
+                template={templateById(active.postDesign.templateId)}
+                palette={paletteById(active.postDesign.paletteId)}
+                copy={{
+                  kicker: active.postDesign.kicker,
+                  headline: active.postDesign.headline,
+                  standfirst: active.postDesign.standfirst,
+                  stat: null,
+                  statLabel: null,
+                  captions: active.platformCaptions ?? { x: '', linkedin: '', instagram: '' },
+                }}
+                photoUrl={active.imageUrls?.[active.postDesign.photoIndex] ?? active.imageUrls?.[0] ?? null}
+                scale={0.22}
+              />
+            </div>
+          )}
+
+          {summary ? (
+            <div className="ad-block">
+              <span className="ad-label">Public record</span>
+              <h4 className="ad-preview-title">{summary.title}</h4>
+              {summary.body.map((para, i) => <p key={i} className="ad-value">{para}</p>)}
+              {summary.chart && (
+                <p className="ad-mono">
+                  Chart: {summary.chart.title} · {summary.chart.data.length} readings in {summary.chart.unit}
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="ad-empty">No public summary was written — approving would publish an auto-generated draft.</p>
+          )}
+
+          {active.caption && (
+            <div className="ad-block">
+              <span className="ad-label">Caption</span>
+              <p className="ad-caption">{active.caption}</p>
+            </div>
+          )}
+
+          {active.platformCaptions && (
+            <div className="ad-block">
+              <span className="ad-label">Per platform</span>
+              <div className="ad-platforms">
+                {(['x', 'linkedin', 'instagram'] as const).map((k) => {
+                  const text = active.platformCaptions?.[k] ?? '';
+                  const over = k === 'x' && text.length > 280;
+                  return (
+                    <div key={k} className={'ad-platform' + (over ? ' is-over' : '')}>
+                      <span>{k === 'x' ? 'X' : k === 'linkedin' ? 'LinkedIn' : 'Instagram'}</span>
+                      <span>{text || '—'}{over ? ` (${text.length}/280)` : ''}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── verdict and actions ─────────────────────────────────── */}
+      <div className="ad-col">
+        <div className="ad-col-head">
+          <strong>Review</strong>
+          <span className="ad-ai-muted">{checks.length || 'no'} flag{checks.length === 1 ? '' : 's'}</span>
+        </div>
+
+        <div className="ad-col-body">
+          <div className={'ad-verdict ' + verdictClass}>
+            {blocked ? <TriangleAlert size={14} strokeWidth={2.5} /> : <Sparkles size={14} strokeWidth={2.5} />}
+            {verdictText}
+          </div>
+
+          {checks.length > 0 && (
+            <div className="ad-findings">
+              {checks.map((c) => (
+                <div key={c.id} className={'ad-finding ' + c.severity}>
+                  <div className="ad-finding-text">
+                    <span className="ad-finding-label">{c.label}</span>
+                    <span className="ad-finding-detail">{c.detail}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── the model's read, asked for explicitly ── */}
+          <div className="ad-block">
+            <div className="ad-ai-head">
+              <span className="ad-label">Editorial review</span>
+              <button
+                type="button"
+                className="ph-btn ghost small"
+                onClick={runAi}
+                disabled={aiBusy}
+              >
+                <Sparkles size={12} strokeWidth={2.5} />
+                {aiBusy ? 'Reading…' : ai ? 'Re-check' : 'Check the wording'}
+              </button>
+            </div>
+
+            {!ai && !aiBusy && (
+              <p className="ad-ai-note">
+                Reads the public text against the field notes and flags anything it does not support,
+                or that claims more than one observation can carry.
+              </p>
+            )}
+
+            {ai?.available === false && ai.reason !== 'cancelled' && (
+              <p className="ad-ai-note">Reviewer unavailable — {ai.reason} The checks above still apply.</p>
+            )}
+
+            {ai?.available === true && (
+              <>
+                {ai.summary && <p className="ad-ai-note">{ai.summary}</p>}
+                {ai.findings.length === 0 ? (
+                  /* Tied to the verdict, not the count: a 'needs-work' reply
+                     with nothing itemised must not be reported as all clear. */
+                  ai.verdict === 'ready'
+                    ? <p className="ad-ai-note">Nothing flagged in the wording.</p>
+                    : <p className="ad-ai-note">Flagged for a closer read, without naming a specific line.</p>
+                ) : (
+                  <div className="ad-findings">
+                    {ai.findings.map((f, i) => (
+                      <div key={i} className={'ad-finding ' + f.severity}>
+                        <div className="ad-finding-text">
+                          <span className="ad-finding-where">{f.field}</span>
+                          <span className="ad-finding-label">{f.label}</span>
+                          <span className="ad-finding-detail">{f.detail}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {error && (
+            <div className="ad-banner"><TriangleAlert size={13} strokeWidth={2.5} /> {error}</div>
+          )}
+        </div>
+
+        <div className="ad-actions">
+          {!flagging ? (
+            <>
+              <button className="ph-btn primary" onClick={approve} disabled={busy || blocked}>
+                {busy ? 'Publishing…' : blocked ? 'Blocked — cannot publish' : 'Approve — publish it'}
+              </button>
+              <button className="ph-btn ghost" onClick={() => setFlagging(true)} disabled={busy}>
+                Send back with a note
+              </button>
+            </>
+          ) : (
+            <>
+              <label className="fld-caption-label">
+                What needs to change?
+                <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+              </label>
+              <button className="ph-btn primary" onClick={flag} disabled={busy || !notes.trim()}>Send back</button>
+              <button className="ph-btn ghost" onClick={() => setFlagging(false)} disabled={busy}>Cancel</button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

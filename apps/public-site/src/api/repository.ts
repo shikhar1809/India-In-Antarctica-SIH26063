@@ -60,6 +60,11 @@ function toRecord(id: string, data: Record<string, unknown>): RepositoryRecord {
     videoUrl: (data.videoUrl as string | null) ?? null,
     measurements: (data.measurements as RepositoryRecord['measurements']) ?? [],
     chart: data.chart as RepositoryRecord['chart'],
+    // Left undefined rather than defaulted on records published before
+    // citations existed — resolveCitations() tells those apart from a record
+    // that genuinely cites nothing, and derives a source from provenance.
+    sources: data.sources as RepositoryRecord['sources'],
+    citations: data.citations as RepositoryRecord['citations'],
     metadata: data.metadata as RepositoryRecord['metadata'],
     publishedAt: (data.publishedAt as number) ?? 0,
   }

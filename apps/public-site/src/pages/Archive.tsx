@@ -1,57 +1,121 @@
-import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { HeroCarousel } from '../components/ui/hero-carousel'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import BookShelf from '../components/ui/book-shelf'
+import type { BookShelfHandle } from '../components/ui/book-shelf'
 import { ArcticMapBackground } from '../components/ui/arctic-map-pattern'
 import { RecordChart, TemperatureTrend } from '../components/RecordChart'
+import { CitedParagraph, SourceList } from '../components/ui/citation'
 import { useRepository, temperatureSeries, CATEGORY_LABELS, STATION_LABELS } from '../api/repository'
-import type { RepositoryRecord, CoverCategory } from '../repository/contract'
-import { coverGrade } from '../lib/archiveCovers'
+import { resolveCitations } from '../repository/citations'
+import type { RepositoryRecord, CoverCategory, ResourceType } from '../repository/contract'
+import { RECORDS } from '../data/archiveData'
 import './Archive.css'
 
-const U = 'https://images.unsplash.com'
-const STATION_HERO: Record<string, string> = {
-  maitri:  `${U}/photo-1535752385016-16aa049b6a8d?w=1600&q=85`,
-  bharati: `${U}/photo-1493329025335-18542a61595f?w=1600&q=85`,
-  dakshin: `${U}/photo-1486566584569-b9319dc74315?w=1600&q=85`,
-  ship:    `${U}/photo-1642928614293-ba6ff94b4a75?w=1600&q=85`,
-  ncpor:   `${U}/photo-1531366936337-7c912a4589a7?w=1600&q=85`,
-}
-const DEFAULT_HERO = `${U}/photo-1609385510105-81ae06198c53?w=1600&q=85`
+/* ── Static fallback ─────────────────────────────────────────────────────
+ * The live archive reads from Firestore. Until records are published there,
+ * we surface the curated historical catalogue so the page is never empty.
+ * Live Firestore records replace these the moment they arrive.             */
 
-function toHeroItem(r: RepositoryRecord) {
-  const station = STATION_LABELS[r.station] ?? 'NCPOR'
-  return {
-    id: r.id,
-    title: r.title,
-    image: r.photoUrls?.[0] ?? STATION_HERO[r.station] ?? DEFAULT_HERO,
-    credit: r.credit,
-    meta: [station, r.year, r.kind.toUpperCase()],
-    accent: coverGrade(r.station),
+const STATIC_PHOTOS: Record<string, string> = {
+  e0: '/photos/dakshin-aerial.jpg',
+  e1: '/photos/maitri-aerial.jpg',
+  e2: '/photos/bharati-station.jpg',
+  m0: '/photos/maitri-flag.jpg',
+  d1: '/photos/lake-priyadarshini.jpg',
+  d2: '/photos/maitri-aerial.jpg',
+  d3: '/photos/bharati-station.jpg',
+  p1: '/photos/bharati-station.jpg',
+  p2: '/photos/maitri-flag.jpg',
+  s0: '/photos/icebreaker.jpg',
+}
+
+function catToResourceType(cat: string): ResourceType {
+  switch (cat) {
+    case 'dataset': return 'Dataset'
+    case 'publication': return 'Publication'
+    case 'media': return 'Image'
+    case 'institution': return 'Institutional'
+    default: return 'Report'
   }
 }
 
+const STATIC_REPOSITORY_RECORDS: RepositoryRecord[] = RECORDS.map((r) => ({
+  id: r.id,
+  cat: r.cat,
+  kind: r.kind,
+  title: r.title,
+  station: r.station,
+  year: r.year,
+  pills: r.pills,
+  body: r.body,
+  table: r.table?.map(([label, value]) => ({ label, value })),
+  credit: r.credit,
+  photoUrls: STATIC_PHOTOS[r.id] ? [STATIC_PHOTOS[r.id]] : [],
+  videoUrl: null,
+  measurements: [],
+  chart: undefined,
+  metadata: {
+    identifier: `IIA-HIST-${r.id.toUpperCase()}`,
+    creators: [{ name: 'NCPOR', affiliation: 'National Centre for Polar and Ocean Research' }],
+    publisher: 'NCPOR' as const,
+    publicationYear: parseInt(r.year) || 0,
+    resourceType: catToResourceType(r.cat),
+    station: r.station,
+    spatial: { lat: null, lon: null, elevationM: null, datum: 'WGS84' as const, accuracyM: null },
+    temporal: { observedAt: 0 },
+    license: 'CC BY 4.0',
+    rights: 'Open Access',
+    instrument: null,
+    method: null,
+    provenance: { sourceType: 'historical' as const, sourceId: r.id, approvedBy: 'system', approvedAt: 0 },
+  },
+  publishedAt: 0,
+}))
+
 export default function Archive() {
   const navigate = useNavigate()
-  const { records, loading, error } = useRepository()
+  const { id: deepLinkId } = useParams<{ id: string }>()
+  const { records: liveRecords, loading, error } = useRepository()
+  // Show live Firestore records when available; fall back to the curated
+  // historical catalogue so the page is never empty while Firestore loads.
+  const records = liveRecords.length > 0 ? liveRecords : STATIC_REPOSITORY_RECORDS
   const [index, setIndex] = useState(0)
   const [filter, setFilter] = useState<CoverCategory | 'all'>('all')
   const [menuOpen, setMenuOpen] = useState(false)
-  // PS5 flow: 'selector' = carousel screen, 'detail' = record detail screen
+  // PS5 flow: 'selector' = bookshelf screen, 'detail' = record detail screen
   const [view, setView] = useState<'selector' | 'detail'>('selector')
   const [transitioning, setTransitioning] = useState(false)
+  const shelfApi = useRef<BookShelfHandle>(null)
 
-  const items = useMemo(() => records.map(toHeroItem), [records])
   const trend = useMemo(() => temperatureSeries(records), [records])
 
+  // /archive/:id lands straight on that record's detail view. `records`
+  // starts as the static fallback and is later REPLACED (not merged) by
+  // whatever Firestore returns, so a static-only id can stop existing in
+  // `records` after that swap. Locking onto a numeric index at match time
+  // and trusting it afterwards showed the wrong record once that swap
+  // happened — the id it was found at got reused by an unrelated live
+  // record. Looking the id up fresh on every render sidesteps that: while
+  // the deep link is "in control" the detail view's content comes straight
+  // from `records.find(id)`, never from a remembered position.
+  const userNavigated = useRef(false)
+  const deepLinkActive = !!deepLinkId && !userNavigated.current
+  useEffect(() => {
+    if (!deepLinkActive) return
+    if (records.some((r) => r.id === deepLinkId)) setView('detail')
+  }, [deepLinkActive, deepLinkId, records])
+
   const safeIndex = Math.min(index, Math.max(0, records.length - 1))
-  const active = records[safeIndex]
+  const deepLinkRecord = deepLinkActive ? records.find((r) => r.id === deepLinkId) : undefined
+  const active = deepLinkRecord ?? records[safeIndex]
 
   const jumpToCategory = (cat: CoverCategory | 'all') => {
+    userNavigated.current = true
     setFilter(cat)
     setMenuOpen(false)
     if (cat === 'all') return
     const hit = records.findIndex((r) => r.cat === cat)
-    if (hit >= 0) setIndex(hit)
+    if (hit >= 0) shelfApi.current?.goTo(hit)
   }
 
   const transition = (to: 'selector' | 'detail', i?: number) => {
@@ -64,32 +128,63 @@ export default function Archive() {
     }, 700)
   }
 
-  const openRecord = (i?: number) => transition('detail', i)
-  const backToSelector = () => transition('selector')
+  const openRecordById = (id: string) => {
+    userNavigated.current = true
+    const i = records.findIndex((r) => r.id === id)
+    if (i >= 0) transition('detail', i)
+  }
+  const backToSelector = () => {
+    userNavigated.current = true
+    // Drop the deep-link id from the URL so a refresh or a re-visit of this
+    // exact link doesn't immediately snap back into detail view.
+    if (deepLinkId) navigate('/archive', { replace: true })
+    transition('selector')
+  }
 
   return (
-    <div className="arch2-page">
+    // data-* attributes are the E2E's stable grip on this page. The carousel
+    // itself is styled with utility classes that move whenever the design
+    // does, so asserting against those made the test fail on cosmetic edits
+    // rather than on real regressions. These three say what the page is
+    // actually showing, and nothing else depends on them.
+    <div
+      className="arch2-page"
+      data-view={view}
+      data-record-count={records.length}
+      data-active-record={active?.id ?? ''}
+    >
       <ArcticMapBackground />
 
       {/* ══════════════════ SELECTOR SCREEN ══════════════════ */}
       {view === 'selector' && (
         <div className="arch2-selector-screen">
-          {/* Hero carousel */}
+          {/* The 3D bookshelf — same component and same data as the
+              homepage's "Access Knowledge Base" section, so browsing here
+              and browsing there are literally the same UI. */}
           <div className="arch2-hero">
-            {items.length > 0 ? (
-              <HeroCarousel
-                items={items}
-                index={safeIndex}
-                onIndexChange={setIndex}
-                brand={
-                  <span className="arch2-brand">
-                    <img src="/logo.png" alt="" className="arch2-brand-mark" />
-                    Knowledge Repository
-                  </span>
-                }
-                onBack={() => navigate('/')}
-                onMenu={() => setMenuOpen((o) => !o)}
-                className="h-[74svh] min-h-[520px]"
+            {/* Back / brand / menu bar. Previously rendered inside
+                HeroCarousel via its brand/onBack/onMenu props; now that the
+                shelf owns the stage, this is Archive's own overlay so the
+                shelf component stays free of any one host page's chrome. */}
+            <div className="arch2-topbar">
+              <button type="button" className="arch2-topbar-btn" onClick={() => navigate('/')}>
+                <span aria-hidden>↖</span> Back
+              </button>
+              <span className="arch2-brand arch2-topbar-brand">
+                <img src="/logo.png" alt="" className="arch2-brand-mark" />
+                Knowledge Repository
+              </span>
+              <button type="button" className="arch2-topbar-btn" onClick={() => setMenuOpen((o) => !o)}>
+                Menu <span aria-hidden>☰</span>
+              </button>
+            </div>
+
+            {records.length > 0 ? (
+              <BookShelf
+                records={records}
+                variant="embedded"
+                onOpenRecord={openRecordById}
+                apiRef={shelfApi}
               />
             ) : (
               <div className="arch2-hero-fallback">
@@ -144,37 +239,6 @@ export default function Archive() {
             )}
           </div>
 
-          {/* Category chips + Open button */}
-          <div className="arch2-selector-bar">
-            <nav className="arch2-filters" aria-label="Filter by record type">
-              {CATEGORY_LABELS.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  className={`arch2-chip ${filter === c.id ? 'is-active' : ''}`}
-                  onClick={() => jumpToCategory(c.id)}
-                >
-                  {c.label}
-                </button>
-              ))}
-              <span className="arch2-count">
-                {loading ? 'loading…' : `${records.length} record${records.length === 1 ? '' : 's'}`}
-              </span>
-            </nav>
-
-            {items.length > 0 && (
-              <button
-                type="button"
-                className="arch2-open-btn"
-                onClick={() => openRecord()}
-              >
-                Open Record
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
-                  <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </button>
-            )}
-          </div>
         </div>
       )}
 
@@ -204,8 +268,13 @@ export default function Archive() {
 
             <div className="arch2-detail-grid">
               <div className="arch2-detail-body">
-                {active.body.map((para, i) => (
-                  <p key={i}>{para}</p>
+                {cited.paragraphs.map((spans, i) => (
+                  <CitedParagraph
+                    key={i}
+                    spans={spans}
+                    sourceById={sourceById}
+                    numberOf={cited.numberOf}
+                  />
                 ))}
                 {active.credit ? <p className="arch2-credit">{active.credit}</p> : null}
               </div>
@@ -258,6 +327,8 @@ export default function Archive() {
                 </dl>
               </details>
             ) : null}
+
+            <SourceList sources={cited.sources} numberOf={cited.numberOf} />
           </section>
 
           {trend.length >= 2 ? (
@@ -272,13 +343,9 @@ export default function Archive() {
         </main>
       )}
 
-      {/* ══ Logo transition overlay ══ */}
+      {/* ══ Transition overlay ══ */}
       {transitioning && (
         <div className="arch2-transition-overlay" aria-hidden>
-          <div className="arch2-transition-logo">
-            <img src="/logo.png" alt="" className="arch2-transition-mark" />
-            <span className="arch2-transition-wordmark">India in Antarctica</span>
-          </div>
           <div className="arch2-transition-bar" />
         </div>
       )}
