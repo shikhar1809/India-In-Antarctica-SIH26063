@@ -112,6 +112,19 @@ service cloud.firestore {
         && (request.auth.uid == uid || isAdmin());
     }
 
+    // Publisher/admin-by-email invitations: an admin pre-approves a Gmail
+    // address for a role before that person has ever signed in. Role
+    // assignment above is keyed by Firebase UID, which nobody knows until
+    // someone has signed in at least once — this is keyed by lowercased
+    // email instead, so granting access is "type the address", not "wait for
+    // them to sign in, then go find their UID". useRole() applies a matching
+    // grant automatically the first time that email's owner signs in.
+    match /roleGrants/{email} {
+      allow read: if isAdmin()
+        || (request.auth != null && request.auth.token.email is string && request.auth.token.email.lower() == email);
+      allow write: if isAdmin();
+    }
+
     // Field dispatches: Scientist → Publisher → Admin pipeline.
     // Read: publisher and admin only (scientists see their own via 'mine' filter client-side).
     // Create: scientists only, status must start as 'raw'.

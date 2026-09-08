@@ -19,7 +19,11 @@ function RoleSwitcher() {
   const switchRole = async (r: Role) => {
     if (!user || r === role) return;
     setSwitching(true);
-    try { await assignRole(user.uid, r); } finally { setSwitching(false); }
+    try {
+      await assignRole(user.uid, r, {
+        email: user.email, displayName: user.displayName, photoURL: user.photoURL,
+      });
+    } finally { setSwitching(false); }
   };
 
   return (

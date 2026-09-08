@@ -1,0 +1,172 @@
+/* Team roles table — plain markup styled to this portal's dark surfaces
+   rather than the shadcn Table/Avatar/Badge components, which assume CSS
+   variables (bg-primary, text-foreground) this project doesn't define. */
+
+.rt-pane { max-width: 640px; }
+
+.rt-invite {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.rt-invite-icon { opacity: 0.5; flex: 0 0 auto; }
+
+.rt-invite input[type='email'] {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.88rem;
+  outline: none;
+}
+
+.rt-invite select {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 6px 8px;
+}
+
+.rt-notice {
+  margin: 0 0 14px;
+  font-size: 0.82rem;
+  color: #3fb950;
+}
+
+.rt-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 22px 0 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.rt-table-wrap {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.rt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.rt-table th {
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.55;
+  padding: 9px 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.rt-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  vertical-align: middle;
+}
+
+.rt-table tr:last-child td { border-bottom: 0; }
+
+.rt-person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rt-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  object-fit: cover;
+}
+
+.rt-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(120, 190, 255, 0.16);
+  color: #78bfff;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.rt-name { font-weight: 500; }
+
+.rt-email {
+  font-size: 0.76rem;
+  opacity: 0.55;
+}
+
+.rt-email-cell { opacity: 0.85; }
+
+.rt-uid {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.74rem;
+  opacity: 0.55;
+}
+
+.rt-badge {
+  display: inline-flex;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border: 1px solid currentColor;
+}
+
+.rt-badge.role-admin     { color: #f0b429; }
+.rt-badge.role-publisher { color: #58a6ff; }
+.rt-badge.role-scientist { color: #8b949e; }
+
+.rt-actions {
+  text-align: right;
+  width: 1%;
+  white-space: nowrap;
+}
+
+.rt-actions select {
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 4px 6px;
+}
+
+.rt-revoke {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(229, 83, 75, 0.35);
+  border-radius: 7px;
+  background: transparent;
+  color: #e5534b;
+  cursor: pointer;
+}
+
+.rt-revoke:hover { background: rgba(229, 83, 75, 0.12); }

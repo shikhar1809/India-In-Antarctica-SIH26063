@@ -1,12 +1,12 @@
 import { useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ChevronDown, FileSpreadsheet, Paperclip, RotateCcw, Sparkles, TriangleAlert } from 'lucide-react';
-import { addDoc, collection, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useDispatches } from '../hooks/useDispatches';
-import { useRole, assignRole } from '../hooks/useRole';
-import type { Role } from '../hooks/useRole';
+import { useRole } from '../hooks/useRole';
+import { RolesTable } from './RolesTable';
 import type { Dispatch, DispatchStatus, DispatchPriority, WeatherObs, PlatformCaptions } from '../types';
 import { MEASUREMENT_SCHEMA } from '../types';
 import { normaliseDispatch } from '../repository/normalise';
@@ -136,8 +136,6 @@ function weatherLine(w: WeatherObs | undefined): string | null {
   ].filter(Boolean);
   return bits.length ? bits.join(' · ') : null;
 }
-
-const ROLE_LABEL: Record<Role, string> = { scientist: 'Scientist', publisher: 'Publisher', admin: 'Admin' };
 
 /* ================================================================ Social */
 export function Social() {
@@ -1008,45 +1006,17 @@ function FeedTab({ items }: { items: Dispatch[] }) {
 }
 
 /* ============================================================= Roles tab */
-const ROLES: Role[] = ['scientist', 'publisher', 'admin'];
-
 function RolesTab() {
   const { user } = useAuth();
-  const [uid, setUid] = useState('');
-  const [currentRole, setCurrentRole] = useState<Role | null>(null);
-  const [selectedRole, setSelectedRole] = useState<Role>('scientist');
-  const [looking, setLooking] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [done, setDone] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  const lookup = async () => {
-    const trimmed = uid.trim(); if (!trimmed) return;
-    setLooking(true); setErr(null); setCurrentRole(null); setDone(false);
-    try {
-      const snap = await getDoc(doc(db, 'roles', trimmed));
-      const role: Role = (snap.data()?.role as Role) ?? 'scientist';
-      setCurrentRole(role); setSelectedRole(role);
-    } catch { setErr('Could not read that role. Either the UID is wrong, or you are not an admin — only admins can look up other people.'); }
-    finally { setLooking(false); }
-  };
-
-  const save = async () => {
-    const trimmed = uid.trim(); if (!trimmed) return;
-    setSaving(true); setErr(null);
-    try { await assignRole(trimmed, selectedRole); setDone(true); setTimeout(() => setDone(false), 2000); }
-    catch { setErr('Could not save — check Firestore rules.'); }
-    finally { setSaving(false); }
-  };
 
   return (
     <div className="fld-pane">
-      <p className="fld-field-label" style={{ marginBottom: 12 }}>Enter a Firebase UID to look up and change a team member's role.</p>
-      {/* Roles are keyed by UID, but nobody knows their own UID by heart and
-          the console is three clicks away — so the one UID we can always
-          supply is shown here. It is also what seeds the very first admin:
-          `npm run role -- <uid> admin`, which is the only way in, because
-          firestore.rules deliberately refuses self-elevation. */}
+      {/* Roles are keyed by UID, and the one UID an admin can always supply
+          without hunting for it is their own — shown here because it is
+          also what seeds the very first admin, out of band:
+          `npm run role -- <uid> admin` (or the email form, once one admin
+          already exists). Everyone else is granted by email below, which is
+          the point of RolesTable — nobody else's UID needs to be found. */}
       {user && (
         <div className="fld-own-uid">
           <span className="fld-field-label">Your own UID</span>
@@ -1055,33 +1025,9 @@ function RolesTab() {
             className="ph-btn ghost"
             onClick={() => { void navigator.clipboard?.writeText(user.uid); }}
           >Copy</button>
-          <button
-            className="ph-btn ghost"
-            onClick={() => { setUid(user.uid); setCurrentRole(null); }}
-          >Use mine</button>
         </div>
       )}
-      <div className="fld-role-lookup">
-        <input className="fld-uid-input" type="text" placeholder="Firebase UID" value={uid} onChange={(e) => { setUid(e.target.value); setCurrentRole(null); }} />
-        <button className="ph-btn ghost" onClick={lookup} disabled={looking || !uid.trim()}>{looking ? 'Looking…' : 'Look up'}</button>
-      </div>
-      {err && <p className="fld-error" style={{ marginTop: 8 }}>{err}</p>}
-      {currentRole !== null && (
-        <div className="fld-role-assign">
-          <p className="fld-field-label">Current role: <span className={'fld-role-badge role-' + currentRole}>{ROLE_LABEL[currentRole]}</span></p>
-          <div className="fld-role-options">
-            {ROLES.map((r) => (
-              <label key={r} className={'fld-role-option' + (selectedRole === r ? ' selected' : '')}>
-                <input type="radio" name="role" value={r} checked={selectedRole === r} onChange={() => setSelectedRole(r)} />
-                {ROLE_LABEL[r]}
-              </label>
-            ))}
-          </div>
-          <button className="ph-btn primary" onClick={save} disabled={saving || selectedRole === currentRole}>
-            {saving ? 'Saving…' : done ? 'Saved!' : 'Assign role'}
-          </button>
-        </div>
-      )}
+      <RolesTable />
     </div>
   );
 }
