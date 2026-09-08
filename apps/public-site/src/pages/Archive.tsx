@@ -10,6 +10,8 @@ import { useRepository, temperatureSeries, recordSlug, matchesRecordId, CATEGORY
 import { resolveCitations } from '../repository/citations'
 import type { RecordSource, RepositoryRecord, CoverCategory, ResourceType } from '../repository/contract'
 import { RECORDS } from '../data/archiveData'
+import { SocialBadge } from '../components/SocialBadge'
+import '../components/SocialBadge.css'
 import './Archive.css'
 
 /* ── Static fallback ─────────────────────────────────────────────────────
@@ -391,6 +393,46 @@ export default function Archive() {
 
             <SourceList sources={cited.sources} numberOf={cited.numberOf} />
           </section>
+
+          {/* Not every published record has been shared yet — most
+              publication and dataset records never get a social post at
+              all, and that is fine; this section only exists once
+              active.socialPosts actually has something in it. The claim
+              being made is specific: this exact post, on this exact
+              platform, is *about* this record — not "social media
+              mentioned this station" in the abstract, but this record's own
+              dissemination history. */}
+          {active.socialPosts?.length ? (
+            <section className="arch2-social">
+              <h3 className="arch2-social-title">Shared on social media</h3>
+              <p className="arch2-social-sub">
+                This record was the subject of the following posts.
+              </p>
+              <ul className="arch2-social-list">
+                {[...active.socialPosts]
+                  .sort((a, b) => b.postedAt - a.postedAt)
+                  .map((post, i) => (
+                    <li key={i} className="arch2-social-card">
+                      <div className="arch2-social-head">
+                        <SocialBadge platform={post.platform} />
+                        <span className="arch2-social-date">
+                          {new Date(post.postedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                      </div>
+                      <p className="arch2-social-caption">{post.caption}</p>
+                      <a
+                        className="arch2-social-link"
+                        href={post.url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        View the original post ↗
+                      </a>
+                    </li>
+                  ))}
+              </ul>
+            </section>
+          ) : null}
 
           {trend.length >= MIN_TREND_POINTS ? (
             <section className="arch2-trend">

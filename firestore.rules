@@ -68,6 +68,17 @@ service cloud.firestore {
     match /publicArchive/{recordId} {
       allow read: if true;
       allow write: if isAdmin();
+
+      // A publisher or admin confirming a scheduled post went out
+      // denormalises the platform + permalink onto the record itself (see
+      // SocialPostSummary in repository/contract.ts) — the dissemination
+      // queue it came from is not public, so this is the only public-safe
+      // trace that the post happened. Scoped to exactly this one field, the
+      // same diff().affectedKeys() pattern as reviewAnnotations on
+      // /dispatches: a publisher gains no other way to touch a public
+      // record through this branch.
+      allow update: if (isPublisher() || isAdmin())
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['socialPosts']);
     }
 
     // Sequence counters behind the IIA-<year>-<nnnn> record identifiers.

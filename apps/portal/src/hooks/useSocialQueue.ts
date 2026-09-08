@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query, setDoc, updateDoc } from 'firebase/firestore';
+import {
+  arrayUnion, collection, deleteDoc, doc, onSnapshot, orderBy, query, setDoc, updateDoc,
+} from 'firebase/firestore';
 import { db } from '../firebase';
 import type { ScheduledPost } from '../social/queue';
+import type { SocialPostSummary } from '../repository/contract';
 
 export const SOCIAL_COLLECTION = 'socialPosts';
 
@@ -58,6 +61,39 @@ export async function saveScheduledPost(post: ScheduledPost): Promise<void> {
 export async function updateScheduledPost(post: ScheduledPost): Promise<void> {
   const { id, ...fields } = post;
   await updateDoc(doc(db, SOCIAL_COLLECTION, id), fields);
+}
+
+/**
+ * Denormalises a confirmed post onto the record it was about, so the
+ * public site — which cannot read the queue at all — has something to show
+ * on the archive page and the home hero.
+ *
+ * Called once, at the moment a post is confirmed sent (see QueueTab.tsx),
+ * never at schedule time: a queued or failed post never reached anyone and
+ * has no place claiming it did. `arrayUnion` rather than a read-then-write,
+ * so two publishers confirming different posts for the same record at
+ * nearly the same moment can't clobber each other.
+ *
+ * Failure here is swallowed by design, not surfaced as an error to whoever
+ * clicked "Mark as posted": the post itself is real and already recorded in
+ * the queue (which is the actual audit trail) by the time this runs, and a
+ * missing archive badge is a cosmetic gap worth fixing quietly, not a
+ * reason to make the publisher think their confirmation failed.
+ */
+export async function recordSocialPost(post: ScheduledPost): Promise<void> {
+  if (!post.externalUrl || !post.postedAt) return;
+  const entry: SocialPostSummary = {
+    platform: post.platform,
+    url: post.externalUrl,
+    postedAt: post.postedAt,
+    caption: post.caption,
+  };
+  try {
+    await updateDoc(doc(db, 'publicArchive', post.recordId), { socialPosts: arrayUnion(entry) });
+  } catch {
+    // See the doc comment above — this is a best-effort projection, not
+    // part of the confirmation itself.
+  }
 }
 
 /** Removes a queue entry entirely.

@@ -239,6 +239,23 @@ export interface RepositoryRecord {
 
   metadata: RecordMetadata
   publishedAt: number
+
+  /** Where this record was shared on social media, once a post about it was
+   *  confirmed sent — written by the portal's confirmManualPost path (see
+   *  apps/portal/src/hooks/useSocialQueue.ts's recordSocialPost) at the
+   *  moment a publisher or admin marks a scheduled post as posted, not at
+   *  schedule time. A narrow, public-safe projection of the dissemination
+   *  queue (platform, permalink, when, the caption actually posted) — not
+   *  the queue itself, which also carries scheduling state and failure
+   *  reasons that are nobody else's business. */
+  socialPosts?: SocialPostSummary[]
+}
+
+export interface SocialPostSummary {
+  platform: 'x' | 'linkedin' | 'instagram'
+  url: string
+  postedAt: number
+  caption: string
 }
 
 /** Numeric value of a measurement, or null when it isn't a number. */

@@ -16,24 +16,35 @@
  * publication-only records), the original three station photographs fill
  * the remainder, so the hero is never emptier than it was before this
  * existed.
+ *
+ * This file stays plain data (`.ts`, no JSX) on purpose — puck.config.tsx's
+ * HeroBlockRender is what turns a slide into the actual caption markup
+ * (title, platform badges, the "View post" link), so a slide here is
+ * *what to show*, not *how*.
  */
 
 import { useMemo } from 'react';
 import { useRepository, recordSlug } from '../api/repository';
+import type { SocialPlatform } from './SocialBadge';
 
-/** MorphSlider's own item shape — `image` and `caption`, nothing more. */
 export interface HeroSlide {
   image: string;
-  caption: string;
-  /** Present only on a slide sourced from a real record — used to make the
-   *  caption a link to the full record rather than plain text. */
+  title: string;
+  station?: string;
+  /** Set only on a slide sourced from a real record — the archive page for
+   *  it, and also what makes the caption clickable at all. */
   href?: string;
+  /** Distinct platforms this record was disseminated to, most-recent post
+   *  first. Empty for a record nobody has posted about yet — most of the
+   *  archive, honestly, since only a fraction of published work gets a
+   *  social post at all. */
+  platforms: SocialPlatform[];
 }
 
 const FALLBACK_SLIDES: HeroSlide[] = [
-  { image: 'https://upload.wikimedia.org/wikipedia/commons/4/4d/An_aerial_view_of_the_Indian_Station_Maitri%2C_Antarctica_on_February_2%2C_2005.jpg', caption: 'Maitri Research Station' },
-  { image: 'https://upload.wikimedia.org/wikipedia/commons/3/3a/Bharati_permanent_Antarctic_research_station.jpg', caption: 'Bharati Research Station' },
-  { image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/%E0%A4%A6%E0%A4%95%E0%A5%8D%E0%A4%B7%E0%A4%BF%E0%A4%A3_%E0%A4%97%E0%A4%82%E0%A4%97%E0%A5%8B%E0%A4%A4%E0%A5%8D%E0%A4%B0%E0%A5%80%2C_%E0%A4%85%E0%A4%82%E0%A4%9F%E0%A4%BE%E0%A4%B0%E0%A5%8D%E0%A4%95%E0%A4%9F%E0%A4%BF%E0%A4%95%E0%A4%BE.jpg/1280px-%E0%A4%A6%E0%A4%95%E0%A5%8D%E0%A4%B7%E0%A4%BF%E0%A4%A3_%E0%A4%97%E0%A4%82%E0%A4%97%E0%A5%8B%E0%A4%A4%E0%A5%8D%E0%A4%B0%E0%A5%80%2C_%E0%A4%85%E0%A4%82%E0%A4%9F%E0%A4%BE%E0%A4%B0%E0%A5%8D%E0%A4%95%E0%A4%9F%E0%A4%BF%E0%A4%95%E0%A4%BE.jpg', caption: 'Dakshin Gangotri' },
+  { image: 'https://upload.wikimedia.org/wikipedia/commons/4/4d/An_aerial_view_of_the_Indian_Station_Maitri%2C_Antarctica_on_February_2%2C_2005.jpg', title: 'Maitri Research Station', platforms: [] },
+  { image: 'https://upload.wikimedia.org/wikipedia/commons/3/3a/Bharati_permanent_Antarctic_research_station.jpg', title: 'Bharati Research Station', platforms: [] },
+  { image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/%E0%A4%A6%E0%A4%95%E0%A5%8D%E0%A4%B7%E0%A4%BF%E0%A4%A3_%E0%A4%97%E0%A4%82%E0%A4%97%E0%A5%8B%E0%A4%A4%E0%A5%8D%E0%A4%B0%E0%A5%80%2C_%E0%A4%85%E0%A4%82%E0%A4%9F%E0%A4%BE%E0%A4%B0%E0%A5%8D%E0%A4%95%E0%A4%9F%E0%A4%BF%E0%A4%95%E0%A4%BE.jpg/1280px-%E0%A4%A6%E0%A4%95%E0%A5%8D%E0%A4%B7%E0%A4%BF%E0%A4%A3_%E0%A4%97%E0%A4%82%E0%A4%97%E0%A5%8B%E0%A4%A4%E0%A5%8D%E0%A4%B0%E0%A5%80%2C_%E0%A4%85%E0%A4%82%E0%A4%9F%E0%A4%BE%E0%A4%B0%E0%A5%8D%E0%A4%95%E0%A4%9F%E0%A4%BF%E0%A4%95%E0%A4%BE.jpg', title: 'Dakshin Gangotri', platforms: [] },
 ];
 
 const MAX_SLIDES = 5;
@@ -51,8 +62,12 @@ export function useHeroSlides(): { slides: HeroSlide[]; live: boolean } {
       .slice(0, MAX_SLIDES)
       .map((r) => ({
         image: r.photoUrls[0],
-        caption: [r.title, r.metadata?.station].filter(Boolean).join(' — '),
+        title: r.title,
+        station: r.metadata?.station,
         href: `/archive/${recordSlug(r)}`,
+        platforms: [...new Set(
+          [...(r.socialPosts ?? [])].sort((a, b) => b.postedAt - a.postedAt).map((p) => p.platform),
+        )],
       }));
 
     if (generated.length >= MIN_SLIDES) {

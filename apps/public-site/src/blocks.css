@@ -535,3 +535,35 @@
 .chart-header { margin-bottom: 2rem; text-align: center; }
 .chart-header h3 { font-size: 1.2rem; color: var(--ice); margin-bottom: 0.25rem; }
 .chart-header p { font-size: 0.85rem; color: var(--ice-dim); }
+
+/* ── Hero slide caption card — title, then platform badges + a View post
+   affordance, when the record was actually shared somewhere. Sits inside
+   MorphSlider's own .morph-slider-caption-text pill (padding, background,
+   blur already applied there); this only lays out the content. ────────── */
+
+.hero-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hero-card-title {
+  font-weight: 600;
+}
+
+.hero-card-social {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.hero-card-viewpost {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(95, 217, 255, 0.16);
+  color: #5fd9ff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}

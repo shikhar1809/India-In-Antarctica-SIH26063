@@ -9,7 +9,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { useSocialQueue, updateScheduledPost, removeScheduledPost } from '../hooks/useSocialQueue';
+import { useSocialQueue, updateScheduledPost, removeScheduledPost, recordSocialPost } from '../hooks/useSocialQueue';
 import {
   PLATFORM_LIMITS,
   captionLength,
@@ -52,7 +52,16 @@ function QueueRow({ post }: { post: ScheduledPost }) {
 
   const act = async (next: ScheduledPost) => {
     setBusy(true); setErr(null);
-    try { await updateScheduledPost(next); }
+    try {
+      await updateScheduledPost(next);
+      // Only the transition INTO 'posted' should denormalise onto the
+      // record — checking the previous row (`post`), not just the new
+      // status, means this never re-fires for a row that was already
+      // posted and is merely being re-rendered through some other update.
+      if (next.status === 'posted' && post.status !== 'posted') {
+        await recordSocialPost(next);
+      }
+    }
     catch { setErr('Could not save. Check your connection and try again.'); }
     finally { setBusy(false); }
   };

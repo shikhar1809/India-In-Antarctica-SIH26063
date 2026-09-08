@@ -1,0 +1,15 @@
+.social-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid currentColor;
+  line-height: 1.6;
+}
+
+.social-badge-x         { color: #e8ecef; }
+.social-badge-linkedin  { color: #58a6ff; }
+.social-badge-instagram { color: #e88fce; }

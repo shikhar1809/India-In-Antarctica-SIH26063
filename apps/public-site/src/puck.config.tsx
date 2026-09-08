@@ -2,6 +2,8 @@ import { type Config, DropZone } from '@measured/puck';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar } from 'recharts';
 import MorphSlider from './components/MorphSlider';
 import { useHeroSlides } from './components/useHeroSlides';
+import { SocialBadge } from './components/SocialBadge';
+import './components/SocialBadge.css';
 import { ArchiveGallerySection } from './components/ui/sticky-scroll';
 import { ParallaxComponent } from './components/ui/parallax-scrolling';
 import './blocks.css';
@@ -44,11 +46,38 @@ type Props = {
  *  This used to be three fixed Wikimedia photos. It now shows the archive's own most recent published work — see useHeroSlides.ts for the selection rule and its fallback. This is the literal mechanism behind "content generated on the portal appears on the public site": nothing here is hand-curated. */
 function HeroBlockRender() {
   const { slides } = useHeroSlides();
+
+  // MorphSlider's own item shape is just { image, caption, href } — caption
+  // renders as whatever ReactNode it's given (see MorphSlider.tsx's caption
+  // block), so the richer card (title, platform badges, an explicit "View
+  // post" button) is composed here rather than by changing that component.
+  // Slides with no href (the static fallback photos) keep a plain title —
+  // there is nothing to badge or link when nothing was ever posted about a
+  // stock photo of a station.
+  const items = slides.map((s) => ({
+    image: s.image,
+    href: s.href,
+    caption: (
+      <span className="hero-card">
+        <span className="hero-card-title">{[s.title, s.station].filter(Boolean).join(' — ')}</span>
+        {s.platforms.length > 0 && (
+          <span className="hero-card-social">
+            {s.platforms.map((p) => <SocialBadge key={p} platform={p} />)}
+            {/* Same destination as clicking the caption itself — the whole
+                card is already one <a>, so this reads as a button without
+                being a second, nested link. */}
+            <span className="hero-card-viewpost">View post</span>
+          </span>
+        )}
+      </span>
+    ),
+  }));
+
   return (
     <div className="block-hero" style={{ position: 'relative', height: '100vh', width: '100vw' }}>
       <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
         <MorphSlider
-          items={slides}
+          items={items}
           transition="melt"
           intensity={0.55}
           aberration={0.35}

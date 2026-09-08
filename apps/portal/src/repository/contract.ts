@@ -390,6 +390,28 @@ export interface RepositoryRecord {
 
   metadata: RecordMetadata;
   publishedAt: number;
+
+  /** Where this record was shared on social media, once a post about it is
+   *  confirmed sent. Written by social/queue.ts's confirmManualPost path
+   *  (see hooks/useSocialQueue.ts's recordSocialPost) at the moment a
+   *  publisher or admin marks a scheduled post as posted — deliberately not
+   *  at schedule time, since a queued or failed post never actually reached
+   *  anyone and has no place claiming it did.
+   *
+   *  This is a narrow, public-safe projection of the dissemination queue —
+   *  platform, permalink, when, and the caption that was actually posted —
+   *  not the queue itself. The queue also carries scheduling state, retry
+   *  reasons and failure messages, none of which are the public's business;
+   *  see the queue's own collection comment in firestore.rules. */
+  socialPosts?: SocialPostSummary[];
+}
+
+export interface SocialPostSummary {
+  platform: 'x' | 'linkedin' | 'instagram';
+  /** The live post, off-site — this is the "prove it" link. */
+  url: string;
+  postedAt: number;
+  caption: string;
 }
 
 /** Station name → the cover-art key iia-public uses for palettes. */
