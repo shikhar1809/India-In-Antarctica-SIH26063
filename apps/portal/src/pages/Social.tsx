@@ -6,7 +6,6 @@ import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useDispatches } from '../hooks/useDispatches';
 import { useRole } from '../hooks/useRole';
-import { RolesTable } from './RolesTable';
 import type { Dispatch, DispatchStatus, DispatchPriority, WeatherObs, PlatformCaptions } from '../types';
 import { MEASUREMENT_SCHEMA } from '../types';
 import { normaliseDispatch } from '../repository/normalise';
@@ -278,8 +277,8 @@ function PublisherView({
 function AdminView({
   toApprove, live, initialTab,
 }: { toApprove: Dispatch[]; live: Dispatch[]; initialTab?: string | null }) {
-  const [tab, setTab] = useState<'approve' | 'feed' | 'roles' | 'queue'>(
-    initialTab === 'queue' || initialTab === 'feed' || initialTab === 'roles' ? initialTab : 'approve',
+  const [tab, setTab] = useState<'approve' | 'feed' | 'queue'>(
+    initialTab === 'queue' || initialTab === 'feed' ? initialTab : 'approve',
   );
   return (
     <>
@@ -288,12 +287,10 @@ function AdminView({
           Approve {toApprove.length > 0 && <span className="fld-count">{toApprove.length}</span>}
         </button>
         <button role="tab" aria-selected={tab === 'feed'} className={'fld-tab' + (tab === 'feed' ? ' active' : '')} onClick={() => setTab('feed')}>Published content</button>
-        <button role="tab" aria-selected={tab === 'roles'} className={'fld-tab' + (tab === 'roles' ? ' active' : '')} onClick={() => setTab('roles')}>Manage roles</button>
         <button role="tab" aria-selected={tab === 'queue'} className={'fld-tab' + (tab === 'queue' ? ' active' : '')} onClick={() => setTab('queue')}>Dissemination</button>
       </div>
       {tab === 'approve' && <ApproveTab items={toApprove} />}
       {tab === 'feed'    && <FeedTab items={live} />}
-      {tab === 'roles'   && <RolesTab />}
       {tab === 'queue'   && <QueueTab />}
     </>
   );
@@ -1001,33 +998,6 @@ function FeedTab({ items }: { items: Dispatch[] }) {
           </div>
         </article>
       ))}
-    </div>
-  );
-}
-
-/* ============================================================= Roles tab */
-function RolesTab() {
-  const { user } = useAuth();
-
-  return (
-    <div className="fld-pane">
-      {/* Roles are keyed by UID, and the one UID an admin can always supply
-          without hunting for it is their own — shown here because it is
-          also what seeds the very first admin, out of band:
-          `npm run role -- <uid> admin` (or the email form, once one admin
-          already exists). Everyone else is granted by email below, which is
-          the point of RolesTable — nobody else's UID needs to be found. */}
-      {user && (
-        <div className="fld-own-uid">
-          <span className="fld-field-label">Your own UID</span>
-          <code title={user.uid}>{user.uid}</code>
-          <button
-            className="ph-btn ghost"
-            onClick={() => { void navigator.clipboard?.writeText(user.uid); }}
-          >Copy</button>
-        </div>
-      )}
-      <RolesTable />
     </div>
   );
 }

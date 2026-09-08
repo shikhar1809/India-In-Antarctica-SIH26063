@@ -1,28 +1,27 @@
 /**
- * The landing point for everything about content and its reach.
+ * The landing point for content and its reach.
  *
- * Previously this nav item went straight to the review desk, and analytics
- * lived behind a separate "Dashboard" link — two things to remember, neither
- * named for what it actually was. Media is a hub instead: three questions a
- * publisher or admin actually asks, each pointing at the page that answers
- * it. "Generate media" opens the review/approve desk on the tab that role
- * uses; "View schedule" opens the dissemination queue directly; "Track
- * analytics" opens the archive dashboard — the same page the old "Dashboard"
- * link pointed to, just reached from here instead of standing on its own.
+ * "View schedule" and "Generate media" used to be separate cards here, but
+ * they were never separate destinations — both landed on `/social`, just on
+ * a different one of its tabs, because the dissemination queue and the
+ * review/approve desk are two views onto the same job, not two jobs. One
+ * card, "Manage media", now points at that page directly; the tab bar
+ * already there is how you move between drafting a post and watching what
+ * is scheduled.
+ *
+ * Team management used to be a third tab on that same page too, and it has
+ * moved out entirely — see RolesPage.tsx and the "Manage roles" link in the
+ * topbar — since who has access is a different kind of decision from what
+ * today's dispatches need, and didn't belong sharing a screen with either.
  */
 
 import { Link } from 'react-router-dom';
-import { BarChart3, CalendarClock, Sparkles } from 'lucide-react';
+import { BarChart3, Sparkles } from 'lucide-react';
 import { useRole } from '../hooks/useRole';
 import './MediaHub.css';
 
 export function MediaHub() {
   const { role } = useRole();
-
-  // A publisher's job on the review desk is drafting; an admin's is
-  // approving. "Generate media" should land on the tab that role actually
-  // works in, not force a click to get there.
-  const generateTab = role === 'admin' ? 'approve' : 'review';
 
   const cards = [
     {
@@ -32,18 +31,12 @@ export function MediaHub() {
       body: 'What the archive holds, how fast it moves, and what has gone out — the numbers a government outreach programme reports on.',
     },
     {
-      to: '/social?tab=queue',
-      icon: <CalendarClock className="w-6 h-6" />,
-      title: 'View schedule',
-      body: 'The dissemination queue: what is waiting to post, what needs a human, and what already went out.',
-    },
-    {
-      to: `/social?tab=${generateTab}`,
+      to: '/social',
       icon: <Sparkles className="w-6 h-6" />,
-      title: 'Generate media',
+      title: 'Manage media',
       body: role === 'admin'
-        ? 'Approve drafted dispatches, or send one back with a note.'
-        : 'Review incoming field reports and compose the public-facing post for each.',
+        ? 'Approve drafted dispatches, review what has published, and track the dissemination queue — all on one page.'
+        : 'Draft the public-facing post for each field report, and track what is scheduled to go out.',
     },
   ];
 

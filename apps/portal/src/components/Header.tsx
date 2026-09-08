@@ -68,10 +68,10 @@ export function Header() {
           {user && isStaff && (
             <>
               {/* Media is a hub, not a direct link to the review desk — it
-                  opens on a choice of Track analytics / View schedule /
-                  Generate media rather than always landing on Review. The
-                  old standalone "Dashboard" link is gone; its page is one of
-                  the hub's three options now, not a fourth thing to find. */}
+                  opens on a choice of Track analytics / Manage media rather
+                  than always landing on Review. The old standalone
+                  "Dashboard" link is gone; its page is one of the hub's
+                  options now, not a fourth thing to find. */}
               <NavLink to="/media" className={({ isActive }) => isActive ? 'active' : ''}>
                 Media
               </NavLink>
@@ -80,9 +80,19 @@ export function Header() {
                   fewer top-level thing to remember, same reasoning as
                   folding Dashboard into Media above. */}
               {role === 'admin' && (
-                <NavLink to="/site" className={({ isActive }) => isActive ? 'active' : ''}>
-                  Site Management
-                </NavLink>
+                <>
+                  <NavLink to="/site" className={({ isActive }) => isActive ? 'active' : ''}>
+                    Site Management
+                  </NavLink>
+                  {/* Used to be a tab buried inside the review desk. Team
+                      access is a different kind of decision from what
+                      today's dispatches need, and an admin reaches for it
+                      independently of reviewing anything — it earns its own
+                      spot in the topbar rather than a click through Media. */}
+                  <NavLink to="/roles" className={({ isActive }) => isActive ? 'active' : ''}>
+                    Manage roles
+                  </NavLink>
+                </>
               )}
             </>
           )}
