@@ -45,6 +45,12 @@ import {
 } from './copy';
 import type { Brief, PostCopy, Variant } from './copy';
 import { KnowledgeBase } from './KnowledgeBase';
+import { AgentThinking } from './AgentThinking';
+import { analyseBrief, generatorDirection, CONTENT_TYPES } from './agent';
+import type { BriefAnalysis, ContentType } from './agent';
+import { searchReferences } from './references';
+import type { StyleReference } from './references';
+import { usePublicArchive } from '../hooks/usePublicArchive';
 import { PostCanvas } from './PostCanvas';
 import { downloadPng } from './export';
 import { PreviewX, PreviewInstagram, PreviewLinkedIn } from './PlatformPreview';
@@ -88,6 +94,17 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
   const [genNote, setGenNote] = useState<string | null>(null);
   const [pickedId, setPickedId] = useState<string | null>(null);
 
+  /* ── the agent ──
+   * `analysis` is what the agent worked out; it is computed once when the
+   * publisher starts a run and then held, so the steps they watched and the
+   * brief the model was given cannot drift apart. `chose` tracks which
+   * fields the publisher set deliberately — the agent infers the rest and
+   * must never quietly overwrite a real choice. */
+  const [analysis, setAnalysis] = useState<BriefAnalysis | null>(null);
+  const [refs, setRefs] = useState<StyleReference[]>([]);
+  const [chose, setChose] = useState<{ audience: boolean; tone: boolean }>({ audience: false, tone: false });
+  const { records: archiveRecords } = usePublicArchive();
+
   /* ── the chosen post ── */
   const [copy, setCopy] = useState<PostCopy | null>(null);
   const [templateId, setTemplateId] = useState<TemplateId>(
@@ -128,26 +145,79 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
 
   /* ───────────────────────────────────────────────────────────── actions ── */
 
-  const runGenerate = async () => {
+  /**
+   * Starts an agent run.
+   *
+   * The analysis happens here, synchronously, before any step is shown: the
+   * steps are a presentation of a result that already exists, so what the
+   * publisher reads is what the generator is about to be told. AgentThinking
+   * then paces it out and calls back when the writing is done.
+   */
+  const startAgent = () => {
+    const next = analyseBrief({
+      brief,
+      platforms,
+      hasImage: images.length > 0,
+      station: clean.station,
+      archiveRecords,
+      audienceChosen: chose.audience,
+      toneChosen: chose.tone,
+    });
+
+    /* An archive record the agent found on its own is adopted into the
+     * brief, exactly as if the publisher had picked it from the knowledge
+     * base — the step that found it says so, and the link it carries is the
+     * record's real address rather than anything the model produced. */
+    if (next.archive && !brief.source) {
+      setBrief((b) => ({
+        ...b,
+        topic: b.topic.trim() + LINE_BREAK + LINE_BREAK + next.archive!.material,
+        source: next.archive!.source,
+      }));
+    }
+
+    setAnalysis(next);
     setGenerating(true);
     setGenNote(null);
+  };
+
+  /** The writing step of the run. Kept separate from startAgent so
+   *  AgentThinking can place it last, after the publisher has seen every
+   *  inference it is about to be built on. */
+  const runWriting = async () => {
+    const active = analysis;
+    const briefForModel: Brief = active
+      ? { ...brief, audience: active.audience, tone: active.tone }
+      : brief;
+
     try {
-      const result = await generateVariants(clean, measurements, brief);
-      setVariants(withSourceLink(result.variants, brief.source));
+      const result = await generateVariants(
+        clean,
+        measurements,
+        briefForModel,
+        undefined,
+        active ? generatorDirection(active) : undefined,
+      );
+      setVariants(withSourceLink(result.variants, briefForModel.source));
       setGenNote(
         result.generated
-          ? 'Written by the generator. Read it before you submit — it can get details wrong.'
+          ? 'Written by the generator, against everything the agent worked out. Read it before you submit — it can still get details wrong.'
           : result.reason ?? 'Using the offline draft.',
       );
-      setStepIdx(1);
     } catch {
-      const fallback = draftVariants(clean, measurements, brief);
-      setVariants(withSourceLink(fallback, brief.source));
+      setVariants(withSourceLink(draftVariants(clean, measurements, briefForModel), briefForModel.source));
       setGenNote('Using the offline draft.');
-      setStepIdx(1);
-    } finally {
-      setGenerating(false);
     }
+  };
+
+  /** The agent finished: adopt what it inferred and show the three options. */
+  const agentDone = (found: StyleReference[]) => {
+    setRefs(found);
+    if (analysis) {
+      setBrief((b) => ({ ...b, audience: analysis.audience, tone: analysis.tone }));
+    }
+    setGenerating(false);
+    setStepIdx(1);
   };
 
   const pick = (v: Variant) => {
@@ -331,7 +401,10 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
                   key={a.id}
                   type="button"
                   className={'stu-chip' + (brief.audience === a.id ? ' is-on' : '')}
-                  onClick={() => setBrief((b) => ({ ...b, audience: a.id }))}
+                  onClick={() => {
+                    setBrief((b) => ({ ...b, audience: a.id }));
+                    setChose((c) => ({ ...c, audience: true }));
+                  }}
                   title={a.hint}
                 >
                   {a.label}
@@ -348,7 +421,10 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
                   key={t.id}
                   type="button"
                   className={'stu-chip' + (brief.tone === t.id ? ' is-on' : '')}
-                  onClick={() => setBrief((b) => ({ ...b, tone: t.id }))}
+                  onClick={() => {
+                    setBrief((b) => ({ ...b, tone: t.id }));
+                    setChose((c) => ({ ...c, tone: true }));
+                  }}
                   title={t.hint}
                 >
                   {t.label}
@@ -375,15 +451,33 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
             </div>
           </div>
 
-          <button
-            type="button"
-            className="stu-primary"
-            onClick={runGenerate}
-            disabled={generating || !brief.topic.trim()}
-          >
-            <Sparkles size={15} strokeWidth={2.5} />
-            {generating ? 'Writing three options…' : 'Show me three options'}
-          </button>
+          {/* Audience and tone are optional now: left alone, the agent
+              infers them from what the post turns out to be, and shows its
+              working. Choosing one pins it. */}
+          <p className="stu-sub stu-agentnote">
+            Leave anything above unset and the agent will work it out from the brief — you will
+            see what it decided, and why, before a word is written.
+          </p>
+
+          {generating && analysis ? (
+            <AgentThinking
+              analysis={analysis}
+              runReferences={(queries, onPartial) => searchReferences(queries, onPartial)}
+              runWriting={runWriting}
+              onComplete={agentDone}
+              onCancel={() => { setGenerating(false); setAnalysis(null); }}
+            />
+          ) : (
+            <button
+              type="button"
+              className="stu-primary"
+              onClick={startAgent}
+              disabled={!brief.topic.trim()}
+            >
+              <Sparkles size={15} strokeWidth={2.5} />
+              Work it out and show me three options
+            </button>
+          )}
         </div>
       )}
 
@@ -391,6 +485,53 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
       {step.id === 'pick' && (
         <div className="stu-panel">
           {genNote && <p className="stu-gennote">{genNote}</p>}
+
+          {/* What these three were written against. Shown here rather than
+              only during the run so it is still checkable once the steps
+              have scrolled away — and the content type is correctable
+              without starting over. */}
+          {analysis && (
+            <div className="stu-basis">
+              <div className="stu-basis-row">
+                <span className="stu-label">Written as</span>
+                <div className="stu-chips">
+                  {analysis.classification.ranked.slice(0, 3).map((r) => (
+                    <button
+                      key={r.type}
+                      type="button"
+                      className={'stu-chip' + (analysis.classification.type.id === r.type ? ' is-on' : '')}
+                      onClick={() => setAnalysis({
+                        ...analysis,
+                        classification: { ...analysis.classification, type: CONTENT_TYPES[r.type as ContentType] },
+                      })}
+                      title={CONTENT_TYPES[r.type as ContentType].blurb}
+                    >
+                      {CONTENT_TYPES[r.type as ContentType].label}
+                    </button>
+                  ))}
+                </div>
+                <span className="stu-basis-meta">
+                  for {analysis.audience} · {analysis.tone}
+                </span>
+              </div>
+              {refs.length > 0 && (
+                <div className="stu-basis-refs">
+                  <span className="stu-label">Visual references found</span>
+                  <div className="stu-refstrip">
+                    {refs.slice(0, 10).map((r) => (
+                      <a key={r.id} href={r.pageUrl} target="_blank" rel="noreferrer"
+                         title={`${r.title} — ${r.license} · ${r.attribution}`}>
+                        <img src={r.thumbUrl ?? ''} alt="" loading="lazy" />
+                      </a>
+                    ))}
+                  </div>
+                  <span className="stu-sub">
+                    Reference only — check the licence on the source page before reusing any of these.
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
           <div className="stu-variants">
             {variants.map((v) => (
               <button key={v.id} type="button" className="stu-variant" onClick={() => pick(v)}>
@@ -407,7 +548,12 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
               </button>
             ))}
           </div>
-          <button type="button" className="stu-ghost" onClick={runGenerate} disabled={generating}>
+          <button
+            type="button"
+            className="stu-ghost"
+            onClick={() => { setStepIdx(0); startAgent(); }}
+            disabled={generating}
+          >
             <RotateCcw size={13} strokeWidth={2.5} /> Three different ones
           </button>
         </div>

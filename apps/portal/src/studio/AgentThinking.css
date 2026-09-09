@@ -1,0 +1,277 @@
+/* The agent's working column, and the panel showing what it is looking at. */
+
+.agent {
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel);
+  padding: 1rem 1.1rem 1.2rem;
+}
+
+.agent-head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding-bottom: 0.75rem;
+  margin-bottom: 0.9rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.agent-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+
+.agent-progress {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--ice-faint);
+}
+
+.agent-cancel {
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ice-dim);
+  font: inherit;
+  font-size: 0.74rem;
+  padding: 0.2rem 0.6rem;
+  cursor: pointer;
+}
+
+.agent-cancel:hover { border-color: var(--line-strong); color: var(--ice); }
+
+.agent-spin { animation: agent-spin 1s linear infinite; }
+
+@keyframes agent-spin { to { transform: rotate(360deg); } }
+
+/* ── the steps ── */
+
+.agent-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.agent-step {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+}
+
+.agent-step-mark {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.05rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(95, 217, 255, 0.14);
+  color: var(--cyan);
+}
+
+.agent-step.is-warning .agent-step-mark {
+  background: rgba(255, 207, 92, 0.16);
+  color: var(--warn);
+}
+
+.agent-step-body { min-width: 0; display: grid; gap: 0.15rem; }
+
+.agent-step-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+}
+
+.agent-step-label--live { color: var(--cyan); text-transform: none; letter-spacing: 0.02em; font-size: 0.85rem; }
+
+.agent-step-result {
+  font-size: 0.92rem;
+  color: var(--ice);
+  font-weight: 600;
+}
+
+.agent-step.is-warning .agent-step-result { color: var(--warn); }
+
+.agent-step-detail {
+  margin: 0.15rem 0 0;
+  padding-left: 0.9rem;
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--ice-dim);
+}
+
+/* Freshly completed steps slide in rather than appearing — with several
+   arriving over ten seconds, motion is what makes the order legible. */
+.agent-step.is-done { animation: agent-in 0.28s ease-out both; }
+
+@keyframes agent-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* The scramble: unresolved characters sit dimmer and monospaced so the line
+   does not reflow as it settles. */
+.agent-char { color: var(--cyan); }
+
+.agent-char-enc {
+  color: rgba(95, 217, 255, 0.35);
+  font-family: var(--font-mono);
+}
+
+/* ── what the agent is seeing ── */
+
+.agent-vision {
+  margin-top: 1rem;
+  padding: 0.85rem 0.9rem;
+  border: 1px solid rgba(95, 217, 255, 0.22);
+  border-radius: 10px;
+  background: rgba(95, 217, 255, 0.05);
+}
+
+.agent-vision-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  margin-bottom: 0.6rem;
+}
+
+.agent-vision-src {
+  margin-left: auto;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  color: var(--ice-faint);
+}
+
+.agent-queries {
+  list-style: none;
+  margin: 0 0 0.7rem;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.agent-queries li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-size: 0.78rem;
+}
+
+.agent-query-q {
+  font-family: var(--font-mono);
+  color: var(--ice-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-query-q::before { content: '› '; color: var(--cyan); }
+
+.agent-query-n {
+  margin-left: auto;
+  flex: none;
+  font-size: 0.72rem;
+  color: var(--ice-faint);
+}
+
+.agent-queries li.is-pending .agent-query-n { color: var(--cyan); }
+
+/* Thumbnails stream in as each provider answers. */
+.agent-thumbs {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.3rem;
+}
+
+.agent-thumbs.is-empty {
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 4.5rem;
+  color: var(--ice-faint);
+  font-size: 0.78rem;
+}
+
+.agent-thumb {
+  flex: none;
+  width: 76px;
+  margin: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--ink-2);
+  animation: agent-pop 0.3s ease-out both;
+}
+
+@keyframes agent-pop {
+  from { opacity: 0; transform: scale(0.9); }
+  to   { opacity: 1; transform: none; }
+}
+
+.agent-thumb img {
+  display: block;
+  width: 76px;
+  height: 56px;
+  object-fit: cover;
+}
+
+.agent-thumb figcaption {
+  padding: 0.15rem 0.3rem;
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+  text-align: center;
+}
+
+.agent-failed {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0.9rem 0 0;
+  font-size: 0.82rem;
+  color: var(--warn);
+}
+
+@media (max-width: 640px) {
+  .agent-thumb, .agent-thumb img { width: 64px; }
+  .agent-thumb img { height: 48px; }
+}
+
+/* DecryptedText exposes the resolved string here while the scrambling layer
+   is aria-hidden. The portal had no sr-only utility; this is its only user
+   so far, so it lives beside the component that needs it. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

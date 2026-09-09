@@ -310,6 +310,12 @@ export async function generateVariants(
   measurements: Measurement[],
   brief: Brief,
   signal?: AbortSignal,
+  /* What the agent worked out before this call — content type, platform
+   * constraints, house style, the archive record behind the post. Built by
+   * studio/agent.ts's generatorDirection(). Passed as opaque text rather
+   * than as structured fields because it is prose written for a model, and
+   * the endpoint's job is to place it in the prompt, not to interpret it. */
+  direction?: string,
 ): Promise<GenerateResult> {
   const fallback = draftVariants(d, measurements, brief);
 
@@ -325,6 +331,7 @@ export async function generateVariants(
         measurements: measurements.map((m) => ({ label: m.label, value: m.value, unit: m.unit })),
         audience: brief.audience,
         tone: brief.tone,
+        direction: direction ?? '',
       }),
     });
 

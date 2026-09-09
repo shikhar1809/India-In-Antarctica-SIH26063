@@ -491,3 +491,60 @@
 .stu-reviewnotes-seen {
   color: #3fb950;
 }
+
+/* ── the agent's basis, shown above the three options ───────────────────
+ * What they were written against, still visible after the run's own step
+ * column has gone. The content type is a live control here, not a label:
+ * getting it wrong is the most consequential inference the agent makes, so
+ * correcting it has to be one click rather than a full re-run. */
+
+.stu-agentnote { margin: 0.2rem 0 0.9rem; }
+
+.stu-basis {
+  margin-bottom: 1rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-2);
+  display: grid;
+  gap: 0.8rem;
+}
+
+.stu-basis-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+}
+
+.stu-basis-meta {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  color: var(--ice-faint);
+}
+
+.stu-basis-refs { display: grid; gap: 0.4rem; }
+
+.stu-refstrip {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.stu-refstrip a {
+  flex: none;
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  line-height: 0;
+}
+
+.stu-refstrip a:hover { border-color: var(--cyan); }
+
+.stu-refstrip img {
+  width: 62px;
+  height: 46px;
+  object-fit: cover;
+}

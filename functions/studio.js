@@ -29,6 +29,7 @@
 
 const { onRequest } = require('firebase-functions/v2/https');
 const review = require('./review');
+const agent = require('./studioagent');
 
 const MODEL = 'gemini-2.5-flash';
 const ENDPOINT = (model) =>
@@ -78,7 +79,7 @@ function cors(res) {
 }
 
 function buildPrompt(body) {
-  const { station, activity, notes, measurements, audience, tone } = body;
+  const { station, activity, notes, measurements, audience, tone, direction } = body;
 
   /* Readings are filtered as well as cleaned: a measurement whose value is
    * an identifier rather than a quantity — a stake id, a sample code — is
@@ -107,6 +108,10 @@ ${readings}
 
 WRITE FOR: ${AUDIENCE_BRIEF[audience] || AUDIENCE_BRIEF.public}
 TONE: ${TONE_BRIEF[tone] || TONE_BRIEF.plain}
+${direction ? `
+WHAT THE STUDIO WORKED OUT ABOUT THIS POST
+${String(direction).slice(0, 2000)}
+` : ''}
 
 Produce exactly three variants, each taking a genuinely different editorial angle:
 1. Lead with what was measured — the finding itself.
@@ -225,6 +230,14 @@ exports.studio = onRequest(
      * own module, sharing this deployment and this API key rather than
      * standing up a second function for one more endpoint. */
     if (path === '/review') return review.handle(req, res);
+
+    /* The agentic half of the studio — visual references, A/B judgement and
+     * the pre-publication look at the photograph. Same deployment and same
+     * key; see studioagent.js for why each is a separate endpoint rather
+     * than one do-everything call. */
+    if (path === '/refs' || path === '/abtest' || path === '/moderate') {
+      return agent.handle(path, req, res);
+    }
 
     if (path !== '/copy' && path !== '/') {
       return res.status(404).json({ error: 'Unknown endpoint.' });
