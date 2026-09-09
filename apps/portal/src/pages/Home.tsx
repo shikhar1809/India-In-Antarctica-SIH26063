@@ -14,7 +14,7 @@ const SCIENTIST_ITEMS = [
 const PUBLISHER_ITEMS = [
   {
     link: '/repository',
-    text: 'Knowledge Repository',
+    text: 'Archive',
     image: 'https://images.unsplash.com/photo-1517783999520-f068d7431a60?q=80&w=600&h=400&fit=crop&sat=-100&auto=format',
   },
   {
@@ -27,7 +27,7 @@ const PUBLISHER_ITEMS = [
 const ADMIN_ITEMS = [
   {
     link: '/repository',
-    text: 'Knowledge Repository',
+    text: 'Archive',
     image: 'https://images.unsplash.com/photo-1517783999520-f068d7431a60?q=80&w=600&h=400&fit=crop&sat=-100&auto=format',
   },
   {
@@ -53,6 +53,15 @@ const ROLE_SUB: Record<string, string> = {
   admin:     'Approve dispatches, manage the live feed, and assign team roles.',
 };
 
+// The topbar link to /repository already reads "Archive" — this kicker used
+// to say "Knowledge Repository" for everyone, the one place that rename
+// hadn't reached yet.
+const ROLE_KICKER: Record<string, string> = {
+  scientist: 'Knowledge Repository',
+  publisher: 'Archive',
+  admin:     'Archive',
+};
+
 export function Home() {
   const { user } = useAuth();
   const { role, loading } = useRole();
@@ -66,7 +75,7 @@ export function Home() {
   return (
     <div className="home-page">
       <div className="home-hero">
-        <span className="home-kicker">Knowledge Repository</span>
+        <span className="home-kicker">{ROLE_KICKER[role] ?? 'Knowledge Repository'}</span>
         <h1>{firstName ? `Welcome, ${firstName}` : 'Welcome'}</h1>
         {!loading && <p className="home-sub">{ROLE_SUB[role]}</p>}
       </div>

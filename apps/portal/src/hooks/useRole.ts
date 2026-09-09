@@ -2,8 +2,64 @@ import { useEffect, useState } from 'react';
 import { doc, getDoc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
+import { STATION_COVER_KEY, type Station } from '../repository/contract';
 
-export type Role = 'scientist' | 'publisher' | 'admin';
+export type Role = 'scientist' | 'publisher' | 'admin' | 'site_manager';
+
+/** Which archive records a person can see: everything, nothing, or only the
+ *  stations named. Scoping by station rather than by category or record id
+ *  matches how the rest of the portal is already organised — a "site
+ *  manager" is naturally a manager of one or more stations, not of a slice
+ *  of the taxonomy. */
+export type ArchiveAccess = 'all' | 'none' | Station[];
+
+export interface RolePermissions {
+  archiveAccess: ArchiveAccess;
+  siteAccess: boolean;
+  analyticsAccess: boolean;
+}
+
+/** Permissions nobody has explicitly set fall back to what the role implied
+ *  before permissions existed — an admin has always been able to reach Site
+ *  and Analytics, a publisher has always been able to reach Analytics, and
+ *  everyone has always seen the whole archive. This keeps every roster entry
+ *  written before this feature existed behaving exactly as it did. */
+function defaultPermissions(role: Role): RolePermissions {
+  return {
+    archiveAccess: 'all',
+    siteAccess: role === 'admin' || role === 'site_manager',
+    analyticsAccess: role === 'admin' || role === 'publisher',
+  };
+}
+
+function resolvePermissions(role: Role, data: Record<string, unknown> | undefined): RolePermissions {
+  const d = defaultPermissions(role);
+  const archiveAccess = data?.archiveAccess;
+  const siteAccess = data?.siteAccess;
+  const analyticsAccess = data?.analyticsAccess;
+  return {
+    archiveAccess: (archiveAccess === 'all' || archiveAccess === 'none' || Array.isArray(archiveAccess))
+      ? (archiveAccess as ArchiveAccess) : d.archiveAccess,
+    siteAccess: typeof siteAccess === 'boolean' ? siteAccess : d.siteAccess,
+    analyticsAccess: typeof analyticsAccess === 'boolean' ? analyticsAccess : d.analyticsAccess,
+  };
+}
+
+/** Every station name an archive entry might be keyed under, for whichever
+ *  vocabulary it happens to use — deposits key by the canonical `Station`
+ *  ('Maitri'), published records key by the cover-art `CoverStation`
+ *  ('maitri'). Both spellings of each allowed station go in, lower-cased, so
+ *  a caller can match either without knowing which collection it came from. */
+export function archiveAccessStationKeys(access: ArchiveAccess): Set<string> | null {
+  if (access === 'all' || access === 'none') return null;
+  const keys = new Set<string>();
+  for (const s of access) {
+    keys.add(s.toLowerCase());
+    const cover = STATION_COVER_KEY[s];
+    if (cover) keys.add(cover.toLowerCase());
+  }
+  return keys;
+}
 
 /** Reads the current user's role from `roles/{uid}`. Defaults to 'scientist'
  *  if no doc exists yet (new sign-ups auto-get the lowest-privilege role).
@@ -20,6 +76,7 @@ export type Role = 'scientist' | 'publisher' | 'admin';
 export function useRole() {
   const { user } = useAuth();
   const [role, setRole] = useState<Role>('scientist');
+  const [permissions, setPermissions] = useState<RolePermissions>(defaultPermissions('scientist'));
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -32,11 +89,14 @@ export function useRole() {
           const applied = await applyPendingGrant(user.uid, user.email, user.displayName, user.photoURL);
           if (applied) return; // the write above re-triggers this listener with real data
           setRole('scientist');
+          setPermissions(defaultPermissions('scientist'));
           setLoading(false);
           return;
         }
         const data = snap.data();
-        setRole((data?.role as Role) ?? 'scientist');
+        const r = (data?.role as Role) ?? 'scientist';
+        setRole(r);
+        setPermissions(resolvePermissions(r, data));
         setLoading(false);
       },
       () => setLoading(false)
@@ -44,7 +104,7 @@ export function useRole() {
     return unsub;
   }, [user?.uid]);
 
-  return { role, loading };
+  return { role, permissions, loading };
 }
 
 /** Looks up `roleGrants/{email}` and, if one exists, writes it as the
@@ -93,4 +153,12 @@ export async function assignRole(
     },
     { merge: true },
   );
+}
+
+/** Admin-only: change one or more of a person's permissions independent of
+ *  their role — e.g. a publisher who should also see Analytics, or a site
+ *  manager scoped to one station's archive. Merges onto `roles/{targetUid}`
+ *  so it never disturbs the role or profile fields already there. */
+export async function setPermissions(targetUid: string, patch: Partial<RolePermissions>) {
+  await setDoc(doc(db, 'roles', targetUid), patch, { merge: true });
 }

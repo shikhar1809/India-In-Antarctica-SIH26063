@@ -31,17 +31,22 @@
  * is native.
  */
 
-import { useMemo, useState } from 'react';
-import { Mail, Shield, Trash2, UserCog } from 'lucide-react';
+import { Fragment, useMemo, useState } from 'react';
+import { ChevronDown, Mail, Shield, SlidersHorizontal, Trash2, UserCog } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { assignRole, type Role } from '../hooks/useRole';
+import {
+  assignRole, setPermissions, type ArchiveAccess, type Role,
+} from '../hooks/useRole';
 import {
   useRoleRoster, useRoleGrants, createRoleGrant, revokeRoleGrant, type RosterEntry,
 } from '../hooks/useRoleRoster';
+import { CANONICAL_STATIONS, type Station } from '../repository/contract';
 import './RolesTable.css';
 
-const ROLE_LABEL: Record<Role, string> = { scientist: 'Scientist', publisher: 'Publisher', admin: 'Admin' };
-const ROLES: Role[] = ['scientist', 'publisher', 'admin'];
+const ROLE_LABEL: Record<Role, string> = {
+  scientist: 'Scientist', publisher: 'Publisher', admin: 'Admin', site_manager: 'Site Manager',
+};
+const ROLES: Role[] = ['scientist', 'publisher', 'admin', 'site_manager'];
 
 function Initials({ name, email, photoURL }: { name?: string; email?: string; photoURL?: string }) {
   if (photoURL) return <img className="rt-avatar" src={photoURL} alt="" />;
@@ -59,6 +64,77 @@ function RoleBadge({ role }: { role: Role }) {
   return <span className={'rt-badge role-' + role}>{ROLE_LABEL[role]}</span>;
 }
 
+/** Per-person overrides, independent of role: which stations' archive they
+ *  can see, and whether Site and Analytics are open to them. Everyone starts
+ *  on their role's default (see useRole.ts's defaultPermissions) — this only
+ *  writes a field once an admin actually changes it away from that. */
+function PermissionsEditor({ entry }: { entry: RosterEntry }) {
+  const access = entry.archiveAccess ?? 'all';
+  const mode: 'all' | 'none' | 'custom' = access === 'all' || access === 'none' ? access : 'custom';
+  const customStations = Array.isArray(access) ? access : [];
+
+  const siteAccess = entry.siteAccess ?? (entry.role === 'admin' || entry.role === 'site_manager');
+  const analyticsAccess = entry.analyticsAccess ?? (entry.role === 'admin' || entry.role === 'publisher');
+
+  const setArchiveMode = (next: 'all' | 'none' | 'custom') => {
+    const value: ArchiveAccess = next === 'custom' ? (customStations.length > 0 ? customStations : [CANONICAL_STATIONS[0]]) : next;
+    void setPermissions(entry.uid, { archiveAccess: value });
+  };
+
+  const toggleStation = (station: Station) => {
+    const next = customStations.includes(station)
+      ? customStations.filter((s) => s !== station)
+      : [...customStations, station];
+    void setPermissions(entry.uid, { archiveAccess: next.length > 0 ? next : [station] });
+  };
+
+  return (
+    <div className="rt-perms">
+      <div className="rt-perms-row">
+        <span className="rt-perms-label">Archive access</span>
+        <select value={mode} onChange={(e) => setArchiveMode(e.target.value as 'all' | 'none' | 'custom')}>
+          <option value="all">Everything</option>
+          <option value="none">Nothing</option>
+          <option value="custom">Only certain stations</option>
+        </select>
+        {mode === 'custom' && (
+          <div className="rt-perms-stations">
+            {CANONICAL_STATIONS.map((s) => (
+              <label key={s} className="rt-perms-chip">
+                <input
+                  type="checkbox"
+                  checked={customStations.includes(s)}
+                  onChange={() => toggleStation(s)}
+                />
+                {s}
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="rt-perms-row">
+        <label className="rt-perms-toggle">
+          <input
+            type="checkbox"
+            checked={siteAccess}
+            onChange={(e) => void setPermissions(entry.uid, { siteAccess: e.target.checked })}
+          />
+          Site management
+        </label>
+        <label className="rt-perms-toggle">
+          <input
+            type="checkbox"
+            checked={analyticsAccess}
+            onChange={(e) => void setPermissions(entry.uid, { analyticsAccess: e.target.checked })}
+          />
+          Analytics dashboard
+        </label>
+      </div>
+    </div>
+  );
+}
+
 export function RolesTable() {
   const { user } = useAuth();
   const { entries, loading: rosterLoading, error: rosterError } = useRoleRoster();
@@ -69,6 +145,15 @@ export function RolesTable() {
   const [sending, setSending] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const toggleExpanded = (uid: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(uid)) next.delete(uid); else next.add(uid);
+      return next;
+    });
+  };
 
   const rosterByEmail = useMemo(() => {
     const m = new Map<string, RosterEntry>();
@@ -134,32 +219,52 @@ export function RolesTable() {
         <div className="rt-table-wrap">
           <table className="rt-table">
             <thead>
-              <tr><th>Person</th><th>Role</th><th /></tr>
+              <tr><th>Person</th><th>Role</th><th /><th /></tr>
             </thead>
             <tbody>
               {entries.map((entry) => (
-                <tr key={entry.uid}>
-                  <td>
-                    <div className="rt-person">
-                      <Initials name={entry.displayName} email={entry.email} photoURL={entry.photoURL} />
-                      <div>
-                        <div className="rt-name">{entry.displayName || entry.email || 'Unknown'}</div>
-                        {entry.email && entry.displayName && <div className="rt-email">{entry.email}</div>}
-                        {!entry.email && <code className="rt-uid" title={entry.uid}>{entry.uid}</code>}
+                <Fragment key={entry.uid}>
+                  <tr>
+                    <td>
+                      <div className="rt-person">
+                        <Initials name={entry.displayName} email={entry.email} photoURL={entry.photoURL} />
+                        <div>
+                          <div className="rt-name">{entry.displayName || entry.email || 'Unknown'}</div>
+                          {entry.email && entry.displayName && <div className="rt-email">{entry.email}</div>}
+                          {!entry.email && <code className="rt-uid" title={entry.uid}>{entry.uid}</code>}
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td><RoleBadge role={entry.role} /></td>
-                  <td className="rt-actions">
-                    <select
-                      value={entry.role}
-                      onChange={(e) => changeRole(entry, e.target.value as Role)}
-                      aria-label={`Change role for ${entry.displayName || entry.email || entry.uid}`}
-                    >
-                      {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
-                    </select>
-                  </td>
-                </tr>
+                    </td>
+                    <td><RoleBadge role={entry.role} /></td>
+                    <td className="rt-actions">
+                      <select
+                        value={entry.role}
+                        onChange={(e) => changeRole(entry, e.target.value as Role)}
+                        aria-label={`Change role for ${entry.displayName || entry.email || entry.uid}`}
+                      >
+                        {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+                      </select>
+                    </td>
+                    <td className="rt-actions">
+                      <button
+                        type="button"
+                        className={'rt-perms-btn' + (expanded.has(entry.uid) ? ' is-open' : '')}
+                        onClick={() => toggleExpanded(entry.uid)}
+                        aria-expanded={expanded.has(entry.uid)}
+                        aria-label={`Edit permissions for ${entry.displayName || entry.email || entry.uid}`}
+                        title="Archive, Site and Analytics access"
+                      >
+                        <SlidersHorizontal size={13} strokeWidth={2.25} />
+                        <ChevronDown size={13} strokeWidth={2.25} className="rt-perms-chevron" />
+                      </button>
+                    </td>
+                  </tr>
+                  {expanded.has(entry.uid) && (
+                    <tr className="rt-perms-row-wrap">
+                      <td colSpan={4}><PermissionsEditor entry={entry} /></td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>

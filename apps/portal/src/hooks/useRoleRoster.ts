@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { collection, deleteDoc, doc, onSnapshot, orderBy, query, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import type { Role } from './useRole';
+import type { ArchiveAccess, Role } from './useRole';
 
 export interface RosterEntry {
   uid: string;
@@ -9,6 +9,9 @@ export interface RosterEntry {
   email?: string;
   displayName?: string;
   photoURL?: string;
+  archiveAccess?: ArchiveAccess;
+  siteAccess?: boolean;
+  analyticsAccess?: boolean;
 }
 
 /** Everyone with an assignment in `roles/{uid}` — the admin-facing roster.

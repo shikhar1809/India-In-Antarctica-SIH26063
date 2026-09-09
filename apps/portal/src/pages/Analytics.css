@@ -267,3 +267,81 @@
 .an-freshness-table tr.an-stale td {
   color: #f0b429;
 }
+
+/* ── Overview — admin-arranged tiles ─────────────────────────────────── */
+
+.an-overview-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.an-customize-bar {
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.an-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: inherit;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.an-btn:hover { background: rgba(255, 255, 255, 0.08); }
+.an-btn.is-active { border-color: rgba(47, 159, 201, 0.6); background: rgba(47, 159, 201, 0.14); color: #6fd0f2; }
+.an-btn.ghost { background: transparent; opacity: 0.75; }
+.an-btn.ghost:hover { opacity: 1; background: rgba(255, 255, 255, 0.05); }
+
+.an-tiles-overview { align-items: stretch; }
+
+.an-tile-slot { display: flex; flex-direction: column; gap: 6px; }
+.an-tile-slot .an-tile { flex: 1; }
+
+.an-tile-slot.is-hidden .an-tile { opacity: 0.4; }
+
+.an-tile-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 0 2px;
+}
+
+.an-tile-origin {
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+
+.an-tile-controls-buttons { display: flex; gap: 2px; }
+
+.an-tile-controls-buttons button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  cursor: pointer;
+}
+
+.an-tile-controls-buttons button:hover { background: rgba(255, 255, 255, 0.09); }
+.an-tile-controls-buttons button:disabled { opacity: 0.3; cursor: default; }
+.an-tile-controls-buttons button:disabled:hover { background: rgba(255, 255, 255, 0.03); }

@@ -17,7 +17,8 @@ import { Download, Pencil, Sparkles, X, Eye, Search, ExternalLink } from 'lucide
 import { HeroCarousel, type HeroCarouselItem } from '../components/ui/hero-carousel';
 import { useDocuments } from '../hooks/useDocuments';
 import { usePublicArchive } from '../hooks/usePublicArchive';
-import { useRole } from '../hooks/useRole';
+import { useAuth } from '../context/AuthContext';
+import { useRole, archiveAccessStationKeys } from '../hooks/useRole';
 import { CATEGORIES } from '../types';
 import type { DocumentStatus, ResearchDocument } from '../types';
 import type { RepositoryRecord } from '../repository/contract';
@@ -260,9 +261,10 @@ const PUBLIC_SITE_URL = 'https://iia-public.web.app';
 type Source = 'deposits' | 'published';
 
 export function Repository() {
+  const { user } = useAuth();
   const { docs, loading: docsLoading } = useDocuments();
   const { records, loading: recsLoading } = usePublicArchive();
-  const { role } = useRole();
+  const { role, permissions, loading: roleLoading } = useRole();
 
   const [source, setSource] = useState<Source>('deposits');
   const [activeCategory, setActiveCategory] = useState('All');
@@ -276,17 +278,28 @@ export function Repository() {
   const activeSource: Source = isAdmin ? source : 'deposits';
   const loading = activeSource === 'deposits' ? docsLoading : recsLoading;
 
+  // null = every station; an admin can scope someone (typically a site
+  // manager) down to specific stations on the Access page. Matched against
+  // both station vocabularies an entry might carry — see
+  // archiveAccessStationKeys.
+  const allowedStations = useMemo(
+    () => archiveAccessStationKeys(permissions.archiveAccess), [permissions.archiveAccess],
+  );
+
   const entries = useMemo(() => {
     const base = activeSource === 'deposits'
       ? docs.map((d, i) => depositToEntry(d, i))
       : records.map((r, i) => publishedToEntry(r, i));
+    const inStation = allowedStations
+      ? base.filter((e) => allowedStations.has(e.stationKey.toLowerCase()))
+      : base;
     const inCategory = activeCategory === 'All'
-      ? base
-      : base.filter((e) => e.category === activeCategory);
+      ? inStation
+      : inStation.filter((e) => e.category === activeCategory);
     // Ranked, not filtered: with a query the strip is ordered by relevance,
     // so the closest record is the one already in focus.
     return semanticRank(inCategory, q, (e) => e.search).map((r) => r.item);
-  }, [activeSource, docs, records, q, activeCategory]);
+  }, [activeSource, docs, records, q, activeCategory, allowedStations]);
 
   const safeIndex = Math.min(index, Math.max(0, entries.length - 1));
   const active = entries[safeIndex];
@@ -329,6 +342,14 @@ export function Repository() {
     })),
     [entries],
   );
+
+  if (!user || (!roleLoading && permissions.archiveAccess === 'none')) {
+    return (
+      <main className="ph-page">
+        <p className="fld-empty">Archive access has been turned off for this account. Ask an admin to restore it.</p>
+      </main>
+    );
+  }
 
   return (
     <>

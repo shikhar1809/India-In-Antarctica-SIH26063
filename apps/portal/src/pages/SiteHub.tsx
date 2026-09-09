@@ -18,6 +18,8 @@
 
 import { Link } from 'react-router-dom';
 import { Activity, Flame, MessageCircleQuestion, PenSquare } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { useRole } from '../hooks/useRole';
 import './SiteHub.css';
 
 // Set at build time — same convention as apps/public-site's own env var,
@@ -26,6 +28,20 @@ import './SiteHub.css';
 const CLARITY_PROJECT_ID = import.meta.env.VITE_CLARITY_PROJECT_ID as string | undefined;
 
 export function SiteHub() {
+  const { user } = useAuth();
+  const { role, permissions, loading } = useRole();
+  const canSeeSite = role === 'admin' || permissions.siteAccess;
+
+  // The topbar already hides the "Site" link from anyone without access —
+  // this is the same check at the destination, for a direct URL visit.
+  if (!user || (!loading && !canSeeSite)) {
+    return (
+      <main className="ph-page">
+        <p className="fld-empty">The site is managed by admins and site managers.</p>
+      </main>
+    );
+  }
+
   return (
     <main className="ph-page sh-page">
         <header className="sh-head">

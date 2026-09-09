@@ -41,12 +41,14 @@
  */
 
 import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer,
   Tooltip, XAxis, YAxis,
 } from 'recharts';
 import {
-  Archive, CalendarClock, CheckCircle2, Radio, Send, ShieldAlert, TimerReset,
+  Archive, CalendarClock, CheckCircle2, ChevronDown, ChevronUp, Eye, EyeOff,
+  LayoutGrid, Radio, RotateCcw, Send, ShieldAlert, TimerReset,
 } from 'lucide-react';
 import { CircuitBoard } from '@/components/ui/circuit-board';
 import { useAuth } from '../context/AuthContext';
@@ -55,6 +57,10 @@ import { usePublicArchive } from '../hooks/usePublicArchive';
 import { useDispatches } from '../hooks/useDispatches';
 import { useSocialQueue } from '../hooks/useSocialQueue';
 import { effectiveStatus, PLATFORM_LIMITS, type SocialPlatform } from '../social/queue';
+import {
+  DEFAULT_TILE_ORDER, TILE_ORIGIN, loadTileLayout, saveTileLayout,
+  moveTileInLayout, toggleTileHiddenInLayout, type TileId, type TileLayout,
+} from './analyticsTileLayout';
 import './Analytics.css';
 
 const SERIES = '#2f9fc9';
@@ -176,16 +182,44 @@ function Section({
 
 export function Analytics() {
   const { user } = useAuth();
-  const { role, loading: roleLoading } = useRole();
+  const { role, permissions, loading: roleLoading } = useRole();
   const { records, loading: recordsLoading } = usePublicArchive();
   const { dispatches } = useDispatches();
   const { posts } = useSocialQueue();
 
-  const isStaff = role === 'publisher' || role === 'admin';
+  // A publisher or admin sees this by default; anyone else needs an admin
+  // to have granted analytics access explicitly on the Access page.
+  const canView = permissions.analyticsAccess;
   // Date.now() is impure — reading it during render can differ between
   // renders of the same props, which React (correctly) flags. A dashboard
   // has no need for "now" to tick live, so it is captured once, on mount.
   const [now] = useState(() => Date.now());
+
+  const isAdmin = role === 'admin';
+  const [editingLayout, setEditingLayout] = useState(false);
+  const [tileLayout, setTileLayout] = useState<TileLayout>(() => loadTileLayout());
+
+  const moveTile = (id: TileId, dir: -1 | 1) => {
+    setTileLayout((prev) => {
+      const next = moveTileInLayout(prev, id, dir);
+      if (next !== prev) saveTileLayout(next);
+      return next;
+    });
+  };
+
+  const toggleTileHidden = (id: TileId) => {
+    setTileLayout((prev) => {
+      const next = toggleTileHiddenInLayout(prev, id);
+      saveTileLayout(next);
+      return next;
+    });
+  };
+
+  const resetTileLayout = () => {
+    const next: TileLayout = { order: DEFAULT_TILE_ORDER, hidden: [] };
+    setTileLayout(next);
+    saveTileLayout(next);
+  };
 
   /* ── 1. Service delivery ────────────────────────────────────────────── */
 
@@ -317,11 +351,81 @@ export function Analytics() {
     (r) => r.metadata?.publicationYear === thisYear,
   ).length;
 
-  if (!user || (!roleLoading && !isStaff)) {
+  const tileNodes: Record<TileId, ReactNode> = {
+    published: (
+      <StatTile
+        icon={<Archive className="w-5 h-5" />}
+        label="Published records"
+        value={recordsLoading ? '—' : records.length}
+        hint={`${publishedThisYear} in ${thisYear}`}
+      />
+    ),
+    turnaround: (
+      <StatTile
+        icon={<TimerReset className="w-5 h-5" />}
+        label="Average turnaround"
+        value={turnaroundDays ? `${turnaroundDays.avg.toFixed(1)}d` : '—'}
+        hint={turnaroundDays ? `field to public, over ${turnaroundDays.n} records` : 'no completed records yet'}
+      />
+    ),
+    backlog: (
+      <StatTile
+        icon={<Radio className="w-5 h-5" />}
+        label="Awaiting review"
+        value={backlog.length}
+        hint={`${pipeline.raw} unread · ${pipeline.drafted} drafted · ${pipeline.flagged} sent back`}
+      />
+    ),
+    oldest: (
+      <StatTile
+        tone={oldestBacklogDays > 7 ? 'warn' : 'default'}
+        icon={<CalendarClock className="w-5 h-5" />}
+        label="Oldest item waiting"
+        value={backlog.length > 0 ? `${oldestBacklogDays}d` : '—'}
+        hint={oldestBacklogDays > 7 ? 'over a week — worth a look' : 'within a week'}
+      />
+    ),
+    safety: (
+      <StatTile
+        icon={<ShieldAlert className="w-5 h-5" />}
+        label="Withheld under safety protocol"
+        value={safetyWithheld}
+        hint="Flagged reports — never eligible for publication, regardless of admin action"
+      />
+    ),
+    flagged: (
+      <StatTile
+        icon={<CheckCircle2 className="w-5 h-5" />}
+        label="Sent back for revision"
+        value={pipeline.flagged}
+        hint="Currently with a publisher, following admin notes"
+      />
+    ),
+    sent: (
+      <StatTile
+        icon={<Send className="w-5 h-5" />}
+        label="Posts sent"
+        value={disseminationTotals.posted}
+        hint={`${disseminationTotals.pending} waiting in the queue`}
+      />
+    ),
+    successRate: (
+      <StatTile
+        tone={disseminationTotals.successRate !== null && disseminationTotals.successRate < 90 ? 'warn' : 'default'}
+        icon={<CheckCircle2 className="w-5 h-5" />}
+        label="Dissemination success rate"
+        value={disseminationTotals.successRate !== null ? `${disseminationTotals.successRate}%` : '—'}
+        hint={disseminationTotals.failed > 0 ? `${disseminationTotals.failed} failed` : 'no failures'}
+      />
+    ),
+  };
+
+  if (!user || (!roleLoading && !canView)) {
     return (
       <div className="ph-page">
         <p className="an-empty">
-          The archive dashboard is available to publishers and admins.
+          The archive dashboard is available to publishers and admins, and to
+          anyone else an admin has granted analytics access.
         </p>
       </div>
     );
@@ -334,36 +438,83 @@ export function Analytics() {
         <p>Service delivery, governance, reach and coverage — what a public outreach programme is accountable for.</p>
       </header>
 
-      {/* ── 1. Service delivery ────────────────────────────────────────── */}
-      <Section title="Service delivery" note="Is content moving, and how long does the public wait for it?">
-        <div className="an-tiles">
-          <StatTile
-            icon={<Archive className="w-5 h-5" />}
-            label="Published records"
-            value={recordsLoading ? '—' : records.length}
-            hint={`${publishedThisYear} in ${thisYear}`}
-          />
-          <StatTile
-            icon={<TimerReset className="w-5 h-5" />}
-            label="Average turnaround"
-            value={turnaroundDays ? `${turnaroundDays.avg.toFixed(1)}d` : '—'}
-            hint={turnaroundDays ? `field to public, over ${turnaroundDays.n} records` : 'no completed records yet'}
-          />
-          <StatTile
-            icon={<Radio className="w-5 h-5" />}
-            label="Awaiting review"
-            value={backlog.length}
-            hint={`${pipeline.raw} unread · ${pipeline.drafted} drafted · ${pipeline.flagged} sent back`}
-          />
-          <StatTile
-            tone={oldestBacklogDays > 7 ? 'warn' : 'default'}
-            icon={<CalendarClock className="w-5 h-5" />}
-            label="Oldest item waiting"
-            value={backlog.length > 0 ? `${oldestBacklogDays}d` : '—'}
-            hint={oldestBacklogDays > 7 ? 'over a week — worth a look' : 'within a week'}
-          />
+      {/* ── Overview — the stat tiles, admin-arranged ────────────────────── */}
+      <section className="an-section">
+        <div className="an-section-head an-overview-head">
+          <div>
+            <h2>Overview</h2>
+            <p>
+              {isAdmin
+                ? 'Pick which numbers lead the dashboard, and in what order. Saved to this browser only.'
+                : 'The numbers this dashboard leads with.'}
+            </p>
+          </div>
+          {isAdmin && (
+            <div className="an-customize-bar">
+              {editingLayout && (
+                <button type="button" className="an-btn ghost" onClick={resetTileLayout}>
+                  <RotateCcw className="w-3.5 h-3.5" /> Reset
+                </button>
+              )}
+              <button
+                type="button"
+                className={'an-btn' + (editingLayout ? ' is-active' : '')}
+                onClick={() => setEditingLayout((v) => !v)}
+              >
+                <LayoutGrid className="w-3.5 h-3.5" /> {editingLayout ? 'Done' : 'Customize layout'}
+              </button>
+            </div>
+          )}
         </div>
 
+        <div className="an-tiles an-tiles-overview">
+          {tileLayout.order.map((id, i) => {
+            const isHidden = tileLayout.hidden.includes(id);
+            if (isHidden && !editingLayout) return null;
+            return (
+              <div key={id} className={'an-tile-slot' + (isHidden ? ' is-hidden' : '')}>
+                {editingLayout && (
+                  <div className="an-tile-controls">
+                    <span className="an-tile-origin">{TILE_ORIGIN[id]}</span>
+                    <div className="an-tile-controls-buttons">
+                      <button
+                        type="button"
+                        onClick={() => toggleTileHidden(id)}
+                        aria-label={isHidden ? 'Show this stat' : 'Hide this stat'}
+                        title={isHidden ? 'Show this stat' : 'Hide this stat'}
+                      >
+                        {isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveTile(id, -1)}
+                        disabled={i === 0}
+                        aria-label="Move earlier"
+                        title="Move earlier"
+                      >
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => moveTile(id, 1)}
+                        disabled={i === tileLayout.order.length - 1}
+                        aria-label="Move later"
+                        title="Move later"
+                      >
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {tileNodes[id]}
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ── 1. Service delivery ────────────────────────────────────────── */}
+      <Section title="Service delivery" note="Is content moving, and how long does the public wait for it?">
         <div className="an-pipeline">
           <div className="an-pipeline-board">
             <CircuitBoard
@@ -397,40 +548,11 @@ export function Analytics() {
 
       {/* ── 2. Governance & safety ───────────────────────────────────────── */}
       <Section title="Governance & safety" note="Evidence that the safety gate and the review step are actually doing something.">
-        <div className="an-tiles">
-          <StatTile
-            icon={<ShieldAlert className="w-5 h-5" />}
-            label="Withheld under safety protocol"
-            value={safetyWithheld}
-            hint="Flagged reports — never eligible for publication, regardless of admin action"
-          />
-          <StatTile
-            icon={<CheckCircle2 className="w-5 h-5" />}
-            label="Sent back for revision"
-            value={pipeline.flagged}
-            hint="Currently with a publisher, following admin notes"
-          />
-        </div>
+        <p className="an-empty">Both numbers live in the Overview above — safety and rework are checked in passing, not charted over time.</p>
       </Section>
 
       {/* ── 3. Reach & dissemination ───────────────────────────────────── */}
       <Section title="Reach & dissemination" note="What was scheduled for social media, and whether it actually went out.">
-        <div className="an-tiles">
-          <StatTile
-            icon={<Send className="w-5 h-5" />}
-            label="Posts sent"
-            value={disseminationTotals.posted}
-            hint={`${disseminationTotals.pending} waiting in the queue`}
-          />
-          <StatTile
-            tone={disseminationTotals.successRate !== null && disseminationTotals.successRate < 90 ? 'warn' : 'default'}
-            icon={<CheckCircle2 className="w-5 h-5" />}
-            label="Dissemination success rate"
-            value={disseminationTotals.successRate !== null ? `${disseminationTotals.successRate}%` : '—'}
-            hint={disseminationTotals.failed > 0 ? `${disseminationTotals.failed} failed` : 'no failures'}
-          />
-        </div>
-
         {disseminationByPlatform.length > 0 && (
           <Figure
             title="By platform"
