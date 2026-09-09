@@ -247,8 +247,22 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
     setPaletteId(PALETTES[(i + 1) % PALETTES.length].id);
   };
 
+  /**
+   * Puts a photograph on the post.
+   *
+   * The error handling here is the point. This used to return silently when
+   * there was no signed-in user — the publisher clicked "Add a photo",
+   * chose a file, and absolutely nothing happened — and every genuine
+   * failure afterwards reported "check your connection", which sends
+   * someone hunting a network problem when Storage actually refused them on
+   * a rule. Both were the same mistake: swallowing what went wrong.
+   */
   const handleFileSelected = async (file: File | undefined) => {
-    if (!file || !user) return;
+    if (!file) return;
+    if (!user) {
+      setUploadError('You are not signed in, so there is nowhere to upload to. Sign in and try again.');
+      return;
+    }
     if (!file.type.startsWith('image/')) { setUploadError('Only image files are supported.'); return; }
     if (file.size > 10 * 1024 * 1024) { setUploadError('Image exceeds the 10 MB limit.'); return; }
     if (images.length >= 8) { setUploadError('Up to 8 photos per post.'); return; }
@@ -265,8 +279,27 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
       });
       const url = await getDownloadURL(objRef);
       setImages((prev) => { setPhotoIndex(prev.length); return [...prev, url]; });
-    } catch {
-      setUploadError('Upload failed — check your connection and try again.');
+    } catch (err) {
+      /* Firebase Storage errors carry a code that says exactly what
+       * happened; a publisher can act on "you do not have permission" and
+       * cannot act on "something went wrong". */
+      const code = (err as { code?: string })?.code ?? '';
+      setUploadError(
+        code === 'storage/unauthorized'
+          ? 'Storage refused the upload. Your account may not have publisher rights on this dispatch.'
+          : code === 'storage/canceled'
+            ? 'Upload cancelled.'
+            : code === 'storage/quota-exceeded'
+              ? 'The storage bucket is full — an admin needs to look at this.'
+              : code === 'storage/unauthenticated'
+                ? 'Your session expired. Sign in again and retry.'
+                : code === 'storage/retry-limit-exceeded'
+                  ? 'The upload kept timing out — check your connection and try again.'
+                  : `Upload failed${code ? ` (${code})` : ''}. Try again, or use a different image.`,
+      );
+      // The code alone is rarely enough to debug a Storage rule; the full
+      // error is worth having in the console when someone reports this.
+      console.error('Photo upload failed', err);
     } finally {
       setUploading(false);
     }
@@ -341,6 +374,17 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
 
   return (
     <div className="stu">
+      {/* One file input for the whole wizard. It used to live inside the
+          Refine panel, which meant the ref was null on every other step —
+          so the brief's own upload button would have clicked nothing. */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => { handleFileSelected(e.target.files?.[0]); e.target.value = ''; }}
+      />
+
       {d.status === 'flagged' && d.adminNotes && (
         <div className="fld-flagnote"><span>Sent back with a note</span><p>{d.adminNotes}</p></div>
       )}
@@ -453,6 +497,45 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Photographs belong on the brief, not only three steps later in
+              Refine. The agent reads what each platform needs while it is
+              analysing this form — it will tell the publisher that Instagram
+              cannot be posted without one — and being told that with no way
+              to act on it until after a full generation run is the wrong
+              order to do things in. */}
+          <div className="stu-field">
+            <span className="stu-label">Photographs</span>
+            <span className="stu-sub">
+              Real station photography always beats a generated image for a government record.
+              Instagram needs at least one; the others read better with one.
+            </span>
+            {images.length > 0 && (
+              <div className="stu-photos">
+                {images.map((url, i) => (
+                  <button
+                    key={url}
+                    type="button"
+                    className={'stu-photo' + (photoIndex === i ? ' is-on' : '')}
+                    onClick={() => setPhotoIndex(i)}
+                    title={photoIndex === i ? 'Cover photo' : 'Use as the cover photo'}
+                  >
+                    <img src={url} alt="" />
+                  </button>
+                ))}
+              </div>
+            )}
+            <button
+              type="button"
+              className="stu-ghost"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+            >
+              <Paperclip size={13} strokeWidth={2.5} />
+              {uploading ? `Uploading ${uploadPct}%` : images.length ? 'Add another' : 'Add a photo'}
+            </button>
+            {uploadError && <p className="stu-error">{uploadError}</p>}
           </div>
 
           <div className="stu-chiprow">
@@ -722,13 +805,6 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
                   Real station photography always beats a generated image for a government record.
                 </p>
               )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                hidden
-                onChange={(e) => { handleFileSelected(e.target.files?.[0]); e.target.value = ''; }}
-              />
               <button type="button" className="stu-ghost" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
                 <Paperclip size={13} strokeWidth={2.5} />
                 {uploading ? `Uploading ${uploadPct}%` : 'Add a photo'}
