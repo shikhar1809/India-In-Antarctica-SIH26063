@@ -8,7 +8,7 @@
  * the question the queue exists for.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSocialQueue, updateScheduledPost, removeScheduledPost, recordSocialPost } from '../hooks/useSocialQueue';
 import {
   PLATFORM_LIMITS,
@@ -16,10 +16,13 @@ import {
   effectiveStatus,
   adapterFor,
   confirmManualPost,
+  sendPost,
   cancelPost,
   type ScheduledPost,
   type PostStatus,
 } from './queue';
+import { refreshAdapters, type PublishCapability } from './uploadPostAdapter';
+
 import './QueueTab.css';
 
 const STATUS_LABEL: Record<PostStatus, string> = {
@@ -50,6 +53,30 @@ function QueueRow({ post }: { post: ScheduledPost }) {
   // A due post on a platform with no credential is the case that needs a
   // human. Everything else is either waiting for the clock or already settled.
   const needsHand = status === 'ready' && !adapter.automatic;
+
+  /* A due post on a platform that IS connected can go out from here. The
+   * manual form stays available underneath either way — an adapter being
+   * registered does not remove a publisher's ability to post it themselves
+   * and paste the link, which is what they will do the first time an
+   * automatic send fails. */
+  const canSendNow = status === 'ready' && adapter.automatic;
+
+  /** Posts it for real, through the adapter. `sendScheduledPost` owns the
+   *  state transition, so a failure lands as a 'failed' row carrying the
+   *  platform's own reason rather than a silent no-op. */
+  const postNow = async () => {
+    setBusy(true); setErr(null);
+    try {
+      const next = await sendPost(post);
+      await updateScheduledPost(next);
+      if (next.status === 'posted' && post.status !== 'posted') {
+        await recordSocialPost(next);
+      }
+      if (next.status === 'failed') setErr(next.error ?? 'The platform rejected the post.');
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Could not send the post.');
+    } finally { setBusy(false); }
+  };
 
   const act = async (next: ScheduledPost) => {
     setBusy(true); setErr(null);
@@ -94,6 +121,15 @@ function QueueRow({ post }: { post: ScheduledPost }) {
           Posted {post.postedAt ? when(post.postedAt) : ''} ·{' '}
           <a href={post.externalUrl} target="_blank" rel="noreferrer">view the post</a>
         </p>
+      )}
+
+      {canSendNow && (
+        <div className="sq-actions">
+          <button className="ph-btn primary" disabled={busy} onClick={postNow}>
+            {busy ? 'Posting…' : `Post now to ${limits.label}`}
+          </button>
+          <span className="sq-adapter-note">{adapter.label}</span>
+        </div>
       )}
 
       {needsHand && (
@@ -167,6 +203,14 @@ function QueueRow({ post }: { post: ScheduledPost }) {
 export function QueueTab() {
   const { posts, loading, error } = useSocialQueue();
 
+  /* Which platforms can actually be posted to. Asked once on mount: the
+   * answer registers the automatic adapters, so every row rendered after
+   * this knows whether it can offer a send button or must ask for a
+   * permalink. Before it resolves, adapterFor() returns the manual adapter,
+   * which is the correct thing to show while we do not yet know. */
+  const [capability, setCapability] = useState<PublishCapability | null>(null);
+  useEffect(() => { void refreshAdapters().then(setCapability); }, []);
+
   const { live, settled } = useMemo(() => {
     const isSettled = (p: ScheduledPost) =>
       p.status === 'posted' || p.status === 'cancelled';
@@ -188,6 +232,14 @@ export function QueueTab() {
       <div className="sq-toolbar">
         <span className="sq-summary">
           {live.length} waiting · {posts.filter((p) => p.status === 'posted').length} sent
+          {capability?.configured && capability.platforms.length > 0 && (
+            <span className="sq-connected">
+              {' '}· posting as{' '}
+              {capability.platforms
+                .map((p) => `${PLATFORM_LIMITS[p].label} @${capability.handles[p] ?? ''}`)
+                .join(', ')}
+            </span>
+          )}
         </span>
       </div>
 

@@ -127,3 +127,12 @@
 }
 
 .sq-remove { color: #e5534b; }
+
+/* Which account a post will go out as — a publisher posting on behalf of an
+   institution should see the handle before they click, not after. */
+.sq-connected { color: var(--ice-faint); }
+
+.sq-adapter-note {
+  font-size: 0.76rem;
+  color: var(--ice-faint);
+}

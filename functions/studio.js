@@ -30,6 +30,7 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const review = require('./review');
 const agent = require('./studioagent');
+const publisher = require('./publishpost');
 
 const MODEL = 'gemini-2.5-flash';
 const ENDPOINT = (model) =>
@@ -222,9 +223,17 @@ exports.studio = onRequest(
   async (req, res) => {
     cors(res);
     if (req.method === 'OPTIONS') return res.status(204).send('');
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Only POST is supported.' });
 
     const path = (req.path || '/').replace(/\/+$/, '') || '/';
+
+    /* One GET on this function: the portal asks which platforms can actually
+     * be posted to, so it only offers "Post now" where a credential and a
+     * connected account both exist. */
+    if (req.method === 'GET' && path === '/publish-status') {
+      return publisher.handleStatus(req, res);
+    }
+
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Only POST is supported.' });
 
     /* Editorial review of a drafted dispatch for the approvals desk. Its
      * own module, sharing this deployment and this API key rather than
@@ -238,6 +247,11 @@ exports.studio = onRequest(
     if (path === '/refs' || path === '/abtest' || path === '/revise' || path === '/moderate') {
       return agent.handle(path, req, res);
     }
+
+    /* Actually sending a post. Separate module because it carries a second
+     * credential — the social publishing key — and has nothing to do with
+     * the generator beyond sharing this deployment. */
+    if (path === '/publish') return publisher.handle(req, res);
 
     if (path !== '/copy' && path !== '/') {
       return res.status(404).json({ error: 'Unknown endpoint.' });
