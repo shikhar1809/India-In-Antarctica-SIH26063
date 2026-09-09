@@ -24,6 +24,9 @@ export interface PostCanvasProps {
   palette: Palette;
   copy: PostCopy;
   photoUrl: string | null;
+  /** Fires when the browser refuses or fails to load the photograph, so a
+   *  host page can say so rather than showing flat colour and nothing. */
+  onPhotoError?: (url: string) => void;
   /** Display scale. 1 renders at native size; the studio previews at ~0.3. */
   scale?: number;
   /** Set on the node that `exportPng` serialises. */
@@ -37,6 +40,7 @@ export function PostCanvas({
   palette,
   copy,
   photoUrl,
+  onPhotoError,
   scale = 1,
   exportRef,
   className,
@@ -110,7 +114,25 @@ export function PostCanvas({
         {/* ── photograph ── */}
         {photoUrl && template.photo !== 'none' && (
           <div className="pc-photo" style={photoStyle}>
-            <img src={photoUrl} alt="" crossOrigin="anonymous" />
+            {/* No crossOrigin here, deliberately.
+             *
+             * It used to carry crossOrigin="anonymous" so the canvas would
+             * stay untainted for PNG export. It bought nothing — export.ts
+             * clones the frame and rewrites every img src to a data URI
+             * before rasterising, so the live element is never the thing
+             * drawn — and it cost the feature: an image whose host does not
+             * send Access-Control-Allow-Origin is refused by the browser
+             * outright, so the photograph uploaded fine, was set as the
+             * cover, and then simply did not appear. Silently, because a
+             * blocked img fires error and renders nothing.
+             *
+             * onError is what makes the next such failure visible instead
+             * of leaving a publisher staring at flat colour. */}
+            <img
+              src={photoUrl}
+              alt=""
+              onError={() => onPhotoError?.(photoUrl)}
+            />
           </div>
         )}
 

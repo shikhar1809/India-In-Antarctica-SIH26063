@@ -106,6 +106,7 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
    * must never quietly overwrite a real choice. */
   const [analysis, setAnalysis] = useState<BriefAnalysis | null>(null);
   const [markingUp, setMarkingUp] = useState(false);
+  const [photoLoadError, setPhotoLoadError] = useState<string | null>(null);
 
   /* The automated photograph check. Held here rather than inside the check
    * component so its verdict can gate submission and tick the SOP box — a
@@ -278,7 +279,14 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
           reject, () => resolve());
       });
       const url = await getDownloadURL(objRef);
-      setImages((prev) => { setPhotoIndex(prev.length); return [...prev, url]; });
+      /* Two separate updates, not a setPhotoIndex() buried inside the
+       * setImages updater. Updaters have to be pure — React calls them
+       * twice under StrictMode to prove it — and the new photograph's index
+       * is just the old length, which is known here without reaching into
+       * the updater to get it. */
+      setPhotoIndex(images.length);
+      setImages((prev) => [...prev, url]);
+      setPhotoLoadError(null);
     } catch (err) {
       /* Firebase Storage errors carry a code that says exactly what
        * happened; a publisher can act on "you do not have permission" and
@@ -706,9 +714,16 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
               palette={palette}
               copy={copy}
               photoUrl={photoUrl}
+              onPhotoError={setPhotoLoadError}
               scale={canvasPlatform === 'story' ? 0.2 : canvasPlatform === 'instagram' ? 0.34 : 0.26}
               exportRef={canvasRef}
             />
+            {photoLoadError && (
+              <p className="stu-error">
+                That photograph uploaded but the browser would not display it. It may have been
+                removed from storage, or be in a format the browser cannot render.
+              </p>
+            )}
             <span className="stu-canvas-meta">
               {PLATFORM_SPECS[canvasPlatform].w} × {PLATFORM_SPECS[canvasPlatform].h} · {PLATFORM_SPECS[canvasPlatform].note}
             </span>
