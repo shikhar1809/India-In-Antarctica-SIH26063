@@ -374,6 +374,7 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
 
       {/* ══════════════════════════════════════════════════ 1 · BRIEF ══ */}
       {step.id === 'brief' && (
+        <div className="stu-briefwrap">
         <div className="stu-panel stu-brief">
           <label className="stu-field">
             <span className="stu-label">What happened?</span>
@@ -472,14 +473,16 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
             </div>
           </div>
 
-          {/* Audience and tone are optional now: left alone, the agent
-              infers them from what the post turns out to be, and shows its
-              working. Choosing one pins it. */}
-          <p className="stu-sub stu-agentnote">
-            Leave anything above unset and the agent will work it out from the brief — you will
-            see what it decided, and why, before a word is written.
-          </p>
+        </div>
 
+        {/* The action and the agent's working live in their own column,
+            pinned in view. They used to sit at the foot of the form, which
+            put the only button that starts anything several hundred pixels
+            below the fold as soon as the knowledge base was opened — and
+            left the right half of a wide screen empty while it did. On a
+            narrow screen this stacks underneath and the button sticks to
+            the bottom of the viewport instead. */}
+        <aside className="stu-rail">
           {generating && analysis ? (
             <AgentThinking
               analysis={analysis}
@@ -489,16 +492,34 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
               onCancel={() => { setGenerating(false); setAnalysis(null); }}
             />
           ) : (
-            <button
-              type="button"
-              className="stu-primary"
-              onClick={startAgent}
-              disabled={!brief.topic.trim()}
-            >
-              <Sparkles size={15} strokeWidth={2.5} />
-              Work it out and show me three options
-            </button>
+            <div className="stu-rail-start">
+              <h4 className="stu-rail-title">
+                <Sparkles size={14} strokeWidth={2.5} /> Let the agent work it out
+              </h4>
+              <p className="stu-sub">
+                It reads the brief, looks for a matching archive record, works out who the post is
+                for and what each platform needs, checks how previous posts were written, and
+                searches the web for visual references — showing you each decision before it
+                writes anything.
+              </p>
+              <p className="stu-sub">
+                Anything you left unset above, it decides. Anything you chose, it keeps.
+              </p>
+              <button
+                type="button"
+                className="stu-primary"
+                onClick={startAgent}
+                disabled={!brief.topic.trim()}
+              >
+                <Sparkles size={15} strokeWidth={2.5} />
+                Work it out and show me three options
+              </button>
+              {!brief.topic.trim() && (
+                <p className="stu-sub">Write a line about what happened first.</p>
+              )}
+            </div>
           )}
+        </aside>
         </div>
       )}
 
