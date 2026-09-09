@@ -67,6 +67,29 @@ withheld and *why*, and what publishes. The rule table is typed against
 `keyof Dispatch`, so adding a field without deciding its disposition is a
 compile error, not a silent leak.
 
+**The post studio is an agent you can watch.** A publisher writes one line
+about what happened; the studio then classifies the content type from the
+wording and quotes the phrases that decided it, searches the archive for a
+record the brief refers to and pulls its facts in, infers audience and tone
+(never overriding a choice the publisher made), reads what each selected
+platform demands, measures how previous posts were written, and searches the
+web for visual references — showing each decision, and what it is looking
+at, before a word is generated. What the publisher watched it decide is
+literally what the model is then given as its brief. See
+[docs/STUDIO.md](docs/STUDIO.md).
+
+**Marks on the graphic become revisions.** The publisher has the same
+annotator the approvals desk uses, on their own post. Pinned comments and
+the marked-up render both go to the model, because *"this overlaps the
+roofline"* cannot be acted on from text alone — and every note comes back
+paired with what was actually done about it.
+
+**Two SOP checks are no longer an honour system.** The photograph is looked
+at by a vision model for a visible credit or watermark and for anything a
+government account must not publish. A clean verdict ticks the box the
+publisher can still untick; a blocker disables submission. The verdict is
+stored on the dispatch so an approver sees the evidence, not just the tick.
+
 **A normalisation layer.** A scientist can be on the ice for a season running
 whatever build was installed before they left, so the portal never assumes
 current-format data. Old station names, METAR codes and 16-point bearings are
@@ -98,11 +121,12 @@ dates traced in `docs/REFERENCES.md`.
 │   ├── portal/          Internal portal: review, compose, approve, moderate (React)
 │   │   ├── repository/    contract, normalise, summarise, publish, redaction, search
 │   │   ├── social/        dissemination queue, scheduling, platform adapters
-│   │   ├── studio/        post studio: brief → copy → template → export
+│   │   ├── studio/        agentic post studio: analyse → reference → write → mark up → check
+│   │   ├── review/        annotation tools and the approvals desk's checks
 │   │   └── security/      rules regression guard
 │   ├── public-site/     Public outreach site and Knowledge Repository (React)
 │   └── scientist-app/   Field data capture, offline-first (Flutter + SQLite)
-├── functions/           Public read API (Cloud Functions, Node 22)
+├── functions/           Public read API, studio agent, image search (Cloud Functions, Node 22)
 ├── scripts/             Ingestion, verification and seeding
 │   └── lib/             Shared REST + credential helpers
 ├── docs/                Architecture, data model, API, testing, deployment
@@ -137,7 +161,7 @@ npm test                   # everything below, in order
 
 | Command | What it proves |
 |---|---|
-| `npm run test:unit` | 184 unit tests over normalisation, outreach drafting, the public projection, redaction, concept search, the dissemination queue and the rules |
+| `npm run test:unit` | 246 unit tests over normalisation, outreach drafting, the public projection, redaction, the studio agent's classification and archive detection, concept search, the dissemination queue and the rules |
 | `npm run test:pipeline` | A legacy-format dispatch travels the real pipeline, publishes, and reads back |
 | `npm run test:api` | Against the **deployed** project: the repository is public, raw dispatches are not |
 | `npm run test:e2e` | A real browser: the site renders live data, charts draw, no console errors |
@@ -158,6 +182,12 @@ curl https://asia-south1-indiainantartica.cloudfunctions.net/api/stats
 
 Full reference in [docs/API.md](docs/API.md).
 
+The studio's own endpoints (`/studio/copy`, `/refs`, `/abtest`, `/revise`,
+`/moderate`) are authenticated-side tooling rather than public API, and are
+documented in [docs/STUDIO.md](docs/STUDIO.md). With no `GEMINI_API_KEY`
+configured they return 503 and the studio falls back to an offline template
+draft, so the whole flow still works on a fresh clone with no credentials.
+
 ## Documentation
 
 | Document | Covers |
@@ -165,6 +195,7 @@ Full reference in [docs/API.md](docs/API.md).
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the apps fit together, why publishing is a projection, how dissemination works |
 | [DATA-MODEL.md](docs/DATA-MODEL.md) | Collections, the shared vocabulary, and the metadata profile |
 | [API.md](docs/API.md) | The public read API |
+| [STUDIO.md](docs/STUDIO.md) | The agentic post studio: what the agent works out, the image providers, markup, A/B, the photograph check |
 | [SCIENTIST-APP.md](docs/SCIENTIST-APP.md) | The Flutter field app: capture, offline sync, validation |
 | [TESTING.md](docs/TESTING.md) | What is tested, what isn't, and why |
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Deploying each target, and seeding |
@@ -178,5 +209,7 @@ CC BY 4.0. Ozone measurements are reproduced from the WOUDC under its terms —
 free for scientific, educational and policy use provided the contributing
 agency (IMD) and the WOUDC are credited, which every exported file and record
 does. Station photography is sourced from Wikimedia Commons and credited per
-image. Station models are traced to published sources in
+image. Visual references surfaced in the studio are shown with their licence
+and a link to the source, and are reference material — nothing is baked into
+a published graphic on the agent's own initiative. Station models are traced to published sources in
 [REFERENCES.md](docs/REFERENCES.md).
