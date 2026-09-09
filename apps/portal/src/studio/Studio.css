@@ -548,3 +548,53 @@
   height: 46px;
   object-fit: cover;
 }
+
+.stu-canvas-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* The two automated checks, above the honour-system checklist. */
+.stu-checks {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel-2);
+}
+
+.stu-checks-title {
+  margin: 0;
+  font-family: var(--font-disp);
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ice);
+}
+
+.stu-check {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 0.5rem 0.65rem;
+}
+
+.stu-check > summary {
+  cursor: pointer;
+  font-size: 0.84rem;
+  color: var(--ice-dim);
+  list-style: none;
+}
+
+.stu-check > summary::-webkit-details-marker { display: none; }
+
+.stu-check > summary::before {
+  content: '+ ';
+  color: var(--cyan);
+  font-family: var(--font-mono);
+}
+
+.stu-check[open] > summary::before { content: '– '; }
+.stu-check[open] > summary { color: var(--ice); margin-bottom: 0.6rem; }

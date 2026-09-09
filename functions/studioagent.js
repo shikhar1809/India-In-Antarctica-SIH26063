@@ -227,6 +227,113 @@ Return ONLY JSON of the declared shape, no markdown fence.`;
   return json(res, 200, parsed);
 }
 
+/* ════════════════════════════════════════════════════════════ /revise ══ */
+
+const REVISE_SCHEMA = {
+  type: 'object',
+  properties: {
+    headline: { type: 'string' },
+    standfirst: { type: 'string' },
+    captions: {
+      type: 'object',
+      properties: {
+        x: { type: 'string' },
+        linkedin: { type: 'string' },
+        instagram: { type: 'string' },
+      },
+      required: ['x', 'linkedin', 'instagram'],
+    },
+    changed: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          note: { type: 'string' },
+          didWhat: { type: 'string' },
+        },
+        required: ['note', 'didWhat'],
+      },
+    },
+  },
+  required: ['headline', 'standfirst', 'captions', 'changed'],
+};
+
+/**
+ * Applies a publisher's marked-up notes to the copy.
+ *
+ * The publisher draws on the rendered graphic and drops pins carrying
+ * comments — "headline runs over the roofline", "say which station". Those
+ * comments come here with the current copy, and what goes back is the same
+ * copy revised.
+ *
+ * The marked-up image is sent too when the client could rasterise it. That
+ * matters for notes that are about position rather than wording: "this
+ * overlaps" is not actionable from the text alone, and a model that can see
+ * where the pin sits can shorten the right line.
+ *
+ * `changed` is the part that keeps this honest. Each note comes back paired
+ * with what was actually done about it, so a publisher can see that a note
+ * was understood — or that it was ignored — rather than diffing two blocks
+ * of text by eye.
+ */
+async function handleRevise(req, res, key) {
+  const body = req.body || {};
+  const notes = Array.isArray(body.notes)
+    ? body.notes.filter((n) => typeof n === 'string' && n.trim()).slice(0, 12)
+    : [];
+  if (!notes.length) return json(res, 400, { error: 'No notes to apply.' });
+
+  const copy = body.copy || {};
+  const captions = copy.captions || {};
+
+  const prompt = `You are revising a social media post for the National Centre for Polar and Ocean Research (NCPOR), India's polar research institution.
+
+A publisher has marked up the rendered graphic and left these notes:
+${notes.map((n, i) => `${i + 1}. ${n}`).join('\n')}
+
+THE CURRENT COPY
+Headline: ${String(copy.headline || '')}
+Supporting line: ${String(copy.standfirst || '')}
+X caption: ${String(captions.x || '')}
+LinkedIn caption: ${String(captions.linkedin || '')}
+Instagram caption: ${String(captions.instagram || '')}
+
+${body.subject ? `WHAT THE POST IS ABOUT\n${String(body.subject).slice(0, 1500)}\n` : ''}
+Apply every note. Rules, all strict:
+- Change only what the notes ask for. Copy the rest through unchanged, word for word.
+- Invent no new facts, figures, dates or names. If a note asks for a detail that is not in the material above, do the closest thing the material supports and say so in "changed".
+- X must stay under 280 characters.
+- No emoji in the headline or supporting line. No exclamation marks. This is a government institution.
+- British English.
+- For each note, report what you did in "changed". If a note could not be honoured, say that plainly rather than claiming it was.
+
+Return ONLY JSON of the declared shape, no markdown fence.`;
+
+  const parts = [{ text: prompt }];
+
+  /* The marked-up render, when the client managed to rasterise one. Notes
+   * about layout are unanswerable without it. */
+  if (typeof body.imageBase64 === 'string' && body.imageBase64.length > 100) {
+    const data = body.imageBase64.replace(/^data:image\/[a-z+]+;base64,/, '');
+    if (Buffer.byteLength(data, 'base64') <= MAX_IMAGE_BYTES) {
+      parts.push({ inline_data: { mime_type: body.imageMime || 'image/png', data } });
+    }
+  }
+
+  const parsed = await callGemini(key, {
+    contents: [{ parts }],
+    generationConfig: {
+      temperature: 0.4,
+      maxOutputTokens: 4096,
+      responseMimeType: 'application/json',
+      responseSchema: REVISE_SCHEMA,
+      thinkingConfig: { thinkingBudget: 0 },
+    },
+  });
+
+  return json(res, 200, parsed);
+}
+
 /* ══════════════════════════════════════════════════════════ /moderate ══ */
 
 const MODERATION_SCHEMA = {
@@ -330,6 +437,7 @@ async function handle(path, req, res) {
 
   try {
     if (path === '/abtest') return await handleAbTest(req, res, key);
+    if (path === '/revise') return await handleRevise(req, res, key);
     if (path === '/moderate') return await handleModerate(req, res, key);
   } catch (err) {
     console.error(`studio${path} failed`, err);
@@ -339,4 +447,4 @@ async function handle(path, req, res) {
   return json(res, 404, { error: 'Unknown endpoint.' });
 }
 
-module.exports = { handle, PLATFORM_BRIEF, MODERATION_SCHEMA, AB_SCHEMA };
+module.exports = { handle, PLATFORM_BRIEF, MODERATION_SCHEMA, AB_SCHEMA, REVISE_SCHEMA };

@@ -258,6 +258,19 @@ export interface Dispatch {
    *  is rendered from these three ids; it is never stored as a blob. */
   postDesign?: StoredPostDesign | null;
   adminNotes: string | null;
+  /** What the automated photograph check found, when it was run — see
+   *  studio/ReviewChecks.tsx. Stored so an approver sees the evidence
+   *  behind the ticked box rather than only the tick, and so a blocker is
+   *  still on the record if the publisher swaps the photo and resubmits.
+   *  Null when the check never ran, which is a working state: the studio
+   *  submits fine without a generator configured. */
+  photoCheck?: {
+    safe: boolean;
+    watermarkPresent: boolean;
+    watermarkNote: string;
+    describes: string;
+    concerns: { severity: 'caution' | 'blocker'; label: string; detail: string }[];
+  } | null;
   createdAt: number;
   updatedAt: number;
   /** Set by the approve desk alongside `status: 'approved'` — the id and

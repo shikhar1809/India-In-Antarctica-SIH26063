@@ -1,0 +1,118 @@
+/* The publisher's markup panel, and the revision it produces. */
+
+.mk {
+  margin-top: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel-2);
+  padding: 0.9rem 1rem 1rem;
+}
+
+.mk-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.7rem;
+}
+
+.mk-head strong { font-size: 0.95rem; color: var(--ice); }
+
+.mk-hint {
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--ice-faint);
+  flex: 1 1 16rem;
+}
+
+.mk-x {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--ice-faint);
+  cursor: pointer;
+  padding: 0.15rem;
+  line-height: 0;
+}
+
+.mk-x:hover { color: var(--ice); }
+
+.mk-error {
+  margin: 0 0 0.7rem;
+  font-size: 0.8rem;
+  color: var(--warn);
+}
+
+.mk-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  flex-wrap: wrap;
+  margin-top: 0.8rem;
+}
+
+/* ── the revision ── */
+
+.mk-changes {
+  list-style: none;
+  margin: 0 0 0.9rem;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.mk-changes li {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.mk-note {
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--ice-dim);
+}
+
+.mk-did {
+  font-size: 0.82rem;
+  color: var(--ice);
+}
+
+.mk-diff {
+  display: grid;
+  gap: 0.8rem;
+  margin-bottom: 0.3rem;
+}
+
+.mk-diff-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+  margin-bottom: 0.25rem;
+}
+
+/* Before and after, distinguished by weight and a rule rather than by
+   colour alone — this gets read quickly and often on a laptop screen. */
+.mk-was {
+  margin: 0 0 0.2rem;
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--line-strong);
+  font-size: 0.84rem;
+  color: var(--ice-faint);
+  text-decoration: line-through;
+  text-decoration-color: rgba(255, 106, 106, 0.5);
+}
+
+.mk-now {
+  margin: 0;
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--cyan);
+  font-size: 0.88rem;
+  color: var(--ice);
+}

@@ -235,7 +235,7 @@ exports.studio = onRequest(
      * the pre-publication look at the photograph. Same deployment and same
      * key; see studioagent.js for why each is a separate endpoint rather
      * than one do-everything call. */
-    if (path === '/refs' || path === '/abtest' || path === '/moderate') {
+    if (path === '/refs' || path === '/abtest' || path === '/revise' || path === '/moderate') {
       return agent.handle(path, req, res);
     }
 

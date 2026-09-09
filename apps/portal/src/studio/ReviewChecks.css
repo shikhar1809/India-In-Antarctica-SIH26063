@@ -1,0 +1,258 @@
+/* The A/B comparison and the automated photograph check. */
+
+.rc-spin { animation: rc-spin 1s linear infinite; }
+@keyframes rc-spin { to { transform: rotate(360deg); } }
+
+.rc-none,
+.rc-error {
+  margin: 0.3rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--ice-faint);
+}
+
+.rc-error { color: var(--warn); }
+
+/* ── A/B ── */
+
+.rc-ab { display: grid; gap: 0.7rem; }
+
+.rc-verdict { display: grid; gap: 0.35rem; }
+
+.rc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  align-self: start;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid;
+}
+
+/* Confidence is carried by the border weight as well as the label, so a
+   low-confidence verdict does not read as firmly as a high one. */
+.rc-badge--high   { color: var(--cyan);  border-color: rgba(95, 217, 255, 0.5);  background: rgba(95, 217, 255, 0.1); }
+.rc-badge--medium { color: var(--ice);   border-color: var(--line-strong);       background: rgba(150, 200, 240, 0.08); }
+.rc-badge--low    { color: var(--ice-dim); border-color: var(--line);            background: transparent; }
+
+.rc-conf {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  font-weight: 500;
+}
+
+.rc-reasoning {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: var(--ice-dim);
+}
+
+.rc-factors {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+}
+
+.rc-factor {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.15rem 0.7rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--line);
+  border-left-width: 2px;
+  border-radius: 6px;
+  background: var(--panel);
+}
+
+.rc-factor--a { border-left-color: var(--cyan); }
+.rc-factor--b { border-left-color: var(--saffron); }
+.rc-factor--neither { border-left-color: var(--line-strong); }
+
+.rc-factor-name { font-size: 0.82rem; color: var(--ice); font-weight: 600; }
+
+.rc-factor-side {
+  grid-row: 1;
+  grid-column: 2;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+}
+
+.rc-factor-note {
+  grid-column: 1 / -1;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--ice-dim);
+}
+
+.rc-swap {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid rgba(255, 153, 51, 0.3);
+  border-radius: 8px;
+  background: rgba(255, 153, 51, 0.06);
+}
+
+.rc-swap-text {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: var(--ice-dim);
+  white-space: pre-wrap;
+}
+
+/* ── hashtags ── */
+
+.rc-tags { display: grid; gap: 0.4rem; }
+
+.rc-tags-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+}
+
+.rc-tags ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.rc-tags li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.rc-tag {
+  flex: none;
+  background: rgba(95, 217, 255, 0.1);
+  border: 1px solid rgba(95, 217, 255, 0.3);
+  color: var(--cyan);
+  border-radius: 999px;
+  padding: 0.12rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  cursor: pointer;
+}
+
+.rc-tag:hover { background: rgba(95, 217, 255, 0.18); }
+
+.rc-tag-why {
+  flex: 1 1 12rem;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--ice-faint);
+}
+
+/* ── photograph check ── */
+
+.rc-photo { display: grid; gap: 0.5rem; }
+
+.rc-photo-result {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid rgba(95, 217, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(95, 217, 255, 0.05);
+}
+
+.rc-photo-result.is-blocked {
+  border-color: rgba(255, 106, 106, 0.45);
+  background: rgba(255, 106, 106, 0.07);
+}
+
+.rc-photo-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--cyan);
+}
+
+.rc-photo-result.is-blocked .rc-photo-head { color: var(--danger); }
+
+.rc-photo-desc {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--ice-dim);
+}
+
+.rc-photo-mark {
+  display: grid;
+  gap: 0.1rem;
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--warn);
+}
+
+.rc-photo-mark.is-on { color: var(--ice-dim); }
+
+.rc-photo-mark > span { color: var(--ice-faint); font-size: 0.76rem; line-height: 1.45; }
+
+.rc-concerns {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.rc-concern {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  border-left: 2px solid;
+  font-size: 0.78rem;
+}
+
+.rc-concern--caution { border-left-color: var(--warn); background: rgba(255, 207, 92, 0.07); }
+.rc-concern--blocker { border-left-color: var(--danger); background: rgba(255, 106, 106, 0.09); }
+
+.rc-concern strong { color: var(--ice); font-size: 0.8rem; }
+.rc-concern span { color: var(--ice-dim); line-height: 1.45; }
+
+.rc-photo-block {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--danger);
+  font-weight: 500;
+}
+
+.rc-recheck {
+  justify-self: start;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.76rem;
+  color: var(--ice-faint);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.rc-recheck:hover { color: var(--ice); }

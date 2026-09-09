@@ -22,7 +22,7 @@
 import { useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft, ArrowRight, Check, Download, Paperclip, RotateCcw,
-  Sparkles, TriangleAlert, Wand2,
+  PenLine, Sparkles, TriangleAlert, Wand2,
 } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
@@ -46,6 +46,10 @@ import {
 import type { Brief, PostCopy, Variant } from './copy';
 import { KnowledgeBase } from './KnowledgeBase';
 import { AgentThinking } from './AgentThinking';
+import { MarkupPanel } from './MarkupPanel';
+import type { Revision } from './MarkupPanel';
+import { AbTest, PhotoCheck, alternativeCaption } from './ReviewChecks';
+import type { ModerationResult } from './ReviewChecks';
 import { analyseBrief, generatorDirection, CONTENT_TYPES } from './agent';
 import type { BriefAnalysis, ContentType } from './agent';
 import { searchReferences } from './references';
@@ -101,6 +105,12 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
    * fields the publisher set deliberately — the agent infers the rest and
    * must never quietly overwrite a real choice. */
   const [analysis, setAnalysis] = useState<BriefAnalysis | null>(null);
+  const [markingUp, setMarkingUp] = useState(false);
+
+  /* The automated photograph check. Held here rather than inside the check
+   * component so its verdict can gate submission and tick the SOP box — a
+   * result that only the panel knows about could not do either. */
+  const [moderation, setModeration] = useState<ModerationResult | null>(null);
   const [refs, setRefs] = useState<StyleReference[]>([]);
   const [chose, setChose] = useState<{ audience: boolean; tone: boolean }>({ audience: false, tone: false });
   const { records: archiveRecords } = usePublicArchive();
@@ -285,8 +295,14 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
   const allChecked = SOP_CHECKLIST_ITEMS.every((i) => sop[i.id]);
   const hasAnyCaption = (Object.keys(captions) as (keyof PlatformCaptions)[]).some((k) => captions[k].trim());
 
+  /* The one automated verdict that can refuse a submission outright. A
+   * caution is advice and a human may proceed past it; a blocker is the
+   * check saying this photograph must not be published, and the button is
+   * disabled until the photograph changes. */
+  const photoBlocked = !!moderation?.concerns.some((c) => c.severity === 'blocker');
+
   const submit = async () => {
-    if (!user || !allChecked || !hasAnyCaption || !copy) return;
+    if (!user || !allChecked || !hasAnyCaption || !copy || photoBlocked) return;
     setSaving(true);
     try {
       await updateDoc(doc(db, 'dispatches', d.id), {
@@ -295,6 +311,11 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
         imageUrls: images,
         coverImageIndex: photoIndex,
         sopChecklist: sop,
+        /* The automated verdict travels with the submission: an approver
+         * should see that the photograph was checked and what was found,
+         * not have to take the ticked box on trust. Null when the check was
+         * never run. */
+        photoCheck: moderation,
         publicSummary,
         postDesign: {
           templateId, paletteId, platform: canvasPlatform, photoIndex,
@@ -587,9 +608,33 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
             <span className="stu-canvas-meta">
               {PLATFORM_SPECS[canvasPlatform].w} × {PLATFORM_SPECS[canvasPlatform].h} · {PLATFORM_SPECS[canvasPlatform].note}
             </span>
-            <button type="button" className="stu-ghost" onClick={exportGraphic} disabled={exporting}>
-              <Download size={13} strokeWidth={2.5} /> {exporting ? 'Building PNG…' : 'Download PNG'}
-            </button>
+            <div className="stu-canvas-actions">
+              <button type="button" className="stu-ghost" onClick={exportGraphic} disabled={exporting}>
+                <Download size={13} strokeWidth={2.5} /> {exporting ? 'Building PNG…' : 'Download PNG'}
+              </button>
+              {/* The same annotator the approvals desk uses, pointed at the
+                  publisher's own graphic — and wired so the pins come back
+                  as an actual revision rather than as notes to retype. */}
+              <button type="button" className="stu-ghost" onClick={() => setMarkingUp((m) => !m)}>
+                <PenLine size={13} strokeWidth={2.5} /> {markingUp ? 'Close markup' : 'Mark it up'}
+              </button>
+            </div>
+
+            {markingUp && (
+              <MarkupPanel
+                canvasRef={canvasRef}
+                platform={canvasPlatform}
+                copy={copy}
+                subject={brief.topic}
+                authorName={authorName}
+                onClose={() => setMarkingUp(false)}
+                onApply={(rev: Revision) => {
+                  setCopy({ ...copy, headline: rev.headline, standfirst: rev.standfirst });
+                  setCaptions(rev.captions);
+                  setMarkingUp(false);
+                }}
+              />
+            )}
           </div>
 
           <div className="stu-controls">
@@ -780,6 +825,53 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
               </label>
             ))}
 
+            {/* Two real checks before the honour-system checklist below.
+                The A/B compares the chosen caption against one the
+                publisher rejected — two options that both actually exist. */}
+            <section className="stu-checks">
+              <h4 className="stu-checks-title">Compare and check</h4>
+
+              {(['x', 'instagram', 'linkedin'] as const)
+                .filter((id) => platforms.includes(id))
+                .map((id) => (
+                  <details key={id} className="stu-check">
+                    <summary>
+                      A/B test the {id === 'x' ? 'X' : id === 'instagram' ? 'Instagram' : 'LinkedIn'} caption
+                    </summary>
+                    <AbTest
+                      platform={id}
+                      chosen={captions[id]}
+                      alternative={alternativeCaption(variants, pickedId, id)}
+                      audience={analysis?.audience ?? brief.audience}
+                      subject={brief.topic}
+                      onUseCaption={(c) => setCaptions({ ...captions, [id]: c })}
+                      onAddHashtag={(tag) =>
+                        setCaptions((prev) => ({
+                          ...prev,
+                          [id]: prev[id].includes(tag) ? prev[id] : `${prev[id].trimEnd()} ${tag}`.trim(),
+                        }))
+                      }
+                    />
+                  </details>
+                ))}
+
+              <details className="stu-check" open={!!moderation && !moderation.safe}>
+                <summary>Check the photograph before it goes out</summary>
+                <PhotoCheck
+                  imageUrl={photoUrl}
+                  result={moderation}
+                  onResult={(r) => {
+                    setModeration(r);
+                    /* A clean verdict ticks the photograph box, because the
+                     * box is now backed by something. It stays a checkbox the
+                     * publisher can untick — the model advises, it does not
+                     * approve. */
+                    if (r?.safe) setSop((prev) => ({ ...prev, photo: true }));
+                  }}
+                />
+              </details>
+            </section>
+
             <aside className="fld-sop">
               <div className="fld-sop-head">
                 <span>Before you submit</span>
@@ -805,10 +897,16 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
               type="button"
               className="stu-primary"
               onClick={submit}
-              disabled={saving || !allChecked || !hasAnyCaption}
+              disabled={saving || !allChecked || !hasAnyCaption || photoBlocked}
             >
               {saving ? 'Sending…' : 'Submit for admin approval'}
             </button>
+            {photoBlocked && (
+              <p className="stu-error">
+                The photograph check found something that must not be published. Replace the
+                photograph before submitting.
+              </p>
+            )}
             {!allChecked && <p className="stu-sub">Every check has to be ticked before this can go to an admin.</p>}
           </div>
         </div>
