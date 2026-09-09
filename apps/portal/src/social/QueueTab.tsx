@@ -38,6 +38,7 @@ function when(ts: number): string {
 
 function QueueRow({ post }: { post: ScheduledPost }) {
   const [url, setUrl] = useState('');
+  const [platformPostId, setPlatformPostId] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -107,10 +108,24 @@ function QueueRow({ post }: { post: ScheduledPost }) {
             value={url}
             onChange={(e) => setUrl(e.target.value)}
           />
+          {/* X's engagement numbers can be looked up from the permalink
+              alone (functions/engagement.js parses the tweet id out of it),
+              but Instagram's and LinkedIn's APIs need their own id or URN —
+              this is genuinely optional, and only worth filling in if
+              engagement tracking matters for this specific post. */}
+          {(post.platform === 'instagram' || post.platform === 'linkedin') && (
+            <input
+              className="sq-url"
+              type="text"
+              placeholder={post.platform === 'instagram' ? 'Media id (optional, for engagement tracking)' : 'Share URN (optional, for engagement tracking)'}
+              value={platformPostId}
+              onChange={(e) => setPlatformPostId(e.target.value)}
+            />
+          )}
           <button
             className="ph-btn primary"
             disabled={busy || !url.trim()}
-            onClick={() => act(confirmManualPost(post, url))}
+            onClick={() => act(confirmManualPost(post, url, Date.now(), platformPostId))}
           >Mark as posted</button>
           <button
             className="ph-btn ghost"

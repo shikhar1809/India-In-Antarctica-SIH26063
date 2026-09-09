@@ -5,7 +5,7 @@ import App from './App.tsx';
 import { initClarity } from './clarity';
 import './index.css';
 
-initClarity();
+void initClarity();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

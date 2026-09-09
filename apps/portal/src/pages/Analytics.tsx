@@ -48,20 +48,31 @@ import {
 } from 'recharts';
 import {
   Archive, CalendarClock, CheckCircle2, ChevronDown, ChevronUp, Eye, EyeOff,
-  LayoutGrid, Radio, RotateCcw, Send, ShieldAlert, TimerReset,
+  Heart, LayoutGrid, MessageCircle, RefreshCw, Repeat2, Radio, RotateCcw,
+  Send, ShieldAlert, TimerReset,
 } from 'lucide-react';
-import { CircuitBoard } from '@/components/ui/circuit-board';
+import { FaXTwitter, FaLinkedin, FaInstagram } from 'react-icons/fa6';
 import { useAuth } from '../context/AuthContext';
 import { useRole } from '../hooks/useRole';
 import { usePublicArchive } from '../hooks/usePublicArchive';
 import { useDispatches } from '../hooks/useDispatches';
 import { useSocialQueue } from '../hooks/useSocialQueue';
-import { effectiveStatus, PLATFORM_LIMITS, type SocialPlatform } from '../social/queue';
+import {
+  effectiveStatus, PLATFORM_LIMITS, SOCIAL_PLATFORMS,
+  type ScheduledPost, type SocialPlatform,
+} from '../social/queue';
+import { refreshEngagement } from '../social/engagementClient';
 import {
   DEFAULT_TILE_ORDER, TILE_ORIGIN, loadTileLayout, saveTileLayout,
   moveTileInLayout, toggleTileHiddenInLayout, type TileId, type TileLayout,
 } from './analyticsTileLayout';
 import './Analytics.css';
+
+const PLATFORM_ICON: Record<SocialPlatform, ReactNode> = {
+  x: <FaXTwitter />,
+  linkedin: <FaLinkedin />,
+  instagram: <FaInstagram />,
+};
 
 const SERIES = '#2f9fc9';
 const SERIES_WARM = '#c8762a';
@@ -299,6 +310,78 @@ export function Analytics() {
     };
   }, [posts]);
 
+  /* One card per platform, always all three — X, LinkedIn and Instagram
+     "respectively" means seeing each one even when it has zero activity,
+     not just the ones that happen to have posts. */
+  const platformBreakdown = useMemo(() => {
+    return SOCIAL_PLATFORMS.map((platform) => {
+      const mine = posts.filter((p) => p.platform === platform);
+      const posted = mine.filter((p) => p.status === 'posted').length;
+      const failed = mine.filter((p) => p.status === 'failed').length;
+      const pending = mine.filter((p) => {
+        const s = effectiveStatus(p);
+        return s === 'queued' || s === 'ready';
+      }).length;
+      const concluded = posted + failed;
+      return {
+        platform,
+        label: PLATFORM_LIMITS[platform].label,
+        posted, failed, pending,
+        successRate: concluded > 0 ? Math.round((posted / concluded) * 100) : null,
+      };
+    });
+  }, [posts]);
+
+  /* Engagement (likes/comments/shares/views) is never computed here — it is
+     written by functions/engagement.js, which is the only thing with
+     credentials to ask X, Instagram or LinkedIn's own APIs what a post
+     actually did. This page only reads whatever it finds and ranks by it;
+     see the "Top performing" section below for what shows when nothing has
+     been fetched yet. */
+  const engagementTotal = (e: NonNullable<ScheduledPost['engagement']>) => e.likes + e.comments + e.shares;
+
+  const postedWithEngagement = useMemo(
+    () => posts.filter((p) => p.status === 'posted' && p.engagement),
+    [posts],
+  );
+
+  const topPosts = useMemo(
+    () => [...postedWithEngagement]
+      .sort((a, b) => engagementTotal(b.engagement!) - engagementTotal(a.engagement!))
+      .slice(0, 5),
+    [postedWithEngagement],
+  );
+
+  const topRecords = useMemo(() => {
+    const byRecord = new Map<string, { recordIdentifier: string; total: number; posts: number }>();
+    for (const p of postedWithEngagement) {
+      const entry = byRecord.get(p.recordId) ?? { recordIdentifier: p.recordIdentifier, total: 0, posts: 0 };
+      entry.total += engagementTotal(p.engagement!);
+      entry.posts += 1;
+      byRecord.set(p.recordId, entry);
+    }
+    return [...byRecord.values()].sort((a, b) => b.total - a.total).slice(0, 5);
+  }, [postedWithEngagement]);
+
+  const [refreshingEngagement, setRefreshingEngagement] = useState(false);
+  const [engagementNotice, setEngagementNotice] = useState<string | null>(null);
+
+  const onRefreshEngagement = async () => {
+    setRefreshingEngagement(true);
+    setEngagementNotice(null);
+    const result = await refreshEngagement();
+    if (!result.ok) {
+      setEngagementNotice(result.reason);
+    } else if (result.result.connected.length === 0) {
+      setEngagementNotice(result.result.message ?? 'No platform credentials configured.');
+    } else {
+      setEngagementNotice(
+        `Checked ${result.result.checked} posted item${result.result.checked === 1 ? '' : 's'} on ${result.result.connected.join(', ')} — updated ${result.result.updated}.`,
+      );
+    }
+    setRefreshingEngagement(false);
+  };
+
   /* ── 4. Coverage & currency ─────────────────────────────────────────── */
 
   const byCategory = useMemo(() => {
@@ -513,46 +596,35 @@ export function Analytics() {
         </div>
       </section>
 
-      {/* ── 1. Service delivery ────────────────────────────────────────── */}
-      <Section title="Service delivery" note="Is content moving, and how long does the public wait for it?">
-        <div className="an-pipeline">
-          <div className="an-pipeline-board">
-            <CircuitBoard
-              variant="dark"
-              width={620}
-              height={160}
-              pulseSpeed={2.6}
-              nodes={[
-                { id: 'field',    x: 60,  y: 66, label: `Field · ${pipeline.raw}`,        icon: <Radio className="w-4 h-4" />,       status: pipeline.raw > 0 ? 'processing' : 'inactive' },
-                { id: 'review',   x: 200, y: 66, label: `Review · ${pipeline.drafted}`,   icon: <CheckCircle2 className="w-4 h-4" />, status: pipeline.drafted > 0 ? 'processing' : 'inactive' },
-                { id: 'archive',  x: 350, y: 66, label: `Archive · ${records.length}`,    icon: <Archive className="w-4 h-4" />,      status: records.length > 0 ? 'active' : 'inactive' },
-                { id: 'social',   x: 500, y: 66, label: `Queue · ${disseminationTotals.pending}`, icon: <Send className="w-4 h-4" />, status: disseminationTotals.failed > 0 ? 'error' : disseminationTotals.pending > 0 ? 'processing' : 'active' },
-              ]}
-              connections={[
-                { from: 'field',   to: 'review',  animated: pipeline.raw > 0 },
-                { from: 'review',  to: 'archive', animated: pipeline.drafted > 0 },
-                { from: 'archive', to: 'social',  animated: disseminationTotals.pending > 0 },
-              ]}
-            />
-          </div>
-          <ul className="an-pipeline-legend">
-            <li><span className="dot waiting" />{pipeline.raw} awaiting a publisher</li>
-            <li><span className="dot waiting" />{pipeline.drafted} drafted, awaiting an admin</li>
-            <li><span className="dot ok" />{records.length} published</li>
-            {disseminationTotals.failed > 0 && (
-              <li><span className="dot bad" />{disseminationTotals.failed} post{disseminationTotals.failed === 1 ? '' : 's'} failed to send</li>
-            )}
-          </ul>
-        </div>
-      </Section>
-
       {/* ── 2. Governance & safety ───────────────────────────────────────── */}
       <Section title="Governance & safety" note="Evidence that the safety gate and the review step are actually doing something.">
         <p className="an-empty">Both numbers live in the Overview above — safety and rework are checked in passing, not charted over time.</p>
       </Section>
 
       {/* ── 3. Reach & dissemination ───────────────────────────────────── */}
-      <Section title="Reach & dissemination" note="What was scheduled for social media, and whether it actually went out.">
+      <Section title="Reach & dissemination" note="What was scheduled for social media, and whether it actually went out — X, LinkedIn and Instagram, each on its own.">
+        <div className="an-platform-cards">
+          {platformBreakdown.map((p) => (
+            <div key={p.platform} className={'an-platform-card an-platform-' + p.platform}>
+              <div className="an-platform-head">
+                <span className="an-platform-icon">{PLATFORM_ICON[p.platform]}</span>
+                <strong>{p.label}</strong>
+              </div>
+              <div className="an-platform-stats">
+                <div><span className="an-platform-value">{p.posted}</span><span className="an-platform-label">sent</span></div>
+                <div><span className="an-platform-value">{p.pending}</span><span className="an-platform-label">pending</span></div>
+                <div>
+                  <span className={'an-platform-value' + (p.successRate !== null && p.successRate < 90 ? ' an-platform-warn' : '')}>
+                    {p.successRate !== null ? `${p.successRate}%` : '—'}
+                  </span>
+                  <span className="an-platform-label">success rate</span>
+                </div>
+              </div>
+              {p.failed > 0 && <p className="an-platform-hint">{p.failed} failed to send</p>}
+            </div>
+          ))}
+        </div>
+
         {disseminationByPlatform.length > 0 && (
           <Figure
             title="By platform"
@@ -574,6 +646,61 @@ export function Analytics() {
             </ResponsiveContainer>
           </Figure>
         )}
+
+        <div className="an-figure an-engagement">
+          <figcaption className="an-engagement-head">
+            <div>
+              <h3>Top performing</h3>
+              <p>Which archive records and posts drove the most engagement — real numbers pulled from each platform's own API, not estimated.</p>
+            </div>
+            {(role === 'admin' || role === 'publisher') && (
+              <button type="button" className="an-btn" disabled={refreshingEngagement} onClick={onRefreshEngagement}>
+                <RefreshCw className={'w-3.5 h-3.5' + (refreshingEngagement ? ' an-spin' : '')} />
+                {refreshingEngagement ? 'Checking…' : 'Refresh engagement data'}
+              </button>
+            )}
+          </figcaption>
+
+          {engagementNotice && <p className="an-engagement-notice">{engagementNotice}</p>}
+
+          {postedWithEngagement.length === 0 ? (
+            <p className="an-empty">
+              No engagement data yet. This needs a platform credential configured on the engagement
+              harness (functions/engagement.js) — until then there is nothing real to show here rather
+              than an estimate.
+            </p>
+          ) : (
+            <div className="an-engagement-grid">
+              <div>
+                <h4>Best-performing records</h4>
+                <ol className="an-engagement-list">
+                  {topRecords.map((r) => (
+                    <li key={r.recordIdentifier}>
+                      <span className="an-engagement-name">{r.recordIdentifier}</span>
+                      <span className="an-engagement-score">{r.total} <Heart className="w-3 h-3" /></span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+              <div>
+                <h4>Best-performing posts</h4>
+                <ol className="an-engagement-list">
+                  {topPosts.map((p) => (
+                    <li key={p.id}>
+                      <span className="an-engagement-icon">{PLATFORM_ICON[p.platform]}</span>
+                      <span className="an-engagement-name" title={p.caption}>{p.recordIdentifier}</span>
+                      <span className="an-engagement-breakdown">
+                        <span title="Likes"><Heart className="w-3 h-3" /> {p.engagement!.likes}</span>
+                        <span title="Comments"><MessageCircle className="w-3 h-3" /> {p.engagement!.comments}</span>
+                        <span title="Shares"><Repeat2 className="w-3 h-3" /> {p.engagement!.shares}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+          )}
+        </div>
       </Section>
 
       {/* ── 4. Coverage & currency ─────────────────────────────────────── */}

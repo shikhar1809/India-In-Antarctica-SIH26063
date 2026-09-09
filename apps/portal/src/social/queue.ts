@@ -92,6 +92,33 @@ export interface ScheduledPost {
    *  different claims about the same row. */
   postedVia: 'manual' | SocialPlatform | null;
   error: string | null;
+  /** The platform's own id for this post — a tweet id, a Graph API media
+   *  id, a LinkedIn share URN. X's is derivable from its permalink, but
+   *  Instagram's and LinkedIn's engagement APIs are addressed by id, not by
+   *  the public URL, so those two need this recorded by hand (see
+   *  QueueTab.tsx's "mark as posted" form) before functions/engagement.js
+   *  can look them up at all. Optional, and absent for most rows. */
+  platformPostId?: string | null;
+  /** Real numbers pulled from the platform's own API by
+   *  functions/engagement.js, never estimated or typed in — see that file
+   *  for exactly how each platform is queried and why some entries never
+   *  get one (no credential configured, or no platformPostId to query). */
+  engagement?: EngagementSnapshot | null;
+}
+
+export interface EngagementSnapshot {
+  likes: number;
+  comments: number;
+  /** Retweets/quotes on X, reposts on LinkedIn; Instagram's Graph API does
+   *  not expose a share count at all, so this is 0 there rather than null —
+   *  a real count of a thing the platform doesn't report, not a missing
+   *  value. */
+  shares: number;
+  /** Impressions/views, where the platform reports them; null where it
+   *  doesn't (Instagram, LinkedIn) rather than 0, since 0 views would be a
+   *  claim about the post rather than an admission the API has no number. */
+  views: number | null;
+  fetchedAt: number;
 }
 
 /* ──────────────────────────────────────────────────────────── validation ── */
@@ -301,15 +328,18 @@ export function confirmManualPost(
   post: ScheduledPost,
   externalUrl: string,
   now = Date.now(),
+  platformPostId?: string,
 ): ScheduledPost {
   const url = externalUrl.trim();
   if (!url) return { ...post, error: 'A link to the post is required to mark it sent.' };
+  const id = platformPostId?.trim();
   return {
     ...post,
     status: 'posted',
     postedAt: now,
     postedVia: 'manual',
     externalUrl: url,
+    ...(id ? { platformPostId: id } : {}),
     error: null,
   };
 }

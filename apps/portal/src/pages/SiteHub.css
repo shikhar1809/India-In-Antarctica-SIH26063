@@ -60,3 +60,26 @@
   line-height: 1.55;
   opacity: 0.65;
 }
+
+.sh-card p a { color: #78bfff; }
+
+.sh-clarity-connect {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+  cursor: default;
+}
+
+.sh-clarity-connect input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+.sh-clarity-connect button { flex: 0 0 auto; }

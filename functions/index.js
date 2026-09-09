@@ -145,3 +145,9 @@ exports.api = onRequest({ region: 'asia-south1', cors: true }, async (req, res) 
  * path with a secret, which has nothing in common with this read-only API
  * beyond sharing a deployment. */
 exports.studio = require('./studio').studio;
+
+/* The engagement harness — fetches real like/comment/share counts from
+ * each platform's own API for posts already confirmed sent. See
+ * engagement.js for the credentials it needs and why it is a function
+ * rather than portal-side code. */
+exports.engagement = require('./engagement').engagement;

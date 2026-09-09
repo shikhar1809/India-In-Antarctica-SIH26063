@@ -9,23 +9,111 @@
  *
  * Heatmaps and session recordings live on clarity.microsoft.com — Clarity
  * does not offer a public API to embed them in another page, so this links
- * out to the real dashboard rather than faking an embedded view. Configure
- * `VITE_CLARITY_PROJECT_ID` in apps/public-site's environment (see
- * src/clarity.ts) to turn tracking on and light this card up with the real
- * dashboard link; until then it explains what to do instead of pretending
- * data exists.
+ * out to the real dashboard rather than faking an embedded view.
+ *
+ * The project id is read from `publicSiteData/settings.clarityProjectId` in
+ * Firestore — the same doc apps/public-site's clarity.ts reads to decide
+ * whether to load the tracking snippet at all, so this card and the actual
+ * public site can never disagree about whether Clarity is connected. An
+ * admin pastes their Clarity project id below once; no env var, no
+ * redeploy. Get one free at clarity.microsoft.com — create a project there,
+ * copy its id from Settings → Setup, paste it here.
  */
 
+import { useEffect, useState } from 'react';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Link } from 'react-router-dom';
 import { Activity, Flame, MessageCircleQuestion, PenSquare } from 'lucide-react';
+import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useRole } from '../hooks/useRole';
 import './SiteHub.css';
 
-// Set at build time — same convention as apps/public-site's own env var,
-// read here only to decide whether the heatmap card can link straight to
-// the dashboard or needs to explain the one-time setup step first.
-const CLARITY_PROJECT_ID = import.meta.env.VITE_CLARITY_PROJECT_ID as string | undefined;
+function ClarityCard({ isAdmin }: { isAdmin: boolean }) {
+  const [projectId, setProjectId] = useState<string | null | undefined>(undefined); // undefined = still loading
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, 'publicSiteData', 'settings'));
+        if (cancelled) return;
+        const id = (snap.data()?.clarityProjectId as string | undefined) || null;
+        setProjectId(id);
+        setDraft(id ?? '');
+      } catch {
+        if (!cancelled) setProjectId(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const save = async () => {
+    const trimmed = draft.trim();
+    if (!trimmed) return;
+    setSaving(true); setErr(null);
+    try {
+      await setDoc(doc(db, 'publicSiteData', 'settings'), { clarityProjectId: trimmed }, { merge: true });
+      setProjectId(trimmed);
+    } catch {
+      setErr('Could not save. Check your connection and try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (projectId) {
+    return (
+      <a
+        href={`https://clarity.microsoft.com/projects/view/${projectId}/dashboard`}
+        target="_blank"
+        rel="noreferrer"
+        className="sh-card"
+      >
+        <span className="sh-icon"><Flame className="w-6 h-6" /></span>
+        <strong>View site heatmap</strong>
+        <p>Where visitors click, scroll and drop off — Microsoft Clarity's live dashboard, in a new tab.</p>
+      </a>
+    );
+  }
+
+  return (
+    <div className="sh-card sh-card-disabled">
+      <span className="sh-icon"><Flame className="w-6 h-6" /></span>
+      <strong>View site heatmap</strong>
+      {isAdmin ? (
+        <>
+          <p>
+            Not connected. Create a free project at{' '}
+            <a href="https://clarity.microsoft.com" target="_blank" rel="noreferrer">clarity.microsoft.com</a>,
+            then paste its project id below.
+          </p>
+          <div className="sh-clarity-connect" onClick={(e) => e.preventDefault()}>
+            <input
+              type="text"
+              placeholder="Clarity project id"
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              disabled={projectId === undefined}
+            />
+            <button
+              type="button"
+              className="ph-btn primary"
+              disabled={saving || !draft.trim()}
+              onClick={save}
+            >{saving ? 'Saving…' : 'Connect'}</button>
+          </div>
+          {err && <p className="fld-error">{err}</p>}
+        </>
+      ) : (
+        <p>Not connected yet. An admin can connect this from the Site page.</p>
+      )}
+    </div>
+  );
+}
 
 export function SiteHub() {
   const { user } = useAuth();
@@ -50,28 +138,7 @@ export function SiteHub() {
         </header>
 
         <div className="sh-grid">
-          {CLARITY_PROJECT_ID ? (
-            <a
-              href={`https://clarity.microsoft.com/projects/view/${CLARITY_PROJECT_ID}/dashboard`}
-              target="_blank"
-              rel="noreferrer"
-              className="sh-card"
-            >
-              <span className="sh-icon"><Flame className="w-6 h-6" /></span>
-              <strong>View site heatmap</strong>
-              <p>Where visitors click, scroll and drop off — Microsoft Clarity's live dashboard, in a new tab.</p>
-            </a>
-          ) : (
-            <div className="sh-card sh-card-disabled">
-              <span className="sh-icon"><Flame className="w-6 h-6" /></span>
-              <strong>View site heatmap</strong>
-              <p>
-                Not connected yet. Set <code>VITE_CLARITY_PROJECT_ID</code> in
-                apps/public-site's environment and redeploy the public site —
-                see <code>src/clarity.ts</code>.
-              </p>
-            </div>
-          )}
+          <ClarityCard isAdmin={role === 'admin'} />
 
           {/* Sits right below the heatmap card — both are "how is the site
               doing" questions, distinct from the two content-editing cards
