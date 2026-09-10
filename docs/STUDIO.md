@@ -31,18 +31,24 @@ would have been easy to build a progress animation over a single prompt
 fired at the start; this is not that, and the tests in
 `studio/agent.test.ts` pin the behaviour down.
 
-### The eight steps
+### The eleven steps
 
 | Step | What it really does |
 |---|---|
 | **Reads the brief** | Classifies the content type from the wording and reports the phrases that decided it, with a confidence level |
 | **Searches the archive** | Looks for a published record the brief refers to — by identifier, quoted title, or distinctive keyword overlap |
-| **Works out who it is for** | Infers the audience from the content type, unless the publisher chose one |
-| **Matches the tone** | Same, for tone |
 | **Reads what each platform demands** | Character limits, whether a photograph is required, hashtag conventions — and flags what cannot be satisfied yet |
-| **Learns from posts already sent** | Median caption length per platform and hashtag frequency, computed from posts confirmed sent |
+| **Reads the accounts' analytics** | Followers and 30-day reach per connected account, the best day of the week to post (with how many days of data it rests on), and Instagram's audience by age and place |
+| **Learns from posts already sent** | Real engagement on posts the portal sent — per platform, the best post, the hashtags on the stronger half — plus the house style of earlier captions |
+| **Works out who it is for** | Infers the audience from the content type, unless the publisher chose one, and says who actually follows |
+| **Matches the tone** | Same, for tone |
+| **Checks what people are paying attention to** | Wikipedia daily views for the subject (this week against the month before), recent news coverage, and upcoming observances that fit the topic |
+| **Gathers sources** | Wikipedia background for checking claims, and peer-reviewed papers (OpenAlex) — offered only if they are on the post's subject |
 | **Searches the web for references** | Real image search, with the queries and results shown as they arrive |
 | **Writes three options** | The generation call, given everything above |
+
+Reach, trends and sources each reach the network and each can fail on its
+own: the step says what failed and the run continues without it.
 
 ### Content types
 
@@ -68,6 +74,83 @@ and says it decided. Chosen explicitly, the agent leaves them alone and says
 that too. The distinction is tracked separately from the values themselves,
 so a publisher's deliberate choice is never quietly replaced by an
 inference.
+
+---
+
+## Explainability: every decision has its basis
+
+A post the agent helped write is approved by an admin who did not watch it
+being made. So every step records four things, and shows them:
+
+- **Looked at** — the inputs it examined, with each source linked
+- **Reasoning** — how it got from those to a conclusion
+- **Decision** — what it will do because of it
+- **Confidence** — high, medium or low, stated rather than implied
+
+Findings say how much evidence they rest on. "Sunday is the best day to
+post" is reported as coming from four Sundays of data; a platform with no
+analytics says so instead of borrowing another platform's numbers; a
+Wikipedia page read by four people a day is labelled *too few to read*
+rather than reported as "+100%, rising".
+
+### When it doesn't know, it asks
+
+The agent stops and puts a question to the publisher — with a sentence on
+why it could not decide — instead of guessing:
+
+| Situation | Question |
+|---|---|
+| The wording fits several content types | *What kind of post is this?* |
+| The only archive match is a keyword overlap | *Is this post about “…”?* — the wrong record would put its facts and link in the post |
+| Instagram is selected and there is no photograph | Drop Instagram, or keep it and add a photo |
+| The brief is very short and has no record behind it | *What is the one fact this post has to get across?* |
+| A relevant observance is coming up | *Tie this post to it?* — an editorial call, not the agent's |
+
+The answer changes what follows (a picked content type re-derives audience
+and tone; a declined observance never reaches the writer) and is kept.
+
+### The trace travels with the post
+
+All of it — steps, sources, questions and answers, and **the exact
+instructions the writer received** — is collected into an `AgentTrace`
+([`studio/trace.ts`](../apps/portal/src/studio/trace.ts)) and saved on the
+dispatch as `agentTrace` when the post is submitted. The approve desk renders
+it as *How the agent made this post*
+([`studio/TraceView.tsx`](../apps/portal/src/studio/TraceView.tsx)). The
+redaction table marks it *withheld*: it is review evidence, never published.
+
+### Fences on how research may be used
+
+The research is handed to the writer with rules attached
+([`studio/insight.ts`](../apps/portal/src/studio/insight.ts),
+`researchDirection`), and `insight.test.ts` pins them:
+
+- **Headlines** are context for relevance only — never repeated as facts.
+- **Background** may inform wording; no fact may be added beyond the brief
+  unless the background states it.
+- **Papers** may be cited on LinkedIn by their DOI exactly as given, or not
+  at all — and only papers whose title is on the post's subject reach the
+  writer. A search for "Maitri" returns meteorite-dust papers; those are
+  shown as *rejected as off-topic*, not offered for a glacier survey.
+- **Observances** reach the writer only if the publisher said yes.
+
+### Research providers
+
+All free, none needs a key, every result links to its source
+([`functions/research.js`](../functions/research.js)):
+
+| Provider | Used for |
+|---|---|
+| Wikimedia page views | Public interest: daily views, last 7 days against the 30 before |
+| Google News RSS | The latest coverage of the subject, as a possible hook |
+| Wikipedia summaries | Two-sentence background per subject |
+| OpenAlex | Peer-reviewed papers with DOIs, searched by subject rather than by station |
+| Upload-Post analytics | Account reach and audience (via the `engagement` function, signed-in staff only) |
+
+GDELT was tried first for news and refuses anything faster than one request
+per five seconds per IP, which shared Cloud Functions egress hits
+permanently. Google Trends has no public API. Google News RSS is fine for a
+demonstration; a production deployment should use a licensed news API.
 
 ---
 
@@ -194,29 +277,35 @@ still works end to end on a fresh clone with no credentials.
 | `POST /studio/revise` | text + vision | Applies marked-up notes to the copy |
 | `POST /studio/moderate` | vision | Watermark and suitability check on a photograph |
 | `POST /studio/review` | text | Editorial review for the approvals desk |
+| `POST /studio/trends` | **none** | Wikipedia interest and recent news for the research terms |
+| `POST /studio/sources` | **none** | Wikipedia background and OpenAlex papers |
+| `POST /studio/publish` | **none** | Posts one caption to one platform through Upload-Post — see [SOCIAL.md](SOCIAL.md) |
+| `GET /studio/publish-status` | **none** | Which platforms are genuinely connected |
 
-`/refs` needs no key at all: it is a search proxy, and it exists only
-because those APIs either send no CORS headers or need a key that must not
-ship in a JavaScript bundle.
+`/refs`, `/trends` and `/sources` need no key at all: they are proxies, and
+exist because those APIs either send no CORS headers, want a named user
+agent, or need a key that must not ship in a JavaScript bundle. Research
+results are cached per instance for ten minutes.
 
 ---
 
 ## Pacing
 
-The analysis steps complete in single-digit milliseconds. Eight results
+The analysis steps complete in single-digit milliseconds. Eleven results
 appearing simultaneously reads as a page load, not as reasoning anyone can
-follow, so each step holds for `STEP_DWELL_MS` (1150ms) after its work
+follow, so each step holds for `STEP_DWELL_MS` (1000ms) after its work
 finishes — long enough to read the conclusion, which is the entire point of
 showing it.
 
-A full run takes **25–35 seconds**, most of it genuine network time: three
-live image searches and a generation call. `STEP_DWELL_MS` in
+A full run takes **about 25 seconds** plus however long the publisher takes
+to answer questions — most of it genuine network time: analytics, research,
+three live image searches and a generation call. `STEP_DWELL_MS` in
 `studio/AgentThinking.tsx` is the single number to change if the pacing
 feels wrong.
 
 ---
 
-## Two bugs worth remembering
+## Bugs worth remembering
 
 Both were found by watching the thing run, not by reading it.
 
@@ -239,3 +328,12 @@ agent sat at the foot of a long form; opening the knowledge base pushed it
 half of a wide screen sat empty. The brief is now two columns with a sticky
 action rail. Verifying that a string exists in a deployed bundle is not the
 same as verifying a human can reach it.
+
+**The trace caught the agent being wrong.** The first run of the research
+steps offered *"Probing the nature of extraterrestrial dust … collected from
+the Maitri station"* as further reading for a glacier stake survey at Maitri
+— it had matched on the station name. Nobody would have noticed in a
+finished caption; it was obvious in the trace. Papers are now searched by
+subject, and a title check decides what is on topic. The same run showed
+Maitri's Wikipedia page "rising 100%" on four views a day, which is why
+interest below 50 views a day is now reported as too few to read.

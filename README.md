@@ -35,6 +35,8 @@ field report never leaves the authenticated side.
                                                                   ▼
                                                           Dissemination queue
                                                           → X / LinkedIn / Instagram
+                                                            (posted via Upload-Post,
+                                                             engagement read back)
 
   Anyone           →      Knowledge Repository  →  Admin review  →  Public site
   (deposit a file)        (documents)              (Moderation)     (published)
@@ -42,6 +44,9 @@ field report never leaves the authenticated side.
 
 Two things reach the public, and both are traceable to a source: a **field
 dispatch** or a **repository deposit**. Nothing appears from nowhere.
+
+Every way into the portal passes a sign-in security check, and everything
+done inside it lands in an append-only activity log.
 
 ---
 
@@ -67,16 +72,26 @@ withheld and *why*, and what publishes. The rule table is typed against
 `keyof Dispatch`, so adding a field without deciding its disposition is a
 compile error, not a silent leak.
 
-**The post studio is an agent you can watch.** A publisher writes one line
-about what happened; the studio then classifies the content type from the
-wording and quotes the phrases that decided it, searches the archive for a
-record the brief refers to and pulls its facts in, infers audience and tone
-(never overriding a choice the publisher made), reads what each selected
-platform demands, measures how previous posts were written, and searches the
-web for visual references — showing each decision, and what it is looking
-at, before a word is generated. What the publisher watched it decide is
-literally what the model is then given as its brief. See
-[docs/STUDIO.md](docs/STUDIO.md).
+**The post studio is an agent that explains itself.** A publisher writes
+one line about what happened. Across eleven visible steps the agent
+classifies the content type, finds the archive record behind the brief,
+reads each platform's demands, reads the accounts' real analytics (reach,
+best day to post, who follows), learns from how the portal's own posts
+performed, checks what the public is paying attention to (Wikipedia
+interest, recent news, upcoming observances), gathers sources (Wikipedia
+background, peer-reviewed papers with DOIs) and searches for visual
+references. Every step shows **what it looked at** (linked), **how it
+reasoned**, **what it decided** and **how confident it is**.
+
+Where it cannot decide well — an ambiguous content type, an archive match it
+is unsure of, Instagram with no photograph, a brief too thin to write from,
+an observance the post could be tied to — **it stops and asks the
+publisher**, and says why. The full record, including the exact
+instructions the writer received, is saved with the submission and shown to
+the admin in the approve desk as *How the agent made this post*. Research
+reaches the writer with fences: headlines are context, never facts; papers
+are cited by DOI or not at all, and only if they are on the post's subject.
+See [docs/STUDIO.md](docs/STUDIO.md).
 
 **Marks on the graphic become revisions.** The publisher has the same
 annotator the approvals desk uses, on their own post. Pinned comments and
@@ -96,11 +111,41 @@ current-format data. Old station names, METAR codes and 16-point bearings are
 repaired — and every repair raises a warning shown to the publisher rather than
 being rewritten silently.
 
-**Dissemination with an audit trail.** Scheduled posts are tracked objects with
-a state machine, validated against each platform's limits at schedule time.
-Posting is an adapter: the queue works with no API credential at all (a
-publisher posts and confirms with the permalink), and registering an automatic
-adapter later changes nothing else.
+**Dissemination that actually posts.** Scheduled posts are tracked objects
+with a state machine, validated against each platform's limits at schedule
+time. With an Upload-Post key configured, *Post now* publishes to X,
+LinkedIn and Instagram — one platform per call, so each gets its own
+caption, and a publish that returns no permalink is recorded as a failure,
+never as a success. With no key the queue works by hand, as it always did.
+See [docs/SOCIAL.md](docs/SOCIAL.md).
+
+**Analytics read from the platforms themselves.** The outreach dashboard
+shows each connected account's followers, 30-day reach, week-on-week change
+and (for Instagram) audience by age and place, and — separately — every post
+the portal sent with its own likes, comments, shares and views. Account
+totals and per-post numbers are never added together, metrics are never
+summed across platforms (reach, impressions and page reach are different
+units), and a metric a platform does not report is shown as *not reported*,
+not as zero.
+
+**Roles that mean something.** Scientist, Publisher, Admin and **Site
+Manager** — the last opens the Site section and nothing else, enforced on the
+routes and in the database rules, not just the menu. An admin can **revoke**
+anyone: the rules then refuse that person's own role writes, so the
+self-service role switcher cannot put them back. See
+[docs/ACCESS.md](docs/ACCESS.md).
+
+**A checked entrance.** Every sign-in verifies credentials, asks consent,
+records the IP as the server saw it and the device's location, and checks
+the person has actually been granted a role. An account nobody granted
+access to — or one that was revoked — gets a formal Government of India
+warning and is signed out after five seconds, and the attempt is logged by
+the server.
+
+**An activity log nobody can edit.** Who did what, with which tool, and what
+it changed — including a block-by-block diff of every public-site edit. The
+rules allow an entry to be written only as yourself and on the server's
+clock, and allow nobody, admins included, to edit or delete one.
 
 **Concept search.** "Penguins" finds a record filed as *Wildlife observation*,
 and a typo still lands — a local, instant, domain-vocabulary ranker rather than
@@ -120,13 +165,17 @@ dates traced in `docs/REFERENCES.md`.
 │   ├── game/            PolarQuest — 3D Antarctic station walkthrough (Three.js)
 │   ├── portal/          Internal portal: review, compose, approve, moderate (React)
 │   │   ├── repository/    contract, normalise, summarise, publish, redaction, search
-│   │   ├── social/        dissemination queue, scheduling, platform adapters
-│   │   ├── studio/        agentic post studio: analyse → reference → write → mark up → check
+│   │   ├── social/        dissemination queue, scheduling, Upload-Post adapter, analytics client
+│   │   ├── studio/        agentic post studio: analyse → research → reference → write → mark up → check
+│   │   │                    insight.ts (reach, performance, trends, sources), trace.ts (the agent's record)
 │   │   ├── review/        annotation tools and the approvals desk's checks
-│   │   └── security/      rules regression guard
+│   │   ├── audit/         activity log writer and the site-editor diff
+│   │   └── security/      sign-in check client and the rules regression guard
 │   ├── public-site/     Public outreach site and Knowledge Repository (React)
 │   └── scientist-app/   Field data capture, offline-first (Flutter + SQLite)
-├── functions/           Public read API, studio agent, image search (Cloud Functions, Node 22)
+├── functions/           Cloud Functions (Node 22, asia-south1):
+│                          api (public read API) · studio (copy, refs, research, review, publish)
+│                          engagement (analytics) · access (sign-in check)
 ├── scripts/             Ingestion, verification and seeding
 │   └── lib/             Shared REST + credential helpers
 ├── docs/                Architecture, data model, API, testing, deployment
@@ -153,6 +202,36 @@ Roles are stored in `roles/{uid}`. To grant one from the command line:
 node scripts/set-role.mjs <uid|email> admin
 ```
 
+### Configuration
+
+Everything works on a fresh clone with no credentials — each integration
+degrades to a working manual path. To turn them on, set these in
+`functions/.env` (gitignored) or with `firebase functions:secrets:set`:
+
+| Variable | Turns on |
+|---|---|
+| `GEMINI_API_KEY` | Caption generation, A/B judgement, markup revisions, the photograph check |
+| `UPLOAD_POST_API_KEY`, `UPLOAD_POST_PROFILE` | Posting to X, LinkedIn and Instagram, and reading their analytics |
+| `GOOGLE_CSE_KEY`, `GOOGLE_CSE_CX` | Google as an extra visual-reference provider |
+
+No key is ever shipped to the browser.
+
+### Seeing screens without signing in
+
+`npm run dev:portal` serves dev-only routes that render the real components
+against fixtures — useful because nearly everything else sits behind Google
+sign-in:
+
+| Route | Shows |
+|---|---|
+| `/__studio` | The full compose flow and agent, against a mock dispatch (hits the live functions) |
+| `/__analytics` | The outreach dashboard, synthetic data |
+| `/__access` | The activity log and the revoke control |
+| `/__securitycheck?status=granted\|unassigned\|revoked` | The sign-in check |
+| `/__canvas`, `/__recordeditor` | Every post template; the raw/redacted record editor |
+
+All are excluded from production builds.
+
 ## Verifying it works
 
 ```bash
@@ -161,7 +240,7 @@ npm test                   # everything below, in order
 
 | Command | What it proves |
 |---|---|
-| `npm run test:unit` | 246 unit tests over normalisation, outreach drafting, the public projection, redaction, the studio agent's classification and archive detection, concept search, the dissemination queue and the rules |
+| `npm run test:unit` | 274 unit tests over normalisation, outreach drafting, the public projection, redaction, the studio agent's classification, archive detection and research findings (reach, performance, trends, off-topic paper rejection, the fences on how research may be used), the site-editor diff, concept search, the dissemination queue, and the rules — including that the activity log is append-only and a revoked account cannot restore itself |
 | `npm run test:pipeline` | A legacy-format dispatch travels the real pipeline, publishes, and reads back |
 | `npm run test:api` | Against the **deployed** project: the repository is public, raw dispatches are not |
 | `npm run test:e2e` | A real browser: the site renders live data, charts draw, no console errors |
@@ -182,11 +261,18 @@ curl https://asia-south1-indiainantartica.cloudfunctions.net/api/stats
 
 Full reference in [docs/API.md](docs/API.md).
 
-The studio's own endpoints (`/studio/copy`, `/refs`, `/abtest`, `/revise`,
-`/moderate`) are authenticated-side tooling rather than public API, and are
-documented in [docs/STUDIO.md](docs/STUDIO.md). With no `GEMINI_API_KEY`
-configured they return 503 and the studio falls back to an offline template
-draft, so the whole flow still works on a fresh clone with no credentials.
+The portal's own endpoints are authenticated-side tooling rather than public
+API:
+
+| Function | Routes | Documented in |
+|---|---|---|
+| `studio` | `/copy`, `/refs`, `/abtest`, `/revise`, `/moderate`, `/review`, `/trends`, `/sources`, `/publish`, `/publish-status` | [STUDIO.md](docs/STUDIO.md), [SOCIAL.md](docs/SOCIAL.md) |
+| `engagement` | `GET` account analytics · `POST` per-post engagement refresh | [SOCIAL.md](docs/SOCIAL.md) |
+| `access` | `GET` caller's IP · `POST` sign-in check and log entry | [ACCESS.md](docs/ACCESS.md) |
+
+With no `GEMINI_API_KEY` configured the model-backed studio routes return 503
+and the studio falls back to an offline template draft, so the whole flow
+still works on a fresh clone with no credentials.
 
 ## Documentation
 
@@ -195,12 +281,35 @@ draft, so the whole flow still works on a fresh clone with no credentials.
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the apps fit together, why publishing is a projection, how dissemination works |
 | [DATA-MODEL.md](docs/DATA-MODEL.md) | Collections, the shared vocabulary, and the metadata profile |
 | [API.md](docs/API.md) | The public read API |
-| [STUDIO.md](docs/STUDIO.md) | The agentic post studio: what the agent works out, the image providers, markup, A/B, the photograph check |
+| [STUDIO.md](docs/STUDIO.md) | The agentic post studio: the eleven steps, research, explainability and when it asks, the image providers, markup, A/B, the photograph check |
+| [SOCIAL.md](docs/SOCIAL.md) | Posting to X, LinkedIn and Instagram, reading analytics back, the outreach dashboard |
+| [ACCESS.md](docs/ACCESS.md) | Roles, Site Manager, revoking, the sign-in security check, the activity log and what its rules guarantee |
 | [SCIENTIST-APP.md](docs/SCIENTIST-APP.md) | The Flutter field app: capture, offline sync, validation |
 | [TESTING.md](docs/TESTING.md) | What is tested, what isn't, and why |
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Deploying each target, and seeding |
 | [WORKFLOW.md](docs/WORKFLOW.md) | Research into how real Antarctic programmes handle data |
 | [REFERENCES.md](docs/REFERENCES.md) | Source trace for every modelled station asset |
+
+## Known limits
+
+Stated plainly, because a reviewer will find them anyway:
+
+- **The role switcher is self-service.** Any signed-in user can set their own
+  role — it is how all four roles are demonstrated from one browser. Revoked
+  accounts are locked out of it by the rules, but a production deployment
+  would remove it.
+- **Tool entries in the activity log are written by the portal**, so a
+  modified client could skip one. Sign-in checks are written server side and
+  cannot be. Firestore triggers would close the gap.
+- **The connected social accounts in the demo are the team's own**, not
+  NCPOR's; the numbers are real but describe those accounts. Connecting
+  NCPOR's accounts in Upload-Post needs no code change.
+- **LinkedIn gives no per-post metrics for personal-profile posts** — only
+  for company pages. The dashboard shows LinkedIn's own reason.
+- **News comes from Google News RSS**, which is fine for a demonstration; a
+  production system should use a licensed news API.
+- **Uptime history on the Site page is mocked** until a real monitor is
+  connected, and says so.
 
 ## Licence and attribution
 
@@ -209,7 +318,9 @@ CC BY 4.0. Ozone measurements are reproduced from the WOUDC under its terms —
 free for scientific, educational and policy use provided the contributing
 agency (IMD) and the WOUDC are credited, which every exported file and record
 does. Station photography is sourced from Wikimedia Commons and credited per
-image. Visual references surfaced in the studio are shown with their licence
+image. The studio's research links every source it used: Wikipedia (CC
+BY-SA), OpenAlex (CC0 metadata) and news publishers, whose headlines are
+shown as links, never republished. Visual references surfaced in the studio are shown with their licence
 and a link to the source, and are reference material — nothing is baked into
 a published graphic on the agent's own initiative. Station models are traced to published sources in
 [REFERENCES.md](docs/REFERENCES.md).
