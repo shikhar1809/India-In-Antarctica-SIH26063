@@ -95,7 +95,13 @@ async function send(post: ScheduledPost): Promise<PostResult> {
       return { ok: false, error: 'Published, but no link came back — confirm it by hand.' };
     }
 
-    return { ok: true, externalUrl: body.url };
+    return {
+      ok: true,
+      externalUrl: body.url,
+      // Instagram's metrics are addressed by this id and nothing else, so it
+      // is kept with the row rather than dropped once the link is known.
+      platformPostId: body.postId ? String(body.postId) : undefined,
+    };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'Could not reach the publisher.' };
   }

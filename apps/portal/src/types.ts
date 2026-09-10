@@ -1,4 +1,5 @@
 import type { Annotation } from './review/annotations';
+import type { AgentTrace } from './studio/trace';
 
 export const CATEGORIES = [
   'Expedition Report',
@@ -271,6 +272,11 @@ export interface Dispatch {
     describes: string;
     concerns: { severity: 'caution' | 'blocker'; label: string; detail: string }[];
   } | null;
+  /** The studio agent's account of how this post was made — every source
+   *  it consulted, its reasoning and decisions, the questions it put to the
+   *  publisher and their answers, and the writer's exact instructions. See
+   *  studio/trace.ts. Null or absent when the agent was not used. */
+  agentTrace?: AgentTrace | null;
   createdAt: number;
   updatedAt: number;
   /** Set by the approve desk alongside `status: 'approved'` — the id and

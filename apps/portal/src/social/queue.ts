@@ -93,17 +93,22 @@ export interface ScheduledPost {
   postedVia: 'manual' | SocialPlatform | null;
   error: string | null;
   /** The platform's own id for this post — a tweet id, a Graph API media
-   *  id, a LinkedIn share URN. X's is derivable from its permalink, but
-   *  Instagram's and LinkedIn's engagement APIs are addressed by id, not by
-   *  the public URL, so those two need this recorded by hand (see
-   *  QueueTab.tsx's "mark as posted" form) before functions/engagement.js
-   *  can look them up at all. Optional, and absent for most rows. */
+   *  id, a LinkedIn share URN. Stored automatically when the Upload-Post
+   *  adapter sends it; recorded by hand on the "mark as posted" form for a
+   *  post sent manually. X's and LinkedIn's are also recoverable from the
+   *  permalink, but Instagram's is not — its permalink carries a shortcode
+   *  the Graph API cannot look up — so without this an Instagram post's
+   *  metrics can never be fetched. */
   platformPostId?: string | null;
   /** Real numbers pulled from the platform's own API by
    *  functions/engagement.js, never estimated or typed in — see that file
    *  for exactly how each platform is queried and why some entries never
    *  get one (no credential configured, or no platformPostId to query). */
   engagement?: EngagementSnapshot | null;
+  /** Why the platform has no numbers for this post, in its own words —
+   *  e.g. LinkedIn only reports per-post metrics for company-page posts.
+   *  Written by functions/engagement.js; cleared once numbers arrive. */
+  engagementNote?: string | null;
 }
 
 export interface EngagementSnapshot {
@@ -118,6 +123,10 @@ export interface EngagementSnapshot {
    *  doesn't (Instagram, LinkedIn) rather than 0, since 0 views would be a
    *  claim about the post rather than an admission the API has no number. */
   views: number | null;
+  /** Unique accounts reached, where the platform separates it from views. */
+  reach?: number | null;
+  /** Saves (Instagram) or bookmarks (X). */
+  saves?: number | null;
   fetchedAt: number;
 }
 
@@ -239,6 +248,9 @@ export function schedulePost(
 export interface PostResult {
   ok: boolean;
   externalUrl?: string;
+  /** The platform's own id for the post, when the adapter learns it. It is
+   *  what engagement is fetched by, so it is kept, not discarded. */
+  platformPostId?: string;
   error?: string;
 }
 
@@ -312,6 +324,8 @@ export async function sendPost(post: ScheduledPost, now = Date.now()): Promise<S
         postedAt: now,
         postedVia: post.platform,
         externalUrl: result.externalUrl ?? null,
+        // Firestore rejects undefined, so an absent id is written as null.
+        platformPostId: result.platformPostId ?? post.platformPostId ?? null,
         error: null,
       };
     }

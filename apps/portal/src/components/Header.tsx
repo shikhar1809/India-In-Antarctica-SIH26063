@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useRole, assignRole } from '../hooks/useRole';
 import type { Role } from '../hooks/useRole';
 import { useState } from 'react';
+import { logActivity } from '../audit/log';
 import './Header.css';
 
 const ROLE_LABEL: Record<Role, string> = {
@@ -14,7 +15,7 @@ const ROLE_LABEL: Record<Role, string> = {
 
 function RoleSwitcher() {
   const { user } = useAuth();
-  const { role } = useRole();
+  const { role, revoked } = useRole();
   const [switching, setSwitching] = useState(false);
 
   const switchRole = async (r: Role) => {
@@ -23,13 +24,18 @@ function RoleSwitcher() {
     try {
       await assignRole(user.uid, r, {
         email: user.email, displayName: user.displayName, photoURL: user.photoURL,
-      });
+      }, { resetPermissions: true });
+      void logActivity({ tool: 'Role switcher', action: `Switched own role to ${ROLE_LABEL[r]}`, changes: [`${ROLE_LABEL[role]} → ${ROLE_LABEL[r]}`] });
     } finally { setSwitching(false); }
   };
 
+  // An admin revoked this account: the rules refuse its own role writes, so
+  // offering a switcher that can only fail would just be confusing.
+  if (revoked) return <span className="ph-role-revoked" title="An admin has revoked your access">Access revoked</span>;
+
   return (
     <div className="ph-role-switcher" title="Switch your portal role">
-      {(['publisher', 'admin'] as Role[]).map((r) => (
+      {(['publisher', 'admin', 'site_manager'] as Role[]).map((r) => (
         <button
           key={r}
           className={'ph-role-opt' + (role === r ? ' active' : '')}
@@ -51,16 +57,20 @@ export function Header() {
   // Media (the review/approve desk) stays scoped to the two roles that have
   // always had it — a site manager is scoped to the public site, not to
   // dispatch review, unless an admin also makes them a publisher/admin.
+  // "Menu" (the staff console) is theirs alone too.
   const isStaff = role === 'publisher' || role === 'admin';
-  // "Menu" vs "Home" and staff-shaped chrome extend to site managers too:
-  // they land on a working console, just a narrower one.
-  const isConsole = isStaff || role === 'site_manager';
+  const isConsole = isStaff;
   const canSeeSite = role === 'admin' || permissions.siteAccess;
+  // A site manager's portal is the Site section. Home and Archive only
+  // appear if an admin has explicitly opened the archive to them on the
+  // Access page — App.tsx enforces the same thing on the routes.
+  const siteOnly = role === 'site_manager';
+  const canSeeArchive = !siteOnly || permissions.archiveAccess !== 'none';
 
   return (
     <header className="ph-header">
       <div className="ph-header-inner">
-        <NavLink to="/" className="ph-brand">
+        <NavLink to={siteOnly ? '/site' : '/'} className="ph-brand">
           <img src="/logo.png" alt="IIA" className="ph-brand-mark" />
           <span className="ph-brand-text">Outreach Portal</span>
         </NavLink>
@@ -69,10 +79,14 @@ export function Header() {
           {/* Publishers and admins land on a working console rather than a
               landing page, so "Menu" describes it better than "Home". A
               scientist still sees a home page, and still calls it that. */}
-          <NavLink to="/" end className={({ isActive }) => isActive ? 'active' : ''}>
-            {isConsole ? 'Menu' : 'Home'}
-          </NavLink>
-          <NavLink to="/repository" className={({ isActive }) => isActive ? "active" : ""}>Archive</NavLink>
+          {!siteOnly && (
+            <NavLink to="/" end className={({ isActive }) => isActive ? 'active' : ''}>
+              {isConsole ? 'Menu' : 'Home'}
+            </NavLink>
+          )}
+          {canSeeArchive && (
+            <NavLink to="/repository" className={({ isActive }) => isActive ? "active" : ""}>Archive</NavLink>
+          )}
           {user && isStaff && (
             /* Media is a hub, not a direct link to the review desk — it
                opens on a choice of Track analytics / Manage media rather

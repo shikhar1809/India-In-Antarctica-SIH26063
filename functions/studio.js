@@ -31,6 +31,7 @@ const { onRequest } = require('firebase-functions/v2/https');
 const review = require('./review');
 const agent = require('./studioagent');
 const publisher = require('./publishpost');
+const research = require('./research');
 
 const MODEL = 'gemini-2.5-flash';
 const ENDPOINT = (model) =>
@@ -111,7 +112,7 @@ WRITE FOR: ${AUDIENCE_BRIEF[audience] || AUDIENCE_BRIEF.public}
 TONE: ${TONE_BRIEF[tone] || TONE_BRIEF.plain}
 ${direction ? `
 WHAT THE STUDIO WORKED OUT ABOUT THIS POST
-${String(direction).slice(0, 2000)}
+${String(direction).slice(0, 6000)}
 ` : ''}
 
 Produce exactly three variants, each taking a genuinely different editorial angle:
@@ -252,6 +253,11 @@ exports.studio = onRequest(
      * credential — the social publishing key — and has nothing to do with
      * the generator beyond sharing this deployment. */
     if (path === '/publish') return publisher.handle(req, res);
+
+    /* The agent's research — public interest, recent coverage, background
+     * and papers. No model and no key; see research.js. */
+    if (path === '/trends') return research.handleTrends(req, res);
+    if (path === '/sources') return research.handleSources(req, res);
 
     if (path !== '/copy' && path !== '/') {
       return res.status(404).json({ error: 'Unknown endpoint.' });

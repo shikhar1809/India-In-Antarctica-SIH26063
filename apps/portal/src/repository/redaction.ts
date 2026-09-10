@@ -81,6 +81,7 @@ export const FIELD_RULES: Record<keyof Dispatch, FieldRule> = {
   publicSummary:  { label: 'Public summary', disposition: 'transformed', reason: 'This is the text written for publication. It becomes the record’s abstract.' },
   postDesign:     { label: 'Post design', disposition: 'withheld', reason: 'Layout choices for a social graphic. Nothing to do with the record.' },
   photoCheck:     { label: 'Automated photograph check', disposition: 'withheld', reason: 'The pre-publication check on the photograph — what a vision model saw in it and any concerns it raised. Internal review evidence for the approver, and a description of an image is not something the public record needs.' },
+  agentTrace:     { label: 'Agent reasoning record', disposition: 'withheld', reason: 'How the studio agent made the post — the sources it consulted, its reasoning, the questions it asked the publisher and the instructions given to the writer. Review evidence for the approver; the public sees the post, not the working behind it.' },
   adminNotes:     { label: 'Admin notes', disposition: 'withheld', reason: 'Written by reviewers about the submission, sometimes about the person who filed it. Never published under any circumstances.' },
   createdAt:      { label: 'Filed at', disposition: 'internal', reason: 'When the dispatch was submitted, as distinct from when the observation was made.' },
   updatedAt:      { label: 'Last edited', disposition: 'internal', reason: 'When the dispatch was last edited in the portal. A pipeline timestamp, not a fact about the observation.' },

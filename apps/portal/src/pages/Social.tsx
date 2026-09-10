@@ -6,6 +6,7 @@ import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useDispatches } from '../hooks/useDispatches';
 import { useRole } from '../hooks/useRole';
+import { logActivity } from '../audit/log';
 import type { Dispatch, DispatchStatus, DispatchPriority, WeatherObs, PlatformCaptions } from '../types';
 import { MEASUREMENT_SCHEMA } from '../types';
 import { normaliseDispatch } from '../repository/normalise';
@@ -18,6 +19,8 @@ import { QueueTab } from '../social/QueueTab';
 import { ScheduleDialog } from '../social/ScheduleDialog';
 import { Studio } from '../studio/Studio';
 import { PostCanvas } from '../studio/PostCanvas';
+import { TraceView } from '../studio/TraceView';
+import '../studio/AgentThinking.css';
 import { exportPng } from '../studio/export';
 import { paletteById } from '../studio/brand';
 import type { PlatformId } from '../studio/brand';
@@ -553,6 +556,10 @@ function ApproveTab({ items }: { items: Dispatch[] }) {
         publicIdentifier: identifier,
         updatedAt: Date.now(),
       });
+      void logActivity({
+        tool: 'Approve desk', action: 'Approved and published a field record', target: identifier,
+        changes: [`“${record.title}” is now in the public archive`],
+      });
       if (andSchedule) setScheduleFor(record);
       setActiveId(null); setAi(null);
     } catch (e) {
@@ -763,6 +770,16 @@ function ApproveTab({ items }: { items: Dispatch[] }) {
               </button>
             );
           })()}
+
+          {/* The agent's record, so the approver sees how the post was
+              made rather than taking three finished captions on trust. */}
+          {active.agentTrace ? (
+            <div className="ad-block">
+              <TraceView trace={active.agentTrace} audience="admin" />
+            </div>
+          ) : active.postDesign ? (
+            <p className="ad-empty">Written without the studio agent — there is no reasoning record for this post.</p>
+          ) : null}
 
           {summary ? (
             <div className="ad-block">

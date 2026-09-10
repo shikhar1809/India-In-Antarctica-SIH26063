@@ -1,0 +1,248 @@
+/* Activity log — the right-hand column of the Access page. Sticky, and
+   scrolls inside itself, so the team table on the left never moves while
+   an admin reads back through history. */
+
+.al-panel {
+  position: sticky;
+  top: 84px;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 110px);
+  padding: 18px 18px 8px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(15, 39, 64, 0.72), rgba(13, 32, 51, 0.6));
+  overflow-y: auto;
+}
+
+.al-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+.al-head h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.al-count { font-size: 12px; color: var(--ice-faint); }
+
+.al-sub { margin: 4px 0 14px; font-size: 12.5px; color: var(--ice-faint); line-height: 1.45; }
+
+.al-empty {
+  display: flex;
+  gap: 8px;
+  margin: 6px 0 14px;
+  font-size: 13px;
+  color: var(--ice-faint);
+  line-height: 1.5;
+}
+
+.al-empty svg { flex: 0 0 auto; margin-top: 2px; }
+
+/* ── Tools used ─────────────────────────────────────────────────────────── */
+
+.al-people h3 {
+  margin: 0 0 8px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+}
+
+.al-people ul { margin: 0 0 14px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+
+.al-people li {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(6, 16, 25, 0.35);
+}
+
+.al-person {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.al-person-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.al-person-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.al-person-email { font-size: 11.5px; color: var(--ice-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.al-people li:has(.al-person.is-active) { border-color: rgba(95, 217, 255, 0.5); }
+
+.al-tool-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+
+/* ── Chips ──────────────────────────────────────────────────────────────── */
+
+.al-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(150, 200, 240, 0.08);
+  color: var(--ice-dim);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.al-tool b { color: var(--ice); font-weight: 600; }
+.al-tool.is-site { background: rgba(63, 185, 80, 0.12); color: #7fdc8f; }
+
+.al-role {
+  flex: 0 0 auto;
+  padding: 1px 7px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--ice-faint);
+}
+
+/* Same role colours as the team table's badges. */
+.al-role.role-admin        { color: #f0b429; }
+.al-role.role-publisher    { color: #58a6ff; }
+.al-role.role-site_manager { color: #3fb950; }
+.al-role.role-scientist    { color: #9fbdd6; }
+
+.al-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(95, 217, 255, 0.12);
+  color: var(--cyan);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.al-avatar.sm { width: 26px; height: 26px; font-size: 10px; }
+
+/* ── Filters + timeline ────────────────────────────────────────────────── */
+
+.al-filters {
+  position: sticky;
+  top: -18px;
+  z-index: 1;
+  display: flex;
+  gap: 8px;
+  margin: 0 -18px;
+  padding: 10px 18px;
+  background: #0d2033;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.al-filters select {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: rgba(6, 16, 25, 0.6);
+  color: var(--ice);
+  font-size: 12.5px;
+}
+
+.al-list { margin: 0; padding: 4px 0 0; list-style: none; }
+
+.al-entry {
+  display: flex;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(150, 200, 240, 0.08);
+}
+
+.al-entry:last-child { border-bottom: 0; }
+
+.al-body { flex: 1; min-width: 0; }
+
+.al-line { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.al-name { font-size: 13px; }
+.al-time { margin-left: auto; font-size: 11.5px; color: var(--ice-faint); white-space: nowrap; }
+.al-email { font-size: 11.5px; color: var(--ice-faint); margin-top: 1px; }
+
+.al-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--ice);
+}
+
+.al-target { color: var(--ice-dim); overflow-wrap: anywhere; }
+
+.al-changes {
+  margin: 6px 0 0;
+  padding: 7px 10px 7px 22px;
+  border-radius: 8px;
+  background: rgba(6, 16, 25, 0.45);
+  font-size: 12px;
+  color: var(--ice-dim);
+  line-height: 1.55;
+}
+
+.al-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cyan);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.al-more svg { transition: transform 0.15s; }
+.al-more svg.is-open { transform: rotate(180deg); }
+
+@media (max-width: 1100px) {
+  .al-panel { position: static; max-height: none; }
+  .al-filters { position: static; }
+}
+
+/* ── Security: sign-in checks and refused attempts ─────────────────────── */
+
+.al-tool.is-security { background: rgba(95, 217, 255, 0.12); color: #8fe3ff; }
+.al-tool.is-alert { background: rgba(255, 106, 106, 0.16); color: #ffb3b3; }
+
+.al-entry.is-alert {
+  margin: 4px -10px;
+  padding: 12px 10px;
+  border: 1px solid rgba(255, 106, 106, 0.45);
+  border-radius: 10px;
+  background: rgba(255, 106, 106, 0.07);
+}
+
+.al-entry.is-alert .al-action > span:nth-child(2) { color: #ffb3b3; font-weight: 600; }
+
+.al-count { display: inline-flex; align-items: center; gap: 8px; }
+
+.al-alert-count {
+  padding: 2px 8px;
+  border: 1px solid rgba(255, 106, 106, 0.55);
+  border-radius: 999px;
+  background: rgba(255, 106, 106, 0.12);
+  color: #ffb3b3;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}

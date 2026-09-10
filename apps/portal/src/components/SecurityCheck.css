@@ -1,0 +1,282 @@
+/* The sign-in security check — a government sign-in page, and styled as
+   one: a masthead, a formal card, a progress indicator and a details table.
+   The only motion is the spinner on the step in progress and results
+   fading in as they arrive. */
+
+.sc-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+  overflow-y: auto;
+  background: var(--ink);
+}
+
+.sc-card {
+  width: min(560px, 100%);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: #0b1c2e;
+  overflow: hidden;
+}
+
+/* The national colours along the top edge, as on government portals. */
+.sc-tricolour { display: flex; height: 4px; }
+.sc-tricolour i { flex: 1; }
+.sc-tricolour i:nth-child(1) { background: #ff9933; }
+.sc-tricolour i:nth-child(2) { background: #ffffff; }
+.sc-tricolour i:nth-child(3) { background: #138808; }
+
+/* ── Masthead ──────────────────────────────────────────────────────────── */
+
+.sc-mast {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--line);
+  background: #0e2236;
+}
+
+.sc-logo { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; }
+
+.sc-mast > div { display: flex; flex-direction: column; line-height: 1.3; }
+.sc-mast-gov { font-size: 11.5px; color: var(--ice-dim); }
+.sc-mast-org { font-size: 14px; font-weight: 600; color: var(--ice); }
+.sc-mast-portal { font-size: 12px; color: var(--ice-faint); }
+
+/* ── Body ──────────────────────────────────────────────────────────────── */
+
+.sc-body { padding: 22px 24px 20px; }
+
+.sc-body h1 {
+  margin: 0 0 6px;
+  font-family: var(--font-ui);
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--ice);
+}
+
+.sc-lede { margin: 0 0 20px; font-size: 13.5px; line-height: 1.6; color: var(--ice-dim); }
+.sc-lede strong { color: var(--ice); font-weight: 600; }
+
+/* ── Progress steps ────────────────────────────────────────────────────── */
+
+.sc-steps {
+  display: flex;
+  margin: 0 0 22px;
+  padding: 0;
+  list-style: none;
+}
+
+.sc-step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1 1 0;
+  min-width: 0;
+  gap: 7px;
+}
+
+/* The line joining this step to the previous one. */
+.sc-step + .sc-step::before {
+  content: '';
+  position: absolute;
+  top: 13px;
+  right: calc(50% + 18px);
+  width: calc(100% - 36px);
+  height: 2px;
+  background: rgba(150, 200, 240, 0.18);
+}
+
+.sc-step.is-done::before,
+.sc-step.is-warn::before,
+.sc-step.is-fail::before,
+.sc-step.is-running::before { background: #3f9f75; transition: background 0.3s; }
+
+.sc-step-mark {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(150, 200, 240, 0.3);
+  background: #0b1c2e;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ice-faint);
+  transition: background 0.25s, border-color 0.25s, color 0.25s;
+}
+
+.sc-step-label { font-size: 12px; color: var(--ice-faint); text-align: center; }
+
+.sc-step.is-running .sc-step-mark { border-color: var(--ice); color: var(--ice); }
+.sc-step.is-running .sc-step-label { color: var(--ice); font-weight: 600; }
+.sc-step.is-done .sc-step-mark { border-color: #3f9f75; background: #3f9f75; color: #fff; }
+.sc-step.is-done .sc-step-label { color: var(--ice-dim); }
+.sc-step.is-warn .sc-step-mark { border-color: #d9a322; background: #d9a322; color: #1b1400; }
+.sc-step.is-warn .sc-step-label { color: var(--ice-dim); }
+.sc-step.is-fail .sc-step-mark { border-color: #d64545; background: #d64545; color: #fff; }
+.sc-step.is-fail .sc-step-label { color: #f0a0a0; }
+
+/* ── Details table ─────────────────────────────────────────────────────── */
+
+.sc-details {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.sc-details caption {
+  padding: 0 0 8px;
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+}
+
+.sc-details th,
+.sc-details td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.sc-details tr:last-child th,
+.sc-details tr:last-child td { border-bottom: 0; }
+
+.sc-details th {
+  width: 34%;
+  font-weight: 500;
+  color: var(--ice-dim);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.sc-details td { color: var(--ice); overflow-wrap: anywhere; }
+
+.sc-value { animation: sc-fade 0.3s ease-out; }
+.sc-details tr.is-warn .sc-value { color: #e8c15a; }
+.sc-details tr.is-fail .sc-value { color: #f0a0a0; font-weight: 600; }
+.sc-details tr.is-done:last-child .sc-value { color: #7fd1a8; font-weight: 600; }
+
+.sc-pending { display: inline-flex; align-items: center; gap: 8px; color: var(--ice-faint); }
+
+.sc-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(150, 200, 240, 0.25);
+  border-top-color: var(--ice);
+  border-radius: 50%;
+  animation: sc-spin 0.8s linear infinite;
+}
+
+@keyframes sc-spin { to { transform: rotate(360deg); } }
+@keyframes sc-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── Consent and result ────────────────────────────────────────────────── */
+
+.sc-consent {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  animation: sc-fade 0.25s ease-out;
+}
+
+.sc-consent strong { font-size: 14px; color: var(--ice); }
+.sc-consent p { margin: 6px 0 14px; font-size: 13px; line-height: 1.6; color: var(--ice-dim); }
+
+.sc-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.sc-actions-split { justify-content: space-between; align-items: center; gap: 16px; margin-top: 18px; }
+
+.sc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ice);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sc-btn:hover { background: rgba(255, 255, 255, 0.05); }
+.sc-btn.primary { border-color: #1f6fb2; background: #1f6fb2; color: #fff; }
+.sc-btn.primary:hover { background: #2479c2; }
+.sc-btn.danger { border-color: #b33a3a; background: #b33a3a; color: #fff; }
+.sc-btn.danger:hover { background: #c24545; }
+
+.sc-granted {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 10px 14px;
+  border: 1px solid rgba(63, 159, 117, 0.55);
+  border-radius: 6px;
+  background: rgba(63, 159, 117, 0.1);
+  font-size: 13.5px;
+  color: #b9e6cf;
+  animation: sc-fade 0.25s ease-out;
+}
+
+.sc-granted svg { color: #3f9f75; }
+.sc-granted strong { color: #fff; }
+
+.sc-foot {
+  padding: 12px 24px;
+  border-top: 1px solid var(--line);
+  background: #0e2236;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--ice-faint);
+  text-align: center;
+}
+
+/* ── The warning ───────────────────────────────────────────────────────── */
+
+.sc-card.is-denied { width: min(600px, 100%); border-color: rgba(214, 69, 69, 0.6); }
+
+.sc-warning-band {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  background: #8f2626;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sc-card.is-denied h1 { color: #fff; }
+.sc-card.is-denied .sc-details { margin-top: 4px; }
+.sc-note { margin: 14px 0 0; font-size: 12.5px; color: var(--ice-faint); }
+
+.sc-countdown { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--ice-dim); min-width: 200px; }
+.sc-countdown-bar { display: block; height: 3px; background: rgba(214, 69, 69, 0.25); overflow: hidden; }
+.sc-countdown-bar span { display: block; height: 100%; background: #d64545; transform-origin: left; animation: sc-drain linear forwards; }
+@keyframes sc-drain { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+@media (max-width: 480px) {
+  .sc-mast, .sc-body { padding-left: 16px; padding-right: 16px; }
+  .sc-step-label { font-size: 11px; }
+  .sc-details th { width: 38%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-screen *, .sc-screen *::before { animation: none !important; transition: none !important; }
+}

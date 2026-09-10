@@ -12,6 +12,8 @@ export interface RosterEntry {
   archiveAccess?: ArchiveAccess;
   siteAccess?: boolean;
   analyticsAccess?: boolean;
+  /** Set by revokeAccess(); cleared when an admin assigns a role again. */
+  revoked?: boolean;
 }
 
 /** Everyone with an assignment in `roles/{uid}` — the admin-facing roster.

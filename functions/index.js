@@ -151,3 +151,7 @@ exports.studio = require('./studio').studio;
  * engagement.js for the credentials it needs and why it is a function
  * rather than portal-side code. */
 exports.engagement = require('./engagement').engagement;
+
+/* The sign-in security check — the caller's real IP, the access decision,
+ * and a server-written activity-log entry for every visit. See access.js. */
+exports.access = require('./access').access;

@@ -1,4 +1,18 @@
-.rp-page { padding-bottom: 64px; }
+.rp-page { padding-bottom: 64px; max-width: 1360px; }
+
+/* Team on the left, the activity log on the right. */
+.rp-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 800px) minmax(340px, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.rp-grid .rt-pane { max-width: none; }
+
+@media (max-width: 1100px) {
+  .rp-grid { grid-template-columns: 1fr; }
+}
 
 .rp-head { margin-bottom: 24px; }
 .rp-head h1 { margin: 0 0 6px; font-size: 1.45rem; font-weight: 600; }

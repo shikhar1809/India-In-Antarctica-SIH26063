@@ -13,6 +13,7 @@
 import { useAuth } from '../context/AuthContext';
 import { useRole } from '../hooks/useRole';
 import { RolesTable } from './RolesTable';
+import { ActivityLog } from './ActivityLog';
 import './RolesPage.css';
 
 export function RolesPage() {
@@ -51,7 +52,10 @@ export function RolesPage() {
         </div>
       )}
 
-      <RolesTable />
+      <div className="rp-grid">
+        <RolesTable />
+        <ActivityLog />
+      </div>
     </main>
   );
 }

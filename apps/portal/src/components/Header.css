@@ -147,3 +147,14 @@
 .ph-role-badge.role-admin     { color: #f0b429; }
 .ph-role-badge.role-publisher { color: #58a6ff; }
 .ph-role-badge.role-scientist { color: #8b949e; }
+
+/* Shown instead of the role switcher once an admin has revoked access. */
+.ph-role-revoked {
+  padding: 5px 12px;
+  border: 1px solid rgba(255, 106, 106, 0.4);
+  border-radius: 999px;
+  color: #ff9a9a;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}

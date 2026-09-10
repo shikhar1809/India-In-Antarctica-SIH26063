@@ -45,7 +45,11 @@ import {
 } from './copy';
 import type { Brief, PostCopy, Variant } from './copy';
 import { KnowledgeBase } from './KnowledgeBase';
-import { AgentThinking } from './AgentThinking';
+import { AgentThinking, type AgentDecisions } from './AgentThinking';
+import { TraceView } from './TraceView';
+import { toStoredTrace, type AgentTrace } from './trace';
+import { researchDirection, type Research } from './insight';
+import { useSocialQueue } from '../hooks/useSocialQueue';
 import { MarkupPanel } from './MarkupPanel';
 import type { Revision } from './MarkupPanel';
 import { AbTest, PhotoCheck, alternativeCaption } from './ReviewChecks';
@@ -115,6 +119,13 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
   const [refs, setRefs] = useState<StyleReference[]>([]);
   const [chose, setChose] = useState<{ audience: boolean; tone: boolean }>({ audience: false, tone: false });
   const { records: archiveRecords } = usePublicArchive();
+  /* Sent posts and their measured engagement — what the agent learns from.
+   * Readable by publishers and admins; empty (not an error) for anyone else. */
+  const { posts: queuePosts } = useSocialQueue();
+  /* The agent's full account of this post: sources, reasoning, questions and
+   * answers, and the writer's exact instructions. Saved with the submission
+   * so the admin reviewing it can see how it was made. */
+  const [agentTrace, setAgentTrace] = useState<AgentTrace | null>(null);
 
   /* ── the chosen post ── */
   const [copy, setCopy] = useState<PostCopy | null>(null);
@@ -178,8 +189,12 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
     /* An archive record the agent found on its own is adopted into the
      * brief, exactly as if the publisher had picked it from the knowledge
      * base — the step that found it says so, and the link it carries is the
-     * record's real address rather than anything the model produced. */
-    if (next.archive && !brief.source) {
+     * record's real address rather than anything the model produced.
+     *
+     * Only a certain match (identifier or title) is adopted here. A keyword
+     * match is put to the publisher as a question during the run, and
+     * adopted in runWriting only if they say yes. */
+    if (next.archive && !brief.source && next.archive.how !== 'keyword') {
       setBrief((b) => ({
         ...b,
         topic: b.topic.trim() + LINE_BREAK + LINE_BREAK + next.archive!.material,
@@ -188,6 +203,7 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
     }
 
     setAnalysis(next);
+    setAgentTrace(null);
     setGenerating(true);
     setGenNote(null);
   };
@@ -195,38 +211,58 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
   /** The writing step of the run. Kept separate from startAgent so
    *  AgentThinking can place it last, after the publisher has seen every
    *  inference it is about to be built on. */
-  const runWriting = async () => {
-    const active = analysis;
-    const briefForModel: Brief = active
-      ? { ...brief, audience: active.audience, tone: active.tone }
-      : brief;
+  const runWriting = async ({ analysis: active, research, decisions }: {
+    analysis: BriefAnalysis; research: Research; decisions: AgentDecisions;
+  }): Promise<{ instructions: string; generated: boolean }> => {
+    let briefForModel: Brief = { ...brief, audience: active.audience, tone: active.tone };
+
+    // A keyword-matched record the publisher confirmed when asked.
+    if (decisions.useArchive && active.archive && active.archive.how === 'keyword' && !briefForModel.source) {
+      briefForModel = {
+        ...briefForModel,
+        topic: briefForModel.topic.trim() + LINE_BREAK + LINE_BREAK + active.archive.material,
+        source: active.archive.source,
+      };
+    }
+    // The one fact the publisher supplied when the brief was too thin.
+    if (decisions.extraDetail) {
+      briefForModel = { ...briefForModel, topic: `${briefForModel.topic.trim()}${LINE_BREAK}${LINE_BREAK}${decisions.extraDetail}` };
+    }
+    if (decisions.dropInstagram) setPlatforms((ps) => ps.filter((x) => x !== 'instagram'));
+    setBrief((b) => ({ ...b, topic: briefForModel.topic, source: briefForModel.source }));
+
+    const instructions = [
+      generatorDirection(active),
+      researchDirection(research),
+      ...(decisions.dropInstagram ? ['PLATFORMS: the publisher dropped Instagram for this post; its caption may be left empty.'] : []),
+    ].filter(Boolean).join('\n\n');
 
     try {
-      const result = await generateVariants(
-        clean,
-        measurements,
-        briefForModel,
-        undefined,
-        active ? generatorDirection(active) : undefined,
-      );
+      const result = await generateVariants(clean, measurements, briefForModel, undefined, instructions);
       setVariants(withSourceLink(result.variants, briefForModel.source));
       setGenNote(
         result.generated
           ? 'Written by the generator, against everything the agent worked out. Read it before you submit — it can still get details wrong.'
           : result.reason ?? 'Using the offline draft.',
       );
+      return { instructions, generated: result.generated };
     } catch {
       setVariants(withSourceLink(draftVariants(clean, measurements, briefForModel), briefForModel.source));
       setGenNote('Using the offline draft.');
+      return { instructions, generated: false };
     }
   };
 
   /** The agent finished: adopt what it inferred and show the three options. */
-  const agentDone = (found: StyleReference[]) => {
+  const agentDone = ({ refs: found, trace, analysis: final }: {
+    refs: StyleReference[]; trace: AgentTrace; analysis: BriefAnalysis; decisions: AgentDecisions;
+  }) => {
     setRefs(found);
-    if (analysis) {
-      setBrief((b) => ({ ...b, audience: analysis.audience, tone: analysis.tone }));
-    }
+    setAgentTrace(trace);
+    // The analysis as the publisher's answers left it — e.g. a content type
+    // they picked when the agent was unsure.
+    setAnalysis(final);
+    setBrief((b) => ({ ...b, audience: final.audience, tone: final.tone }));
     setGenerating(false);
     setStepIdx(1);
   };
@@ -357,6 +393,10 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
          * not have to take the ticked box on trust. Null when the check was
          * never run. */
         photoCheck: moderation,
+        /* How the agent made it — sources, reasoning, questions asked and
+         * answered, and the writer's instructions — for the admin who
+         * approves it. Null when the post was written without the agent. */
+        agentTrace: agentTrace ? toStoredTrace(agentTrace) : null,
         publicSummary,
         postDesign: {
           templateId, paletteId, platform: canvasPlatform, photoIndex,
@@ -577,6 +617,12 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
           {generating && analysis ? (
             <AgentThinking
               analysis={analysis}
+              topic={brief.topic}
+              station={clean.station}
+              activity={clean.activity}
+              hasImage={images.length > 0}
+              posts={queuePosts}
+              archiveCount={archiveRecords.length}
               runReferences={(queries, onPartial) => searchReferences(queries, onPartial)}
               runWriting={runWriting}
               onComplete={agentDone}
@@ -664,6 +710,12 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
                 </div>
               )}
             </div>
+          )}
+          {agentTrace && (
+            <details className="stu-trace">
+              <summary>How the agent got here — sources, reasoning and decisions</summary>
+              <TraceView trace={agentTrace} />
+            </details>
           )}
           <div className="stu-variants">
             {variants.map((v) => (

@@ -89,7 +89,65 @@ describe('role lookups go through the null-safe helper', () => {
     const inline = RULES.split('\n').filter(
       (l) => /get\(.*documents\/roles\//.test(l) && !/exists\(/.test(l)
     );
-    // The single permitted occurrence is the ternary body inside roleOf().
+    // The single permitted occurrence is the ternary body inside roleData(),
+    // which roleOf() and canManageSite() both read through.
     expect(inline.length, `inline role lookups: ${inline.join(' | ')}`).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('publicSiteData — the public site is not editable by every account', () => {
+  const block = matchBlock('publicSiteData/{docId}');
+
+  it('does not grant write on authentication alone', () => {
+    // Sign-in is open Google auth: `request.auth != null` here would let
+    // anyone rewrite the public site's homepage and maintenance switch.
+    const writes = allowsFor(block, 'write');
+    expect(writes.length).toBeGreaterThan(0);
+    for (const branch of writes) {
+      const condition = branch.slice(branch.indexOf('if') + 2).trim();
+      expect(condition).not.toMatch(/^request\.auth\s*!=\s*null$/);
+      expect(condition).toMatch(/canManageSite\(\)|isAdmin\(\)/);
+    }
+  });
+
+  it('resolves site access the way the portal does', () => {
+    // Explicit siteAccess wins; otherwise admin or site manager. If this
+    // drifts from useRole.ts, the header shows a Site link whose saves fail.
+    expect(RULES).toMatch(/function canManageSite\(\)[\s\S]*?get\('siteAccess', roleOf\(\) == 'site_manager'\)/);
+  });
+});
+
+describe('auditLog — an append-only record', () => {
+  const block = matchBlock('auditLog/{entryId}');
+
+  it('can never be edited or deleted from a client', () => {
+    // A log its subjects can tidy up is not a log. Admins included.
+    for (const verb of ['update', 'delete']) {
+      for (const branch of allowsFor(block, verb)) {
+        expect(branch.slice(branch.indexOf('if') + 2).trim()).toBe('false');
+      }
+    }
+  });
+
+  it('is written only as yourself, on the server clock', () => {
+    const create = allowsFor(block, 'create').join(String.fromCharCode(10));
+    expect(create).toMatch(/actorUid\s*==\s*request\.auth\.uid/);
+    expect(create).toMatch(/\.at\s*==\s*request\.time/);
+  });
+
+  it('is readable by admins only', () => {
+    for (const branch of allowsFor(block, 'read')) {
+      expect(branch.slice(branch.indexOf('if') + 2).trim()).toBe('isAdmin()');
+    }
+  });
+});
+
+describe('roles — a revoked person cannot switch themselves back', () => {
+  const block = matchBlock('roles/{uid}');
+
+  it('refuses self-writes once revoked, and refuses setting the flag on yourself', () => {
+    const write = allowsFor(block, 'write').join(String.fromCharCode(10));
+    expect(write).toMatch(/resource\.data\.get\('revoked', false\) != true/);
+    expect(write).toMatch(/request\.resource\.data\.get\('revoked', false\) != true/);
   });
 });

@@ -36,6 +36,7 @@ import {
   type SocialPlatform,
 } from './queue';
 import './ScheduleDialog.css';
+import { logActivity } from '../audit/log';
 
 /** The current time, re-read on an interval rather than during render.
  *
@@ -117,6 +118,11 @@ export function ScheduleDialog({
         record.photoUrls?.[0] ?? null,
       );
       await saveScheduledPost(post);
+      void logActivity({
+        tool: 'Social queue', action: `Scheduled a ${PLATFORM_LIMITS[platform].label} post`,
+        target: post.recordIdentifier,
+        changes: [`For ${new Date(scheduledFor).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}`],
+      });
       onClose();
     } catch {
       setErr('Could not save to the queue. Check your connection and try again.');

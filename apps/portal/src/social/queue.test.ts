@@ -197,6 +197,38 @@ describe('adapters', () => {
     expect(sent.postedAt).toBe(NOW + 2 * HOUR);
   });
 
+  it('keeps the platform post id the adapter returns', async () => {
+    // Instagram's metrics are addressed by media id and nothing else — its
+    // permalink carries a shortcode the Graph API cannot look up — so an id
+    // dropped here is a post whose engagement can never be fetched.
+    registerAdapter({
+      platform: 'x',
+      automatic: true,
+      label: 'X (test)',
+      async send() {
+        return { ok: true, externalUrl: 'https://x.test/status/7', platformPostId: '7' };
+      },
+    });
+
+    const sent = await sendPost(post(), NOW + 2 * HOUR);
+    expect(sent.platformPostId).toBe('7');
+  });
+
+  it('writes null, not undefined, when the adapter returns no post id', async () => {
+    // Firestore rejects undefined field values outright.
+    registerAdapter({
+      platform: 'x',
+      automatic: true,
+      label: 'X (test)',
+      async send() {
+        return { ok: true, externalUrl: 'https://x.test/status/8' };
+      },
+    });
+
+    const sent = await sendPost(post(), NOW + 2 * HOUR);
+    expect(sent.platformPostId).toBeNull();
+  });
+
   it('records a rejection as failed, with the reason', async () => {
     registerAdapter({
       platform: 'x',

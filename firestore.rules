@@ -10,14 +10,25 @@ service cloud.firestore {
      * instead, so the existence check here is load-bearing, not defensive
      * noise. Rules cache identical get() calls within one request, so naming
      * the lookup once costs nothing over inlining it everywhere. */
-    function roleOf() {
+    function roleData() {
       return request.auth != null
         && exists(/databases/$(database)/documents/roles/$(request.auth.uid))
-        ? get(/databases/$(database)/documents/roles/$(request.auth.uid)).data.role
-        : 'none';
+        ? get(/databases/$(database)/documents/roles/$(request.auth.uid)).data
+        : {};
     }
+    function roleOf() { return roleData().get('role', 'none'); }
     function isAdmin()     { return roleOf() == 'admin'; }
     function isPublisher() { return roleOf() == 'publisher'; }
+
+    /* Site management, resolved exactly as the portal resolves it
+     * (useRole.ts's resolvePermissions): an explicit `siteAccess` on the
+     * person's roles doc wins, otherwise it follows the role — an admin or a
+     * site manager has it, nobody else does. So an admin switching Site off
+     * for one site manager on the Access page closes the write here too, not
+     * just the link in the header. */
+    function canManageSite() {
+      return isAdmin() || roleData().get('siteAccess', roleOf() == 'site_manager') == true;
+    }
 
     // Knowledge Repository submissions: readable by anyone (the catalogue is
     // public), created by any signed-in user, but a submission only becomes
@@ -116,11 +127,40 @@ service cloud.firestore {
 
     // Role assignments: each user can read and set their own role (self-service
     // switcher in the portal UI). Admins can set anyone's role.
+    //
+    // Except once an admin has revoked someone (revokeAccess() in useRole.ts
+    // sets `revoked: true`): from then on that person cannot write their own
+    // roles doc at all, so the switcher can't put them straight back to
+    // Admin — and they can't clear the flag themselves either. Only an admin
+    // assigning them a role again lifts it.
     match /roles/{uid} {
       allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
       allow write: if request.auth != null
         && request.resource.data.role in ['scientist', 'publisher', 'admin', 'site_manager']
-        && (request.auth.uid == uid || isAdmin());
+        && (
+          isAdmin()
+          || (
+            request.auth.uid == uid
+            && (resource == null || resource.data.get('revoked', false) != true)
+            && request.resource.data.get('revoked', false) != true
+          )
+        );
+    }
+
+    // The activity log (audit/log.ts). Append-only: an entry can be written
+    // only as yourself and only with the server's clock, and never edited or
+    // deleted from a client — admins included. Only admins read it.
+    match /auditLog/{entryId} {
+      allow read: if isAdmin();
+      allow create: if request.auth != null
+        && request.resource.data.actorUid == request.auth.uid
+        && request.resource.data.at == request.time
+        && request.resource.data.keys().hasOnly(
+             ['at', 'actorUid', 'actorName', 'actorEmail', 'actorRole', 'tool', 'action', 'target', 'changes'])
+        && request.resource.data.tool is string && request.resource.data.tool.size() <= 40
+        && request.resource.data.action is string && request.resource.data.action.size() <= 160
+        && request.resource.data.changes is list && request.resource.data.changes.size() <= 30;
+      allow update, delete: if false;
     }
 
     // Publisher/admin-by-email invitations: an admin pre-approves a Gmail
@@ -259,11 +299,11 @@ service cloud.firestore {
     }
 
     // Public website CMS content — readable by anyone (powers iia-public.web.app),
-    // writable only by signed-in admins via the portal Site Builder.
+    // writable by whoever manages the site: admins and site managers, via the
+    // portal Site Builder (see canManageSite above).
     match /publicSiteData/{docId} {
       allow read: if true;
-      allow write: if request.auth != null
-        && isAdmin();
+      allow write: if canManageSite();
     }
 
     // No other collection exists yet — default deny.

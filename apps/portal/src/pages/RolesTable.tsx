@@ -32,11 +32,12 @@
  */
 
 import { Fragment, useMemo, useState } from 'react';
-import { ChevronDown, Mail, Shield, SlidersHorizontal, Trash2, UserCog } from 'lucide-react';
+import { ChevronDown, Mail, Shield, ShieldOff, SlidersHorizontal, Trash2, UserCog } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
-  assignRole, setPermissions, type ArchiveAccess, type Role,
+  assignRole, defaultPermissions, revokeAccess, setPermissions, type ArchiveAccess, type Role,
 } from '../hooks/useRole';
+import { logActivity } from '../audit/log';
 import {
   useRoleRoster, useRoleGrants, createRoleGrant, revokeRoleGrant, type RosterEntry,
 } from '../hooks/useRoleRoster';
@@ -68,24 +69,75 @@ function RoleBadge({ role }: { role: Role }) {
  *  can see, and whether Site and Analytics are open to them. Everyone starts
  *  on their role's default (see useRole.ts's defaultPermissions) — this only
  *  writes a field once an admin actually changes it away from that. */
-function PermissionsEditor({ entry }: { entry: RosterEntry }) {
-  const access = entry.archiveAccess ?? 'all';
+const personLabel = (e: RosterEntry) => e.displayName || e.email || e.uid;
+
+const archiveLabel = (a: ArchiveAccess) =>
+  a === 'all' ? 'Everything' : a === 'none' ? 'Nothing' : `Only ${a.join(', ')}`;
+
+export function PermissionsEditor({ entry, isSelf }: { entry: RosterEntry; isSelf: boolean }) {
+  const [revoking, setRevoking] = useState(false);
+  const [revokeErr, setRevokeErr] = useState<string | null>(null);
+  const access = entry.archiveAccess ?? defaultPermissions(entry.role).archiveAccess;
   const mode: 'all' | 'none' | 'custom' = access === 'all' || access === 'none' ? access : 'custom';
   const customStations = Array.isArray(access) ? access : [];
 
-  const siteAccess = entry.siteAccess ?? (entry.role === 'admin' || entry.role === 'site_manager');
-  const analyticsAccess = entry.analyticsAccess ?? (entry.role === 'admin' || entry.role === 'publisher');
+  const siteAccess = entry.siteAccess ?? defaultPermissions(entry.role).siteAccess;
+  const analyticsAccess = entry.analyticsAccess ?? defaultPermissions(entry.role).analyticsAccess;
+
+  const setArchive = async (value: ArchiveAccess) => {
+    await setPermissions(entry.uid, { archiveAccess: value });
+    void logActivity({
+      tool: 'Access', action: 'Changed archive access', target: personLabel(entry),
+      changes: [`${archiveLabel(access)} → ${archiveLabel(value)}`],
+    });
+  };
 
   const setArchiveMode = (next: 'all' | 'none' | 'custom') => {
     const value: ArchiveAccess = next === 'custom' ? (customStations.length > 0 ? customStations : [CANONICAL_STATIONS[0]]) : next;
-    void setPermissions(entry.uid, { archiveAccess: value });
+    void setArchive(value);
   };
 
   const toggleStation = (station: Station) => {
     const next = customStations.includes(station)
       ? customStations.filter((s) => s !== station)
       : [...customStations, station];
-    void setPermissions(entry.uid, { archiveAccess: next.length > 0 ? next : [station] });
+    void setArchive(next.length > 0 ? next : [station]);
+  };
+
+  const toggle = async (key: 'siteAccess' | 'analyticsAccess', value: boolean) => {
+    await setPermissions(entry.uid, { [key]: value });
+    const name = key === 'siteAccess' ? 'Site management' : 'Analytics dashboard';
+    void logActivity({
+      tool: 'Access', action: `${value ? 'Granted' : 'Removed'} ${name}`, target: personLabel(entry),
+      changes: [`${name}: ${value ? 'off → on' : 'on → off'}`],
+    });
+  };
+
+  const alreadyRevoked = entry.revoked === true;
+
+  const revoke = async () => {
+    const who = personLabel(entry);
+    if (!window.confirm(
+      `Revoke all access for ${who}?\n\nThey become a Scientist with no archive, Site or Analytics access, `
+      + 'and cannot switch their own role back. Assigning them a role again restores access.',
+    )) return;
+    setRevoking(true); setRevokeErr(null);
+    try {
+      await revokeAccess(entry.uid, { email: entry.email, displayName: entry.displayName, photoURL: entry.photoURL });
+      void logActivity({
+        tool: 'Access', action: 'Revoked access', target: who,
+        changes: [
+          `Role: ${ROLE_LABEL[entry.role]} → Scientist`,
+          `Archive: ${archiveLabel(access)} → Nothing`,
+          ...(siteAccess ? ['Site management: on → off'] : []),
+          ...(analyticsAccess ? ['Analytics dashboard: on → off'] : []),
+        ],
+      });
+    } catch {
+      setRevokeErr('Could not revoke. Check your connection and try again.');
+    } finally {
+      setRevoking(false);
+    }
   };
 
   return (
@@ -118,7 +170,7 @@ function PermissionsEditor({ entry }: { entry: RosterEntry }) {
           <input
             type="checkbox"
             checked={siteAccess}
-            onChange={(e) => void setPermissions(entry.uid, { siteAccess: e.target.checked })}
+            onChange={(e) => void toggle('siteAccess', e.target.checked)}
           />
           Site management
         </label>
@@ -126,10 +178,29 @@ function PermissionsEditor({ entry }: { entry: RosterEntry }) {
           <input
             type="checkbox"
             checked={analyticsAccess}
-            onChange={(e) => void setPermissions(entry.uid, { analyticsAccess: e.target.checked })}
+            onChange={(e) => void toggle('analyticsAccess', e.target.checked)}
           />
           Analytics dashboard
         </label>
+      </div>
+
+      {/* Bottom-left of the panel, apart from the toggles above it: taking
+          everything away is a different kind of decision from adjusting one
+          permission, and should not sit where a stray click lands. */}
+      <div className="rt-perms-row rt-perms-revoke">
+        <button
+          type="button"
+          className="rt-revoke-access"
+          onClick={revoke}
+          disabled={revoking || isSelf || alreadyRevoked}
+          title={isSelf ? 'You cannot revoke your own access' : alreadyRevoked ? 'Already revoked' : 'Remove every role and permission'}
+        >
+          <ShieldOff size={13} strokeWidth={2.25} />
+          {alreadyRevoked ? 'Access revoked' : revoking ? 'Revoking…' : 'Revoke access'}
+        </button>
+        {isSelf && <span className="rt-perms-hint">You can’t revoke your own access.</span>}
+        {alreadyRevoked && <span className="rt-perms-hint">Assign a role above to restore it.</span>}
+        {revokeErr && <span className="fld-error">{revokeErr}</span>}
       </div>
     </div>
   );
@@ -172,9 +243,17 @@ export function RolesTable() {
         // than filing an invitation nobody will ever sign in to consume.
         await assignRole(existing.uid, inviteRole, { email: existing.email, displayName: existing.displayName, photoURL: existing.photoURL });
         setNotice(`${trimmed} already had an account — set to ${ROLE_LABEL[inviteRole]} directly.`);
+        void logActivity({
+          tool: 'Access', action: `Granted ${ROLE_LABEL[inviteRole]} access`, target: trimmed,
+          changes: [`Role: ${ROLE_LABEL[existing.role]} → ${ROLE_LABEL[inviteRole]}`],
+        });
       } else {
         await createRoleGrant(trimmed, inviteRole, user.uid);
         setNotice(`${trimmed} will become ${ROLE_LABEL[inviteRole]} the moment they sign in.`);
+        void logActivity({
+          tool: 'Access', action: `Invited as ${ROLE_LABEL[inviteRole]}`, target: trimmed,
+          changes: [`Pending until ${trimmed} first signs in`],
+        });
       }
       setEmail('');
     } catch {
@@ -185,8 +264,17 @@ export function RolesTable() {
   };
 
   const changeRole = async (entry: RosterEntry, role: Role) => {
-    if (role === entry.role) return;
+    if (role === entry.role && !entry.revoked) return;
     await assignRole(entry.uid, role, { email: entry.email, displayName: entry.displayName, photoURL: entry.photoURL });
+    void logActivity({
+      tool: 'Access', action: entry.revoked ? 'Restored access' : 'Changed role', target: personLabel(entry),
+      changes: [`Role: ${ROLE_LABEL[entry.role]} → ${ROLE_LABEL[role]}`],
+    });
+  };
+
+  const cancelInvite = async (email: string, role: Role) => {
+    await revokeRoleGrant(email);
+    void logActivity({ tool: 'Access', action: 'Cancelled invitation', target: email, changes: [`Was: ${ROLE_LABEL[role]}`] });
   };
 
   return (
@@ -235,7 +323,10 @@ export function RolesTable() {
                         </div>
                       </div>
                     </td>
-                    <td><RoleBadge role={entry.role} /></td>
+                    <td>
+                      <RoleBadge role={entry.role} />
+                      {entry.revoked && <span className="rt-badge rt-badge-revoked">Revoked</span>}
+                    </td>
                     <td className="rt-actions">
                       <select
                         value={entry.role}
@@ -261,7 +352,7 @@ export function RolesTable() {
                   </tr>
                   {expanded.has(entry.uid) && (
                     <tr className="rt-perms-row-wrap">
-                      <td colSpan={4}><PermissionsEditor entry={entry} /></td>
+                      <td colSpan={4}><PermissionsEditor entry={entry} isSelf={entry.uid === user?.uid} /></td>
                     </tr>
                   )}
                 </Fragment>
@@ -287,7 +378,7 @@ export function RolesTable() {
                       <td className="rt-actions">
                         <button
                           className="rt-revoke"
-                          onClick={() => revokeRoleGrant(g.email)}
+                          onClick={() => void cancelInvite(g.email, g.role)}
                           aria-label={`Revoke invitation for ${g.email}`}
                           title="Revoke"
                         >
