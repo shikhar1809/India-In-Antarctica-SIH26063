@@ -27,6 +27,9 @@ const e = (id: string, minsAgo: number, who: 'asha' | 'ravi' | 'admin', rest: Pi
 });
 
 const LOG: AuditEntry[] = [
+  e('s1', 1, 'admin', { category: 'Archive', op: 'update', tool: 'Archive record', action: 'Edited a published record', target: 'IIA-1999-9004 — Surface ozone at Maitri', changes: ['Title: “Ozone 1999” → “Surface ozone at Maitri, 1999”', 'Tags: changed (3 items → 4 items)'] }),
+  e('s2', 3, 'ravi', { category: 'Media studio', op: 'update', tool: 'Media studio', action: 'Submitted a post for approval', target: 'Wildlife observation at Bharati' }),
+  e('s3', 5, 'admin', { category: 'Post requests', op: 'create', tool: 'Post request', action: 'Requested a new post from the publishers', target: 'Post request: Mark World Ozone Day with the Maitri record', changes: ['Platforms: instagram, x, linkedin', 'Needed by 2026-09-15'] }),
   e('1', 2, 'admin', { tool: 'Access', action: 'Revoked access', target: 'Ravi Publisher', changes: ['Role: Publisher → Scientist', 'Archive: Everything → Nothing', 'Analytics dashboard: on → off'] }),
   e('2', 14, 'asha', { tool: 'Site editor', action: 'Published site changes', target: 'Public site homepage', changes: ['Edited Hero “Welcome to India in Antarctica”: heading, body', 'Added Gallery “Maitri, winter 2026”', 'Removed Banner “Experience the Expedition”', 'Reordered blocks'] }),
   e('3', 31, 'asha', { tool: 'Maintenance mode', action: 'Brought the public site back online', target: 'Public site', changes: ['Maintenance mode: on → off'] }),

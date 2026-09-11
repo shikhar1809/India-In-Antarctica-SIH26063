@@ -1,0 +1,96 @@
+/* Create a new post — the admin's request wizard. Reuses the studio's
+   stepper pills (stu-steps) so the two flows read as one family. */
+
+.prw { max-width: 880px; }
+
+.prw-back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 14px; font-size: 13px; color: var(--ice-dim); }
+.prw-back:hover { color: var(--cyan); }
+
+.prw-head h1 { font-size: 1.7rem; font-weight: 600; margin-bottom: 6px; }
+.prw-head p { margin: 0 0 20px; color: var(--ice-dim); font-size: 14px; line-height: 1.55; max-width: 62ch; }
+
+.prw-steps { margin-bottom: 8px; }
+
+.prw-panel {
+  display: grid;
+  gap: 18px;
+  margin-top: 14px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel);
+}
+
+.prw-field { display: grid; gap: 8px; }
+.prw-inline { max-width: 260px; }
+.prw-label { font-size: 13px; font-weight: 600; color: var(--ice); }
+.prw-label em { font-style: normal; font-weight: 400; color: var(--ice-faint); }
+
+.prw-field textarea,
+.prw-field input[type='date'],
+.prw-search input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--ice);
+  font: inherit;
+  font-size: 14px;
+  resize: vertical;
+}
+
+.prw-count { justify-self: end; font-size: 11.5px; color: var(--ice-faint); }
+
+.prw-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.prw-chip {
+  padding: 6px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ice-dim);
+  font-size: 13px;
+  cursor: pointer;
+}
+.prw-chip:hover { color: var(--ice); }
+.prw-chip.is-on { border-color: var(--cyan); background: rgba(95, 217, 255, 0.14); color: var(--ice); font-weight: 600; }
+
+.prw-search { position: relative; display: flex; align-items: center; }
+.prw-search svg { position: absolute; left: 11px; color: var(--ice-faint); }
+.prw-search input { padding-left: 32px; }
+
+.prw-matches { margin: 0; padding: 0; list-style: none; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.prw-matches button,
+.prw-record {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.prw-matches li + li { border-top: 1px solid var(--line); }
+.prw-matches button:hover { background: rgba(255, 255, 255, 0.04); }
+.prw-matches strong, .prw-record strong { display: block; font-size: 13.5px; color: var(--ice); }
+.prw-matches span, .prw-record span { font-size: 12px; color: var(--ice-faint); }
+.prw-record { border: 1px solid rgba(95, 217, 255, 0.45); border-radius: 8px; background: rgba(95, 217, 255, 0.06); cursor: default; }
+.prw-record button { border: 0; background: none; color: var(--ice-dim); cursor: pointer; padding: 4px; }
+
+.prw-summary { display: grid; gap: 0; margin: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.prw-summary div { display: grid; grid-template-columns: 170px 1fr; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+.prw-summary div:last-child { border-bottom: 0; }
+.prw-summary dt { color: var(--ice-faint); }
+.prw-summary dd { margin: 0; color: var(--ice); white-space: pre-wrap; }
+
+.prw-missing { margin: 0; font-size: 12.5px; color: var(--warn); }
+
+.prw-nav { display: flex; justify-content: space-between; margin-top: 16px; }
+
+@media (max-width: 600px) {
+  .prw-summary div { grid-template-columns: 1fr; gap: 2px; }
+}

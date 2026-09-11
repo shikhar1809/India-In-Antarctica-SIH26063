@@ -13,7 +13,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Download, Pencil, Sparkles, X, Eye, Search, ExternalLink } from 'lucide-react';
+import { Columns2, Download, ExternalLink, Eye, Pencil, Rows2, Search, Sparkles, X } from 'lucide-react';
 import { HeroCarousel, type HeroCarouselItem } from '../components/ui/hero-carousel';
 import { useDocuments } from '../hooks/useDocuments';
 import { usePublicArchive } from '../hooks/usePublicArchive';
@@ -260,7 +260,23 @@ const PUBLIC_SITE_URL = 'https://iia-public.web.app';
 
 type Source = 'deposits' | 'published';
 
-export function Repository() {
+/* How the page is arranged: the filmstrip beside the record, or the
+ * filmstrip across the top with the record below it. A reading preference,
+ * so it is remembered in this browser rather than stored anywhere shared. */
+type ArchiveLayout = 'side' | 'stacked';
+const LAYOUT_KEY = 'iia-portal:archive-layout';
+
+function loadLayout(): ArchiveLayout {
+  try { return localStorage.getItem(LAYOUT_KEY) === 'stacked' ? 'stacked' : 'side'; } catch { return 'side'; }
+}
+
+/** `preview` is for the dev harness only: renders without a signed-in user. */
+export function Repository({ preview = false }: { preview?: boolean } = {}) {
+  const [layout, setLayoutState] = useState<ArchiveLayout>(loadLayout);
+  const setLayout = (l: ArchiveLayout) => {
+    setLayoutState(l);
+    try { localStorage.setItem(LAYOUT_KEY, l); } catch { /* private mode: not remembered */ }
+  };
   const { user } = useAuth();
   const { docs, loading: docsLoading } = useDocuments();
   const { records, loading: recsLoading } = usePublicArchive();
@@ -343,7 +359,7 @@ export function Repository() {
     [entries],
   );
 
-  if (!user || (!roleLoading && permissions.archiveAccess === 'none')) {
+  if (!preview && (!user || (!roleLoading && permissions.archiveAccess === 'none'))) {
     return (
       <main className="ph-page">
         <p className="fld-empty">Archive access has been turned off for this account. Ask an admin to restore it.</p>
@@ -353,7 +369,7 @@ export function Repository() {
 
   return (
     <>
-      <div className={'rs-page' + (active && panelOpen ? ' has-panel' : '')}>
+      <div className={'rs-page' + (active && (panelOpen || layout === 'stacked') ? ' has-panel' : '') + (layout === 'stacked' ? ' is-stacked' : '')}>
         {/* No `brand` passed to the carousel: it centres its wordmark into
             the very strip the studio's own title bar occupies, so setting it
             printed "Knowledge Repository" twice, overlapping. */}
@@ -410,6 +426,25 @@ export function Repository() {
               </div>
             )}
 
+            <div className="rs-seg rs-layout" role="radiogroup" aria-label="Layout">
+              <button
+                type="button" role="radio" aria-checked={layout === 'side'}
+                className={layout === 'side' ? 'is-active' : ''}
+                onClick={() => setLayout('side')}
+                title="Filmstrip beside the record"
+              >
+                <Columns2 size={13} strokeWidth={2.25} /> Side by side
+              </button>
+              <button
+                type="button" role="radio" aria-checked={layout === 'stacked'}
+                className={layout === 'stacked' ? 'is-active' : ''}
+                onClick={() => { setLayout('stacked'); setPanelOpen(true); }}
+                title="Filmstrip on top, record below"
+              >
+                <Rows2 size={13} strokeWidth={2.25} /> Stacked
+              </button>
+            </div>
+
             <span className="rs-count">
               {entries.length} record{entries.length === 1 ? '' : 's'}
             </span>
@@ -457,7 +492,7 @@ export function Repository() {
 
           <div className="rs-actions">
             {isAdmin && <HistoricalImportAction />}
-            {active && !panelOpen && (
+            {active && !panelOpen && layout === 'side' && (
               <button type="button" className="rs-btn" onClick={() => setPanelOpen(true)}>
                 <Eye size={14} strokeWidth={2} /> View record
               </button>
@@ -470,18 +505,20 @@ export function Repository() {
           </div>
         </div>
 
-        {active && panelOpen && (
+        {active && (panelOpen || layout === 'stacked') && (
           <aside className="rs-panel" aria-label="Record details">
             <div className="rs-panel-head">
               <h2>{active.title}</h2>
-              <button
-                type="button"
-                className="rs-panel-close"
-                aria-label="Close record details"
-                onClick={() => setPanelOpen(false)}
-              >
-                <X size={15} strokeWidth={2.5} />
-              </button>
+              {layout === 'side' && (
+                <button
+                  type="button"
+                  className="rs-panel-close"
+                  aria-label="Close record details"
+                  onClick={() => setPanelOpen(false)}
+                >
+                  <X size={15} strokeWidth={2.5} />
+                </button>
+              )}
             </div>
 
             <div className="rs-panel-body">

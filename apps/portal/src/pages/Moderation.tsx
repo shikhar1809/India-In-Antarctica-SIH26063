@@ -3,7 +3,6 @@ import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, serverTi
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useRole } from '../hooks/useRole';
-import { logActivity } from '../audit/log';
 import type { ResearchDocument } from '../types';
 import { mintIdentifier, publishRecord, documentToRepositoryRecord } from '../repository/publish';
 import { documentRedactionOf } from '../repository/redaction';
@@ -45,10 +44,6 @@ export function Moderation() {
       await updateDoc(doc(db, 'documents', d.id), {
         status: 'published', publishedIdentifier: identifier, reviewNotes: null,
       });
-      void logActivity({
-        tool: 'Deposit review', action: 'Published a repository deposit', target: identifier,
-        changes: [`“${d.title}” is now public as ${identifier}`],
-      });
     } catch (e) {
       setDocError(e instanceof Error ? e.message : 'Could not publish this deposit.');
     } finally { setDocBusy(null); }
@@ -59,7 +54,6 @@ export function Moderation() {
     setDocBusy(d.id); setDocError(null);
     try {
       await updateDoc(doc(db, 'documents', d.id), { status: 'rejected' });
-      void logActivity({ tool: 'Deposit review', action: 'Rejected a repository deposit', target: d.title });
     } catch (e) {
       setDocError(e instanceof Error ? e.message : 'Could not update this deposit.');
     } finally { setDocBusy(null); }
@@ -99,11 +93,6 @@ export function Moderation() {
         status: 'READY_FOR_SCIENTIST',
         questionApprovedAt: serverTimestamp()
       });
-      const q = pendingQuestions.find((x) => x.id === id);
-      void logActivity({
-        tool: 'Q&A moderation', action: 'Approved a student question', target: q?.firstName ? `from ${q.firstName}` : id,
-        changes: q?.question ? [`“${q.question}” sent to scientists`] : [],
-      });
     } catch (e) {
       console.error(e);
       alert('Error approving question');
@@ -119,7 +108,6 @@ export function Moderation() {
       await updateDoc(doc(db, 'student_questions', id), {
         status: type === 'question' ? 'REJECTED_Q' : 'REJECTED_A'
       });
-      void logActivity({ tool: 'Q&A moderation', action: type === 'question' ? 'Rejected a student question' : 'Rejected a scientist answer', target: id });
     } catch (e) {
       console.error(e);
       alert('Error rejecting');
@@ -135,10 +123,6 @@ export function Moderation() {
         status: 'PUBLISHED',
         answer: editedAnswer,
         publishedAt: serverTimestamp()
-      });
-      void logActivity({
-        tool: 'Q&A moderation', action: 'Published an answer to the public site', target: id,
-        changes: editedAnswer !== currentAnswer ? ['Answer edited before publishing'] : ['Published as the scientist wrote it'],
       });
     } catch (e) {
       console.error(e);

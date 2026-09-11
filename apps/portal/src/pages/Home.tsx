@@ -36,12 +36,14 @@ const ADMIN_ITEMS = [
     image: 'https://images.unsplash.com/photo-1531366936337-7c912a4589a7?q=80&w=600&h=400&fit=crop&sat=-100&auto=format',
   },
   {
-    link: '/social',
+    link: '/roles',
     text: 'Manage team roles',
     image: 'https://images.unsplash.com/photo-1494783367193-149034c05e8f?q=80&w=600&h=400&fit=crop&sat=-100&auto=format',
   },
   {
-    link: '/editor',
+    // The Site hub, not the page editor directly: it lists every site tool
+    // (analytics, uptime, content editor, Q&A moderation).
+    link: '/site',
     text: 'Site Builder',
     image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=600&h=400&fit=crop&sat=-100&auto=format',
   },

@@ -15,13 +15,26 @@
  * today's dispatches need, and didn't belong sharing a screen with either.
  */
 
-import { Link } from 'react-router-dom';
-import { BarChart3, Sparkles } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { BarChart3, CheckCircle2, Plus, Sparkles } from 'lucide-react';
 import { useRole } from '../hooks/useRole';
+import { useDispatches } from '../hooks/useDispatches';
 import './MediaHub.css';
 
 export function MediaHub() {
   const { role } = useRole();
+  const { dispatches } = useDispatches();
+  const location = useLocation();
+  const justRequested = (location.state as { requested?: string } | null)?.requested;
+  const isAdmin = role === 'admin';
+
+  /* Requests still with the publishers — sent by an admin, not yet
+   * approved. So "did anyone pick up the Ozone Day post?" has an answer
+   * here rather than in someone's inbox. */
+  const openRequests = dispatches
+    .filter((d) => d.request?.kind === 'post-request' && d.status !== 'approved')
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, 6);
 
   const cards = [
     {
@@ -43,9 +56,20 @@ export function MediaHub() {
   return (
     <main className="ph-page mh-page">
         <header className="mh-head">
-          <h1>Media</h1>
-          <p>Content and its reach, in one place.</p>
+          <div>
+            <h1>Media</h1>
+            <p>Content and its reach, in one place.</p>
+          </div>
+          {isAdmin && (
+            <Link to="/media/new" className="mh-new">
+              <Plus size={16} strokeWidth={2.5} /> Create a new post
+            </Link>
+          )}
         </header>
+
+        {justRequested && (
+          <p className="mh-notice"><CheckCircle2 size={15} /> Sent to the publisher queue: “{justRequested.slice(0, 90)}{justRequested.length > 90 ? '…' : ''}”</p>
+        )}
 
         <div className="mh-grid">
           {cards.map((c) => (
@@ -56,6 +80,23 @@ export function MediaHub() {
             </Link>
           ))}
         </div>
+
+        {isAdmin && openRequests.length > 0 && (
+          <section className="mh-requests">
+            <h2>Your open requests</h2>
+            <ul>
+              {openRequests.map((d) => (
+                <li key={d.id}>
+                  <span className="mh-req-topic">{d.notes}</span>
+                  <span className="mh-req-meta">
+                    {d.status === 'drafted' ? 'Drafted — waiting for your approval' : d.status === 'flagged' ? 'Sent back to the publisher' : 'With the publishers'}
+                    {d.request?.deadline ? ` · needed by ${new Date(d.request.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
     </main>
   );
 }

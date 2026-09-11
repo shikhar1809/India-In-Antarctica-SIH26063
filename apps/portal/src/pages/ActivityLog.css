@@ -246,3 +246,63 @@
   font-weight: 600;
   cursor: pointer;
 }
+
+/* ── Categories ───────────────────────────────────────────────────────── */
+
+.al-cats { display: flex; flex-wrap: wrap; gap: 5px; margin: 2px 0 12px; }
+
+.al-catbtn {
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ice-dim);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.al-catbtn b { margin-left: 3px; color: var(--ice); font-weight: 600; }
+.al-catbtn:hover { border-color: var(--line-strong); }
+.al-catbtn.is-on { border-color: var(--cyan); background: rgba(95, 217, 255, 0.12); color: var(--ice); }
+
+.al-cat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: rgba(150, 200, 240, 0.1);
+  color: var(--ice-dim);
+}
+.al-cat b { color: var(--ice); }
+
+/* one hue per area, always beside its name */
+.cat-security { background: rgba(255, 106, 106, 0.14); color: #ffb0b0; }
+.cat-access { background: rgba(240, 180, 41, 0.14); color: #f5cd6a; }
+.cat-archive { background: rgba(95, 217, 255, 0.12); color: #8fe3ff; }
+.cat-field-reports { background: rgba(127, 184, 240, 0.14); color: #a9cdf5; }
+.cat-post-requests { background: rgba(179, 157, 219, 0.16); color: #cbb8ee; }
+.cat-media-studio { background: rgba(179, 157, 219, 0.12); color: #cbb8ee; }
+.cat-review-approval { background: rgba(63, 185, 124, 0.14); color: #86dcae; }
+.cat-social { background: rgba(232, 184, 106, 0.14); color: #ecc98f; }
+.cat-website { background: rgba(63, 185, 80, 0.12); color: #7fdc8f; }
+.al-catbtn.cat-security.is-on, .al-catbtn.cat-access.is-on, .al-catbtn.cat-archive.is-on { border-color: currentColor; }
+
+.al-op {
+  padding: 0 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+}
+.al-op.op-delete { color: #ffb0b0; border-color: rgba(255, 106, 106, 0.4); }
+.al-op.op-create { color: #86dcae; border-color: rgba(63, 185, 124, 0.4); }
+
+.al-tool-name { font-size: 11.5px; color: var(--ice-faint); }
+.al-action-text { color: var(--ice); }
+.al-entry.is-alert .al-action-text { color: #ffb3b3; font-weight: 600; }

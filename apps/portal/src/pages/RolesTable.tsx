@@ -37,7 +37,6 @@ import { useAuth } from '../context/AuthContext';
 import {
   assignRole, defaultPermissions, revokeAccess, setPermissions, type ArchiveAccess, type Role,
 } from '../hooks/useRole';
-import { logActivity } from '../audit/log';
 import {
   useRoleRoster, useRoleGrants, createRoleGrant, revokeRoleGrant, type RosterEntry,
 } from '../hooks/useRoleRoster';
@@ -71,9 +70,6 @@ function RoleBadge({ role }: { role: Role }) {
  *  writes a field once an admin actually changes it away from that. */
 const personLabel = (e: RosterEntry) => e.displayName || e.email || e.uid;
 
-const archiveLabel = (a: ArchiveAccess) =>
-  a === 'all' ? 'Everything' : a === 'none' ? 'Nothing' : `Only ${a.join(', ')}`;
-
 export function PermissionsEditor({ entry, isSelf }: { entry: RosterEntry; isSelf: boolean }) {
   const [revoking, setRevoking] = useState(false);
   const [revokeErr, setRevokeErr] = useState<string | null>(null);
@@ -86,10 +82,6 @@ export function PermissionsEditor({ entry, isSelf }: { entry: RosterEntry; isSel
 
   const setArchive = async (value: ArchiveAccess) => {
     await setPermissions(entry.uid, { archiveAccess: value });
-    void logActivity({
-      tool: 'Access', action: 'Changed archive access', target: personLabel(entry),
-      changes: [`${archiveLabel(access)} → ${archiveLabel(value)}`],
-    });
   };
 
   const setArchiveMode = (next: 'all' | 'none' | 'custom') => {
@@ -106,11 +98,6 @@ export function PermissionsEditor({ entry, isSelf }: { entry: RosterEntry; isSel
 
   const toggle = async (key: 'siteAccess' | 'analyticsAccess', value: boolean) => {
     await setPermissions(entry.uid, { [key]: value });
-    const name = key === 'siteAccess' ? 'Site management' : 'Analytics dashboard';
-    void logActivity({
-      tool: 'Access', action: `${value ? 'Granted' : 'Removed'} ${name}`, target: personLabel(entry),
-      changes: [`${name}: ${value ? 'off → on' : 'on → off'}`],
-    });
   };
 
   const alreadyRevoked = entry.revoked === true;
@@ -124,15 +111,6 @@ export function PermissionsEditor({ entry, isSelf }: { entry: RosterEntry; isSel
     setRevoking(true); setRevokeErr(null);
     try {
       await revokeAccess(entry.uid, { email: entry.email, displayName: entry.displayName, photoURL: entry.photoURL });
-      void logActivity({
-        tool: 'Access', action: 'Revoked access', target: who,
-        changes: [
-          `Role: ${ROLE_LABEL[entry.role]} → Scientist`,
-          `Archive: ${archiveLabel(access)} → Nothing`,
-          ...(siteAccess ? ['Site management: on → off'] : []),
-          ...(analyticsAccess ? ['Analytics dashboard: on → off'] : []),
-        ],
-      });
     } catch {
       setRevokeErr('Could not revoke. Check your connection and try again.');
     } finally {
@@ -243,17 +221,9 @@ export function RolesTable() {
         // than filing an invitation nobody will ever sign in to consume.
         await assignRole(existing.uid, inviteRole, { email: existing.email, displayName: existing.displayName, photoURL: existing.photoURL });
         setNotice(`${trimmed} already had an account — set to ${ROLE_LABEL[inviteRole]} directly.`);
-        void logActivity({
-          tool: 'Access', action: `Granted ${ROLE_LABEL[inviteRole]} access`, target: trimmed,
-          changes: [`Role: ${ROLE_LABEL[existing.role]} → ${ROLE_LABEL[inviteRole]}`],
-        });
       } else {
         await createRoleGrant(trimmed, inviteRole, user.uid);
         setNotice(`${trimmed} will become ${ROLE_LABEL[inviteRole]} the moment they sign in.`);
-        void logActivity({
-          tool: 'Access', action: `Invited as ${ROLE_LABEL[inviteRole]}`, target: trimmed,
-          changes: [`Pending until ${trimmed} first signs in`],
-        });
       }
       setEmail('');
     } catch {
@@ -266,15 +236,10 @@ export function RolesTable() {
   const changeRole = async (entry: RosterEntry, role: Role) => {
     if (role === entry.role && !entry.revoked) return;
     await assignRole(entry.uid, role, { email: entry.email, displayName: entry.displayName, photoURL: entry.photoURL });
-    void logActivity({
-      tool: 'Access', action: entry.revoked ? 'Restored access' : 'Changed role', target: personLabel(entry),
-      changes: [`Role: ${ROLE_LABEL[entry.role]} → ${ROLE_LABEL[role]}`],
-    });
   };
 
-  const cancelInvite = async (email: string, role: Role) => {
+  const cancelInvite = async (email: string) => {
     await revokeRoleGrant(email);
-    void logActivity({ tool: 'Access', action: 'Cancelled invitation', target: email, changes: [`Was: ${ROLE_LABEL[role]}`] });
   };
 
   return (
@@ -378,7 +343,7 @@ export function RolesTable() {
                       <td className="rt-actions">
                         <button
                           className="rt-revoke"
-                          onClick={() => void cancelInvite(g.email, g.role)}
+                          onClick={() => void cancelInvite(g.email)}
                           aria-label={`Revoke invitation for ${g.email}`}
                           title="Revoke"
                         >

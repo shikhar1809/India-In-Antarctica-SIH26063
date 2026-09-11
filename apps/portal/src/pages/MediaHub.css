@@ -47,3 +47,41 @@
   line-height: 1.55;
   opacity: 0.65;
 }
+
+/* ── Create a new post, and open requests ─────────────────────────── */
+
+.mh-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+
+.mh-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: var(--cyan);
+  color: #04121c;
+  font-weight: 700;
+  font-size: 14px;
+}
+.mh-new:hover { filter: brightness(1.08); }
+
+.mh-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 18px;
+  padding: 10px 14px;
+  border: 1px solid rgba(63, 185, 124, 0.5);
+  border-radius: 10px;
+  background: rgba(63, 185, 124, 0.08);
+  color: #b9e6cf;
+  font-size: 13.5px;
+}
+
+.mh-requests { margin-top: 28px; }
+.mh-requests h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 10px; }
+.mh-requests ul { margin: 0; padding: 0; list-style: none; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.mh-requests li { display: grid; gap: 3px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.mh-requests li:last-child { border-bottom: 0; }
+.mh-req-topic { color: var(--ice); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mh-req-meta { color: var(--ice-faint); font-size: 12.5px; }

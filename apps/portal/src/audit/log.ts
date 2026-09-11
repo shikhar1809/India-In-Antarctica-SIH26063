@@ -1,29 +1,17 @@
 /**
- * The activity log — who did what, with which tool, and what it changed.
+ * The activity log — types, and the one entry the portal still writes.
  *
- * Every entry is one document in `auditLog`, written by the portal at the
- * moment an action succeeds. It carries the actor's name, email and role *as
- * they were at the time*: a person later promoted or revoked should not have
- * their history rewritten under their new role.
+ * Every create, edit and delete is recorded server side by a Firestore
+ * trigger (functions/audit.js): it sees writes from the portal, the field
+ * app and the public site alike, and a client cannot skip it. Sign-in checks
+ * are recorded by functions/access.js.
  *
- * What the rules guarantee (firestore.rules, match /auditLog):
- *   - an entry can only be written as yourself (actorUid == your uid), with
- *     the server's own clock — nobody can file an entry as someone else, or
- *     backdate one;
- *   - nothing can be edited or deleted from the client, by anyone, admins
- *     included. A log an admin can tidy is not a log.
- *   - only admins can read it.
+ * logActivity() below remains only as the sign-in check's fallback, for the
+ * case where the access function cannot be reached — so a visit is still on
+ * record, marked as written by the browser.
  *
- * What it does not guarantee: that every action is logged. The portal writes
- * the entry, so a modified client could skip it. Making that impossible
- * means moving the logging into Cloud Function triggers on each collection;
- * this is the version that shows *which tool* was used and *why*, which a
- * trigger watching raw writes cannot see.
- *
- * Logging never blocks the action it describes. By the time logActivity()
- * runs the change is already saved; a failed log write is reported to the
- * console and swallowed rather than turned into an error for someone whose
- * edit actually worked.
+ * Rules (firestore.rules, match /auditLog): client entries only as yourself,
+ * on the server clock; nothing edited or deleted by anyone; admins read.
  */
 
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
@@ -34,18 +22,26 @@ export const AUDIT_COLLECTION = 'auditLog';
 
 /** Named tools, so the log can group by them. A string union rather than
  *  free text: "Site editor" and "site editor" must not become two tools. */
-export type AuditTool =
-  | 'Site editor'
-  | 'Maintenance mode'
-  | 'Site analytics'
-  | 'Q&A moderation'
-  | 'Deposit review'
-  | 'Approve desk'
-  | 'Social queue'
-  | 'Historical import'
-  | 'Access'
-  | 'Role switcher'
-  | 'Sign-in check';
+export type AuditTool = string;
+
+/** The areas the log is organised by. Written by the server; entries from
+ *  before categories existed are mapped by categoryOf(). */
+export const AUDIT_CATEGORIES = [
+  'Security', 'Access', 'Archive', 'Field reports', 'Post requests', 'Media studio',
+  'Review & approval', 'Social', 'Website', 'Profile', 'Support', 'Other',
+] as const;
+export type AuditCategory = (typeof AUDIT_CATEGORIES)[number];
+
+const LEGACY_TOOL_CATEGORY: Record<string, AuditCategory> = {
+  'Sign-in check': 'Security', 'Access': 'Access', 'Role switcher': 'Access',
+  'Site editor': 'Website', 'Maintenance mode': 'Website', 'Site analytics': 'Website', 'Q&A moderation': 'Website',
+  'Deposit review': 'Archive', 'Historical import': 'Archive', 'Approve desk': 'Review & approval', 'Social queue': 'Social',
+};
+
+export function categoryOf(e: { category?: string; tool: string }): AuditCategory {
+  if (e.category && (AUDIT_CATEGORIES as readonly string[]).includes(e.category)) return e.category as AuditCategory;
+  return LEGACY_TOOL_CATEGORY[e.tool] ?? 'Other';
+}
 
 export interface AuditInput {
   tool: AuditTool;
@@ -63,11 +59,17 @@ export interface AuditEntry extends AuditInput {
   actorUid: string;
   actorName: string | null;
   actorEmail: string | null;
-  actorRole: Role | 'unknown';
-  /** Set on sign-in checks that were refused — an unassigned or revoked
-   *  account reaching the portal. Written by functions/access.js. */
+  actorRole: Role | 'unknown' | 'system' | 'public';
+  category?: AuditCategory;
+  /** create / update / delete — set on entries from the audit trigger. */
+  op?: 'create' | 'update' | 'delete';
+  collection?: string;
+  docId?: string;
+  /** Something a reviewer should look at: a refused sign-in, a revoke, a
+   *  removed record, a failed post, a safety-flagged report. */
   alert?: boolean;
   ip?: string;
+  recordedBy?: 'server';
 }
 
 /* The actor's current role, kept current by useRole()'s snapshot listener.

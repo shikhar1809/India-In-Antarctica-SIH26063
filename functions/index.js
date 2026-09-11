@@ -155,3 +155,7 @@ exports.engagement = require('./engagement').engagement;
 /* The sign-in security check — the caller's real IP, the access decision,
  * and a server-written activity-log entry for every visit. See access.js. */
 exports.access = require('./access').access;
+
+/* The audit trail — one Firestore trigger that records every create, edit and
+ * delete, by whom, with a field-level diff and a category. See audit.js. */
+exports.auditTrail = require('./audit').auditTrail;

@@ -142,10 +142,18 @@ access to — or one that was revoked — gets a formal Government of India
 warning and is signed out after five seconds, and the attempt is logged by
 the server.
 
-**An activity log nobody can edit.** Who did what, with which tool, and what
-it changed — including a block-by-block diff of every public-site edit. The
-rules allow an entry to be written only as yourself and on the server's
-clock, and allow nobody, admins included, to edit or delete one.
+**An activity log nobody can edit, of everything.** A Firestore trigger
+records every create, edit and delete across the database — from the portal,
+the field app or the public site — with who made it, a field-level diff
+(a block-by-block diff for public-site edits), and a category: Security,
+Access, Archive, Field reports, Post requests, Media studio, Review &
+approval, Social, Website. Written by the server, so it cannot be skipped;
+nobody, admins included, can edit or delete an entry.
+
+**Admins can ask for a post.** *Create a new post* on the Media page is a
+four-step request — what, who and where, when, review — that lands in the
+publisher queue, opens the studio pre-set with the admin's choices, and on
+approval promotes the linked archive record instead of copying it.
 
 **Concept search.** "Penguins" finds a record filed as *Wildlife observation*,
 and a typo still lands — a local, instant, domain-vocabulary ranker rather than
@@ -228,6 +236,8 @@ sign-in:
 | `/__analytics` | The outreach dashboard, synthetic data |
 | `/__access` | The activity log and the revoke control |
 | `/__securitycheck?status=granted\|unassigned\|revoked` | The sign-in check |
+| `/__postrequest` | The admin's *Create a new post* wizard (never writes) |
+| `/__archive` | The archive page, including the side-by-side / stacked layout switch |
 | `/__canvas`, `/__recordeditor` | Every post template; the raw/redacted record editor |
 
 All are excluded from production builds.
@@ -240,6 +250,7 @@ npm test                   # everything below, in order
 
 | Command | What it proves |
 |---|---|
+| `npm run test:functions` | The audit trail: how each kind of write is described and categorised, and what is deliberately not logged |
 | `npm run test:unit` | 274 unit tests over normalisation, outreach drafting, the public projection, redaction, the studio agent's classification, archive detection and research findings (reach, performance, trends, off-topic paper rejection, the fences on how research may be used), the site-editor diff, concept search, the dissemination queue, and the rules — including that the activity log is append-only and a revoked account cannot restore itself |
 | `npm run test:pipeline` | A legacy-format dispatch travels the real pipeline, publishes, and reads back |
 | `npm run test:api` | Against the **deployed** project: the repository is public, raw dispatches are not |
@@ -269,6 +280,7 @@ API:
 | `studio` | `/copy`, `/refs`, `/abtest`, `/revise`, `/moderate`, `/review`, `/trends`, `/sources`, `/publish`, `/publish-status` | [STUDIO.md](docs/STUDIO.md), [SOCIAL.md](docs/SOCIAL.md) |
 | `engagement` | `GET` account analytics · `POST` per-post engagement refresh | [SOCIAL.md](docs/SOCIAL.md) |
 | `access` | `GET` caller's IP · `POST` sign-in check and log entry | [ACCESS.md](docs/ACCESS.md) |
+| `auditTrail` | Firestore trigger (us-central1) — every write, logged with a diff | [ACCESS.md](docs/ACCESS.md) |
 
 With no `GEMINI_API_KEY` configured the model-backed studio routes return 503
 and the studio falls back to an offline template draft, so the whole flow
@@ -298,9 +310,6 @@ Stated plainly, because a reviewer will find them anyway:
   role — it is how all four roles are demonstrated from one browser. Revoked
   accounts are locked out of it by the rules, but a production deployment
   would remove it.
-- **Tool entries in the activity log are written by the portal**, so a
-  modified client could skip one. Sign-in checks are written server side and
-  cannot be. Firestore triggers would close the gap.
 - **The connected social accounts in the demo are the team's own**, not
   NCPOR's; the numbers are real but describe those accounts. Connecting
   NCPOR's accounts in Upload-Post needs no code change.

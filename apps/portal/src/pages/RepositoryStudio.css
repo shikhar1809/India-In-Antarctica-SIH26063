@@ -502,3 +502,41 @@
   background: rgba(63, 185, 80, 0.22);
   border-color: #3fb950;
 }
+
+/* ── Stacked layout: filmstrip on top, the record below ─────────────── */
+
+.rs-page.is-stacked { --rs-stack-h: 46%; }
+
+.rs-page.is-stacked.has-panel .rs-stage,
+.rs-page.is-stacked.has-panel .rs-overlay {
+  right: 0;
+  bottom: var(--rs-stack-h);
+}
+
+.rs-page.is-stacked .rs-panel {
+  top: auto;
+  left: 0;
+  width: 100%;
+  height: var(--rs-stack-h);
+  border-left: 0;
+  border-top: 1px solid var(--line-strong);
+}
+
+/* the record reads across the full width in two columns */
+.rs-page.is-stacked .rs-panel-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  column-gap: 32px;
+  align-content: start;
+}
+.rs-page.is-stacked .rs-panel-body > .rs-facts,
+.rs-page.is-stacked .rs-panel-body > .rs-file,
+.rs-page.is-stacked .rs-panel-body > .rs-panel-edit { grid-column: 2; }
+.rs-page.is-stacked .rs-panel-body > .rs-badges,
+.rs-page.is-stacked .rs-panel-body > .rs-desc { grid-column: 1; }
+
+.rs-layout button { display: inline-flex; align-items: center; gap: 5px; }
+
+@media (max-width: 800px) {
+  .rs-page.is-stacked .rs-panel-body { display: block; }
+}

@@ -1,12 +1,10 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Puck } from '@measured/puck';
 import '@measured/puck/puck.css';
 import { config } from '../puck.config';
 import { Globe, HardHat, Smartphone, Tablet, Monitor } from 'lucide-react';
-import { logActivity } from '../audit/log';
-import { diffSitePage } from '../audit/siteDiff';
 import './SiteEditor.css';
 
 const DEFAULT_DATA = {
@@ -57,9 +55,7 @@ export function SiteEditor() {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'mobile' | 'tablet' | 'desktop'>('desktop');
   const [maintenanceMode, setMaintenanceMode] = useState(false);
-  // The last version saved to the live site — what the next publish is
-  // diffed against for the activity log.
-  const lastPublished = useRef<any>(null);
+
 
   useEffect(() => {
     (async () => {
@@ -78,7 +74,6 @@ export function SiteEditor() {
 
         if (snap.exists() && snap.data()?.content?.length > 0) {
           setInitialData(snap.data());
-          lastPublished.current = snap.data();
         } else {
           await setDoc(docRef, DEFAULT_DATA);
           setInitialData(DEFAULT_DATA);
@@ -92,15 +87,11 @@ export function SiteEditor() {
     })();
   }, []);
 
-  const handlePublish = async (data: any, action = 'Published site changes') => {
+  // The block-by-block diff of what changed is recorded server side by the
+  // audit trigger (functions/audit.js), which sees the before and after.
+  const handlePublish = async (data: any) => {
     try {
       await setDoc(doc(db, 'publicSiteData', 'home_puck'), data);
-      const changes = diffSitePage(lastPublished.current, data);
-      lastPublished.current = data;
-      void logActivity({
-        tool: 'Site editor', action, target: 'Public site homepage',
-        changes: changes.length ? changes : ['Published with no content changes'],
-      });
       alert('✓ Published to live site!');
     } catch (err) {
       console.error(err);
@@ -113,11 +104,6 @@ export function SiteEditor() {
       const newVal = !maintenanceMode;
       setMaintenanceMode(newVal);
       await setDoc(doc(db, 'publicSiteData', 'settings'), { maintenanceMode: newVal }, { merge: true });
-      void logActivity({
-        tool: 'Maintenance mode',
-        action: newVal ? 'Took the public site offline for maintenance' : 'Brought the public site back online',
-        target: 'Public site', changes: [`Maintenance mode: ${newVal ? 'off → on' : 'on → off'}`],
-      });
     } catch (err) {
       alert('Failed to toggle maintenance mode.');
       setMaintenanceMode(!maintenanceMode); // Revert on failure
@@ -127,7 +113,7 @@ export function SiteEditor() {
   const handleReset = async () => {
     if (confirm("Reset to the SIH default template? This will overwrite your current draft.")) {
       setInitialData(DEFAULT_DATA);
-      await handlePublish(DEFAULT_DATA, 'Reset the site to the default template');
+      await handlePublish(DEFAULT_DATA);
       window.location.reload();
     }
   };

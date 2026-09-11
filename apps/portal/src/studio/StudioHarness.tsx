@@ -83,7 +83,23 @@ export function StudioHarness() {
         Dev harness — the real Studio against a mock dispatch. Generation hits the live
         Cloud Function; Submit is inert because it needs a signed-in publisher.
       </div>
-      <Studio dispatch={MOCK} onSubmitted={() => console.log('[harness] onSubmitted fired')} />
+      {/* ?request=1 shows the studio as a publisher sees an admin's post request. */}
+      <Studio
+        dispatch={new URLSearchParams(window.location.search).get('request') ? {
+          ...MOCK,
+          id: '__harness_request__',
+          notes: 'Mark World Ozone Day on 16 September with the Maitri surface ozone record and why it matters.',
+          priority: 'notable',
+          request: {
+            kind: 'post-request', goal: 'Announce', platforms: ['instagram', 'x', 'linkedin'],
+            audience: 'students', tone: 'warm', deadline: Date.UTC(2026, 8, 15, 18, 29),
+            recordId: 'historical-d1', recordIdentifier: 'IIA-1999-9004', recordTitle: 'Total Column Ozone at Maitri, 1999–2006',
+            instructions: 'Keep it hopeful — the ozone layer is recovering. Use a Maitri photo if there is one.',
+            requestedBy: 'harness-admin', requestedByName: 'Harness Admin',
+          },
+        } : MOCK}
+        onSubmitted={() => console.log('[harness] onSubmitted fired')}
+      />
     </div>
   );
 }

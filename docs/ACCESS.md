@@ -84,46 +84,45 @@ reverse-geocoding endpoint.
 
 ## The activity log
 
-The right-hand column of the Access page. Every entry records **who** (name,
-email, and their role *at the time*), **which tool**, **what** it was done to,
-and **what changed**:
+The right-hand column of the Access page. Every create, edit and delete in
+the database is recorded by a Firestore trigger
+([`functions/audit.js`](../functions/audit.js)) — whether it came from the
+portal, the Flutter field app, the public site or a Cloud Function. Each
+entry records **who** (name, email, role at the time; *Public visitor* for
+anonymous writes, *System* for functions), **what** (create / edit / delete,
+and what it was done to) and **what changed** (a field-level diff), under a
+**category**:
 
-| Tool | Logged |
+| Category | What lands there |
 |---|---|
-| Sign-in check | Every visit: IP, location, whether location was allowed, device — refused attempts in red |
-| Site editor | Every publish, with a block-by-block diff: *Edited Hero: heading, body*, *Added Gallery*, *Removed Banner*, *Reordered blocks* |
-| Maintenance mode | Site taken offline / brought back |
-| Site analytics | Clarity project connected or changed |
-| Q&A moderation | Questions approved or rejected, answers published (and whether edited first) |
-| Deposit review | Repository deposits published or rejected |
-| Approve desk | Field records approved and published |
-| Social queue | Posts scheduled, sent, marked as posted, cancelled — with the permalink |
-| Access | Role changes, permission grants and removals, invitations, revokes and restores |
-| Role switcher | Self role changes |
+| Security | Every sign-in check (IP, location, device), refused attempts, revokes |
+| Access | Roles given and changed, permissions, invitations, restores |
+| Archive | Records published, edited (field by field) or removed; deposits filed, reviewed, edited |
+| Field reports | Reports filed from the field app, and edits to them |
+| Post requests | Admins asking publishers for a post |
+| Media studio | Posts submitted for approval |
+| Review & approval | Approved, sent back, returned; graphics marked up |
+| Social | Posts scheduled, sent, failed, cancelled; permalinks linked to records |
+| Website | Homepage edits (block by block), maintenance mode, site settings, Q&A moderation |
+| Profile · Support | Profile edits · bug reports from the game |
 
-Filters: by person, by tool, *site changes only*, *security alerts only*.
-A *Tools used* card per person shows which tools they have touched and how
-often.
+Filter by category (chips with counts), by person, or *alerts only*. An
+*Areas worked in* card per person shows where they have been active.
+
+Not logged, on purpose: writes to the log itself, the identifier counters,
+and the analytics sync refreshing a post's engagement numbers — hundreds of
+"likes went from 4 to 5" entries would bury everything that matters.
 
 ### What the rules guarantee
 
-[`firestore.rules`](../firestore.rules), `match /auditLog`:
+[`firestore.rules`](../firestore.rules), `match /auditLog`: nothing can be
+edited or deleted from a client, admins included; only admins can read it.
+The trigger writes with the server's credentials, so a client cannot skip or
+forge an entry. (The portal can still write one kind of entry itself — the
+sign-in check's fallback when the access function is unreachable — and only
+as its own user, on the server clock.)
 
-- An entry can only be written **as yourself** (`actorUid == request.auth.uid`)
-  and **on the server's clock** (`at == request.time`) — nobody can file one
-  as someone else, or backdate one.
-- **Nothing can be edited or deleted** from a client, admins included.
-- Only admins can read it.
-
-`rules.test.ts` asserts all three.
-
-### What it does not guarantee
-
-Tool entries are written by the portal when an action succeeds, so a
-modified client could skip writing one. Sign-in checks are written server
-side and cannot be skipped. Moving every tool's logging into Firestore
-triggers would close the gap, at the cost of the *which tool and why*
-context a trigger watching raw writes cannot see.
+`rules.test.ts` and `functions/test/audit.test.js` pin both halves.
 
 ---
 
@@ -135,5 +134,6 @@ In `npm run dev:portal`, these render the real components against fixtures:
 |---|---|
 | `/__securitycheck?status=granted\|unassigned\|revoked` | The sign-in check and the warning |
 | `/__access` | The activity log and the revoke control |
+| `/__postrequest` | The admin's *Create a new post* wizard (never writes) |
 
 Excluded from production builds by an `import.meta.env.DEV` guard.

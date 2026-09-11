@@ -117,6 +117,7 @@ exports.access = onRequest({ region: 'asia-south1', cors: true }, async (req, re
       actorName: decoded.name || null,
       actorEmail: decoded.email || null,
       actorRole: role || 'unknown',
+      category: 'Security',
       tool: 'Sign-in check',
       action,
       target: null,

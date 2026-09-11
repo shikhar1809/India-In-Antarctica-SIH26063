@@ -19,7 +19,7 @@
  * to `drafted`, and an admin still has to approve. That gate is unchanged.
  */
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft, ArrowRight, Check, Download, Paperclip, RotateCcw,
   PenLine, Sparkles, TriangleAlert, Wand2,
@@ -41,7 +41,7 @@ import { TEMPLATES, templateById, simpler, bolder, DEFAULT_TEMPLATE } from './te
 import type { TemplateId } from './templates';
 import {
   AUDIENCES, TONES, COPY_REFINEMENTS, DEFAULT_BRIEF,
-  draftVariants, generateVariants, refineCopy, withSourceLink,
+  describeRecordForBrief, draftVariants, generateVariants, recordUrl, refineCopy, withSourceLink,
 } from './copy';
 import type { Brief, PostCopy, Variant } from './copy';
 import { KnowledgeBase } from './KnowledgeBase';
@@ -67,12 +67,14 @@ import './Studio.css';
 const EMPTY_SOP: Record<string, boolean> = Object.fromEntries(SOP_CHECKLIST_ITEMS.map((i) => [i.id, false]));
 
 const STEPS = [
-  { id: 'brief',  label: 'Brief',      hint: 'Tell us what happened. Everything else has a sensible default — you can change it later.' },
+  { id: 'brief',  label: 'Basic',      hint: 'The basics: what happened, who it is for, where it goes. Then hand it to the agent.' },
+  { id: 'agent',  label: 'Agent',      hint: 'The agent researches, reasons and writes — every decision shown with its sources, and it stops to ask you when it is unsure.' },
   { id: 'pick',   label: 'Pick',       hint: 'Three different takes on the same report. Choose the one closest to what you want.' },
   { id: 'refine', label: 'Refine',     hint: 'Adjust the layout, colour and words. Every control here is instant — nothing regenerates behind your back.' },
-  { id: 'public', label: 'Public page', hint: 'The plain-language version for the Knowledge Repository. Different job from a social post: this one is the permanent record.' },
-  { id: 'review', label: 'Review',     hint: 'How it looks in each feed, the checks that gate submission, then over to an admin.' },
+  { id: 'review', label: 'Review',     hint: 'The public page, how the post looks in each feed, and the checks that gate submission — then over to an admin.' },
 ] as const;
+
+const STEP_INDEX = Object.fromEntries(STEPS.map((s, i) => [s.id, i])) as Record<(typeof STEPS)[number]['id'], number>;
 
 const LINE_BREAK = String.fromCharCode(10);
 
@@ -90,11 +92,16 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
   const step = STEPS[stepIdx];
 
   /* ── brief ── */
+  /* An admin's post request arrives with its audience, tone and platforms
+   * decided. They are set as choices, so the agent keeps them rather than
+   * re-inferring — and the admin's notes are part of the brief. */
+  const req = d.request?.kind === 'post-request' ? d.request : null;
   const [brief, setBrief] = useState<Brief>(() => ({
-    topic: d.notes ?? '',
     ...DEFAULT_BRIEF,
+    topic: req?.instructions ? `${d.notes ?? ''}${LINE_BREAK}${LINE_BREAK}Notes from ${req.requestedByName}: ${req.instructions}` : (d.notes ?? ''),
+    ...(req ? { audience: req.audience, tone: req.tone } : {}),
   }));
-  const [platforms, setPlatforms] = useState<PlatformId[]>(['instagram', 'x', 'linkedin']);
+  const [platforms, setPlatforms] = useState<PlatformId[]>(req?.platforms?.length ? req.platforms : ['instagram', 'x', 'linkedin']);
 
   /* ── generation ── */
   const [variants, setVariants] = useState<Variant[]>([]);
@@ -117,7 +124,7 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
    * result that only the panel knows about could not do either. */
   const [moderation, setModeration] = useState<ModerationResult | null>(null);
   const [refs, setRefs] = useState<StyleReference[]>([]);
-  const [chose, setChose] = useState<{ audience: boolean; tone: boolean }>({ audience: false, tone: false });
+  const [chose, setChose] = useState<{ audience: boolean; tone: boolean }>({ audience: !!req, tone: !!req });
   const { records: archiveRecords } = usePublicArchive();
   /* Sent posts and their measured engagement — what the agent learns from.
    * Readable by publishers and admins; empty (not an error) for anyone else. */
@@ -126,6 +133,23 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
    * answers, and the writer's exact instructions. Saved with the submission
    * so the admin reviewing it can see how it was made. */
   const [agentTrace, setAgentTrace] = useState<AgentTrace | null>(null);
+
+  /* A request about an archive record brings that record's facts and its
+   * permanent link into the brief — once, as soon as the archive has loaded
+   * — exactly as if the publisher had picked it from the knowledge base. */
+  const requestRecordAdopted = useRef(false);
+  useEffect(() => {
+    if (!req?.recordId || requestRecordAdopted.current || brief.source) return;
+    const rec = archiveRecords.find((r) => r.id === req.recordId);
+    if (!rec) return;
+    requestRecordAdopted.current = true;
+    const identifier = rec.metadata?.identifier ?? rec.id;
+    setBrief((b) => ({
+      ...b,
+      topic: b.topic.trim() + LINE_BREAK + LINE_BREAK + describeRecordForBrief(rec),
+      source: { identifier, title: rec.title, url: recordUrl(identifier) },
+    }));
+  }, [archiveRecords, req, brief.source]);
 
   /* ── the chosen post ── */
   const [copy, setCopy] = useState<PostCopy | null>(null);
@@ -206,6 +230,7 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
     setAgentTrace(null);
     setGenerating(true);
     setGenNote(null);
+    setStepIdx(STEP_INDEX.agent);
   };
 
   /** The writing step of the run. Kept separate from startAgent so
@@ -264,14 +289,14 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
     setAnalysis(final);
     setBrief((b) => ({ ...b, audience: final.audience, tone: final.tone }));
     setGenerating(false);
-    setStepIdx(1);
+    setStepIdx(STEP_INDEX.pick);
   };
 
   const pick = (v: Variant) => {
     setPickedId(v.id);
     setCopy(v.copy);
     setCaptions(v.copy.captions);
-    setStepIdx(2);
+    setStepIdx(STEP_INDEX.refine);
   };
 
   const applyCopyRefinement = (op: Parameters<typeof refineCopy>[1]) => {
@@ -415,9 +440,20 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
 
   /* ─────────────────────────────────────────────────────────────── render ── */
 
+  /* The least the agent needs before it may start: a real sentence about
+   * what happened, and somewhere to post it. Everything else it can infer —
+   * and asks about when it can't. */
+  const topicWords = brief.topic.trim().split(/\s+/).filter(Boolean).length;
+  const basicsMissing = [
+    ...(topicWords < 5 ? ['write at least a sentence about what happened'] : []),
+    ...(platforms.length === 0 ? ['pick at least one platform'] : []),
+  ];
+  const basicsReady = basicsMissing.length === 0;
+
   const canAdvance =
-    stepIdx === 0 ? brief.topic.trim().length > 0
-    : stepIdx === 1 ? !!pickedId
+    stepIdx === STEP_INDEX.brief ? basicsReady
+    : stepIdx === STEP_INDEX.agent ? !generating && variants.length > 0
+    : stepIdx === STEP_INDEX.pick ? !!pickedId
     : true;
 
   return (
@@ -439,25 +475,27 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
 
       <ReviewNotes dispatch={d} />
 
-      {/* ── stepper ── */}
-      <ol className="stu-steps">
-        {STEPS.map((s, i) => (
-          <li key={s.id}>
-            <button
-              type="button"
-              className={'stu-step' + (i === stepIdx ? ' is-active' : '') + (i < stepIdx ? ' is-done' : '')}
-              onClick={() => i < stepIdx && setStepIdx(i)}
-              disabled={i > stepIdx}
-            >
-              <span className="stu-step-num">{i < stepIdx ? <Check size={11} strokeWidth={3} /> : i + 1}</span>
-              {s.label}
-            </button>
-          </li>
-        ))}
-      </ol>
+      {/* ── stepper, with the agent as one of its steps ── */}
+      <div className="stu-stepbar">
+        <ol className="stu-steps">
+          {STEPS.map((s, i) => (
+            <li key={s.id}>
+              <button
+                type="button"
+                className={'stu-step' + (i === stepIdx ? ' is-active' : '') + (i < stepIdx ? ' is-done' : '')}
+                onClick={() => i < stepIdx && !generating && setStepIdx(i)}
+                disabled={i > stepIdx || generating}
+              >
+                <span className="stu-step-num">{i < stepIdx ? <Check size={11} strokeWidth={3} /> : i + 1}</span>
+                {s.label}
+              </button>
+            </li>
+          ))}
+        </ol>
+      </div>
       <p className="stu-hint">{step.hint}</p>
 
-      {warnings.length > 0 && stepIdx === 0 && (
+      {warnings.length > 0 && stepIdx === 0 && !req && (
         <div className="fld-datawarn">
           <span><TriangleAlert size={12} strokeWidth={2.5} /> Check this data before publishing</span>
           <ul>{warnings.map((w, i) => <li key={i}>{w.message}</li>)}</ul>
@@ -604,16 +642,52 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
             </div>
           </div>
 
+          {/* The form's submit: once the basics are in, the agent takes over. */}
+          <div className="stu-brief-submit">
+            {!basicsReady && <span className="stu-brief-missing">First {basicsMissing.join(' and ')}.</span>}
+            <button type="button" className="stu-primary" onClick={startAgent} disabled={!basicsReady}>
+              <Sparkles size={15} strokeWidth={2.5} /> Let the agent handle it
+            </button>
+          </div>
         </div>
 
-        {/* The action and the agent's working live in their own column,
-            pinned in view. They used to sit at the foot of the form, which
-            put the only button that starts anything several hundred pixels
-            below the fold as soon as the knowledge base was opened — and
-            left the right half of a wide screen empty while it did. On a
-            narrow screen this stacks underneath and the button sticks to
-            the bottom of the viewport instead. */}
-        <aside className="stu-rail">
+        {/* What the admin asked for, beside the form the publisher fills in. */}
+        <aside className="stu-reqs" aria-label="Requirements as per admin">
+          <h4 className="stu-reqs-title">Requirements as per admin</h4>
+          {req ? (
+            <>
+              <p className="stu-reqs-from">Requested by <strong>{req.requestedByName}</strong></p>
+              <dl className="stu-reqs-list">
+                <div><dt>Brief</dt><dd>{d.notes}</dd></div>
+                <div><dt>Goal</dt><dd>{req.goal}</dd></div>
+                <div><dt>Archive record</dt><dd>{req.recordIdentifier ? `${req.recordIdentifier} — ${req.recordTitle}` : 'None — a new topic'}</dd></div>
+                <div><dt>Platforms</dt><dd>{req.platforms.map((p) => PLATFORM_SPECS[p]?.label ?? p).join(', ')}</dd></div>
+                <div><dt>Audience</dt><dd>{AUDIENCES.find((a) => a.id === req.audience)?.label ?? req.audience}</dd></div>
+                <div><dt>Tone</dt><dd>{TONES.find((t) => t.id === req.tone)?.label ?? req.tone}</dd></div>
+                <div><dt>Needed by</dt><dd>{req.deadline ? new Date(req.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : 'No deadline'}</dd></div>
+                <div><dt>Priority</dt><dd className={`stu-reqs-pri pri-${d.priority}`}>{d.priority}</dd></div>
+                {req.instructions && <div><dt>Notes</dt><dd>{req.instructions}</dd></div>}
+              </dl>
+              <p className="stu-reqs-foot">Platforms, audience and tone above are pre-set from this request; the agent keeps them.</p>
+            </>
+          ) : (
+            <>
+              <p className="stu-reqs-none">No admin requirements for this post.</p>
+              <p className="stu-reqs-foot">
+                It comes from a field report — {d.activity}{d.station ? ` at ${d.station}` : ''}, filed by {d.authorName}
+                {d.observedAt ? ` on ${new Date(d.observedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}.
+                Write it as you judge best; the admin reviews it before it goes out.
+              </p>
+            </>
+          )}
+        </aside>
+
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════ 2 · AGENT ══ */}
+      {step.id === 'agent' && (
+        <div className="stu-agentstep">
           {generating && analysis ? (
             <AgentThinking
               analysis={analysis}
@@ -626,41 +700,26 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
               runReferences={(queries, onPartial) => searchReferences(queries, onPartial)}
               runWriting={runWriting}
               onComplete={agentDone}
-              onCancel={() => { setGenerating(false); setAnalysis(null); }}
+              onCancel={() => { setGenerating(false); setAnalysis(null); setStepIdx(STEP_INDEX.brief); }}
             />
+          ) : agentTrace ? (
+            <>
+              <TraceView trace={agentTrace} />
+              <div className="stu-agentstep-actions">
+                <button type="button" className="stu-ghost" onClick={startAgent}>
+                  <RotateCcw size={13} strokeWidth={2.5} /> Run the agent again
+                </button>
+              </div>
+            </>
           ) : (
-            <div className="stu-rail-start">
-              <h4 className="stu-rail-title">
-                <Sparkles size={14} strokeWidth={2.5} /> Let the agent work it out
-              </h4>
-              <p className="stu-sub">
-                It reads the brief, looks for a matching archive record, works out who the post is
-                for and what each platform needs, checks how previous posts were written, and
-                searches the web for visual references — showing you each decision before it
-                writes anything.
-              </p>
-              <p className="stu-sub">
-                Anything you left unset above, it decides. Anything you chose, it keeps.
-              </p>
-              <button
-                type="button"
-                className="stu-primary"
-                onClick={startAgent}
-                disabled={!brief.topic.trim()}
-              >
-                <Sparkles size={15} strokeWidth={2.5} />
-                Work it out and show me three options
-              </button>
-              {!brief.topic.trim() && (
-                <p className="stu-sub">Write a line about what happened first.</p>
-              )}
+            <div className="stu-panel">
+              <p className="stu-sub">The agent hasn’t run yet. Start it from the brief.</p>
             </div>
           )}
-        </aside>
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════ 2 · PICK ══ */}
+      {/* ═══════════════════════════════════════════════════ 3 · PICK ══ */}
       {step.id === 'pick' && (
         <div className="stu-panel">
           {genNote && <p className="stu-gennote">{genNote}</p>}
@@ -736,7 +795,7 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
           <button
             type="button"
             className="stu-ghost"
-            onClick={() => { setStepIdx(0); startAgent(); }}
+            onClick={startAgent}
             disabled={generating}
           >
             <RotateCcw size={13} strokeWidth={2.5} /> Three different ones
@@ -915,8 +974,11 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
         </div>
       )}
 
-      {/* ═════════════════════════════════════════════════ 4 · PUBLIC ══ */}
-      {step.id === 'public' && (
+      {/* ═══════════════════════════════════ 5 · REVIEW (public page first) ══ */}
+      {step.id === 'review' && (
+        <h3 className="stu-sectionhead">Public page <span>— the plain-language version for the Knowledge Repository, the permanent record</span></h3>
+      )}
+      {step.id === 'review' && (
         <div className="stu-panel stu-public">
           <label className="stu-field">
             <span className="stu-label">Headline</span>
@@ -953,7 +1015,9 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
         </div>
       )}
 
-      {/* ═════════════════════════════════════════════════ 5 · REVIEW ══ */}
+      {step.id === 'review' && copy && (
+        <h3 className="stu-sectionhead">The post <span>— how it looks in each feed, and the checks before it goes to an admin</span></h3>
+      )}
       {step.id === 'review' && copy && (
         <div className="stu-panel stu-review">
           <div className="stu-review-feeds">
@@ -1078,10 +1142,15 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
 
       {/* ── nav ── */}
       <div className="stu-nav">
-        <button type="button" className="stu-ghost" onClick={() => setStepIdx((i) => Math.max(0, i - 1))} disabled={stepIdx === 0}>
+        <button type="button" className="stu-ghost" onClick={() => setStepIdx((i) => Math.max(0, i - 1))} disabled={stepIdx === 0 || generating}>
           <ArrowLeft size={14} strokeWidth={2.5} /> Back
         </button>
-        {stepIdx > 1 && stepIdx < STEPS.length - 1 && (
+        {stepIdx === STEP_INDEX.agent && !generating && variants.length > 0 && (
+          <button type="button" className="stu-primary stu-primary--sm" onClick={() => setStepIdx(STEP_INDEX.pick)}>
+            See the three options <ArrowRight size={14} strokeWidth={2.5} />
+          </button>
+        )}
+        {stepIdx > STEP_INDEX.pick && stepIdx < STEPS.length - 1 && (
           <button type="button" className="stu-primary stu-primary--sm" onClick={() => setStepIdx((i) => i + 1)} disabled={!canAdvance}>
             Next <ArrowRight size={14} strokeWidth={2.5} />
           </button>

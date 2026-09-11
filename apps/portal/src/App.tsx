@@ -13,6 +13,7 @@ import { SiteEditor } from './pages/SiteEditor';
 import { Moderation } from './pages/Moderation';
 import { Analytics } from './pages/Analytics';
 import { MediaHub } from './pages/MediaHub';
+import { PostRequestWizard } from './pages/PostRequestWizard';
 import { SiteHub } from './pages/SiteHub';
 import { UptimePage } from './pages/UptimePage';
 import { RolesPage } from './pages/RolesPage';
@@ -72,7 +73,9 @@ function Gate() {
    *   /__recordeditor   the raw/redacted editor against a mock published record
    *   /__analytics      the outreach dashboard against synthetic fixtures
    *   /__access         the activity log and revoke panel against fixtures
-   *   /__securitycheck  the sign-in check; ?status=granted|unassigned|revoked */
+   *   /__securitycheck  the sign-in check; ?status=granted|unassigned|revoked
+   *   /__postrequest    the admin's create-a-post wizard (never writes)
+   *   /__archive        the archive page, without sign-in */
   if (import.meta.env.DEV) {
     const path = window.location.pathname;
     if (path === '/__canvas') return <CanvasGallery />;
@@ -81,6 +84,8 @@ function Gate() {
     if (path === '/__analytics') return <AnalyticsHarness />;
     if (path === '/__access') return <AccessHarness />;
     if (path === '/__securitycheck') return <SecurityCheckHarness />;
+    if (path === '/__postrequest') return <BrowserRouter><PostRequestWizard preview /></BrowserRouter>;
+    if (path === '/__archive') return <BrowserRouter><div id="archive-harness" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}><Repository preview /></div></BrowserRouter>;
   }
 
   // Waits for the role as well as the user, so a site manager never sees a
@@ -146,6 +151,7 @@ function Gate() {
         <Route path="/moderation" element={<Moderation />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/media" element={<MediaHub />} />
+        <Route path="/media/new" element={<PostRequestWizard />} />
         <Route path="/site" element={<SiteHub />} />
         <Route path="/site/uptime" element={<UptimePage />} />
         <Route path="/roles" element={<RolesPage />} />

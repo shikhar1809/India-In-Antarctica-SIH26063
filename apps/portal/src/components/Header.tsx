@@ -3,7 +3,6 @@ import { useAuth } from '../context/AuthContext';
 import { useRole, assignRole } from '../hooks/useRole';
 import type { Role } from '../hooks/useRole';
 import { useState } from 'react';
-import { logActivity } from '../audit/log';
 import './Header.css';
 
 const ROLE_LABEL: Record<Role, string> = {
@@ -25,7 +24,6 @@ function RoleSwitcher() {
       await assignRole(user.uid, r, {
         email: user.email, displayName: user.displayName, photoURL: user.photoURL,
       }, { resetPermissions: true });
-      void logActivity({ tool: 'Role switcher', action: `Switched own role to ${ROLE_LABEL[r]}`, changes: [`${ROLE_LABEL[role]} → ${ROLE_LABEL[r]}`] });
     } finally { setSwitching(false); }
   };
 

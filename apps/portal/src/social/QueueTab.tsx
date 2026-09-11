@@ -23,7 +23,6 @@ import {
 } from './queue';
 import { refreshAdapters, type PublishCapability } from './uploadPostAdapter';
 
-import { logActivity } from '../audit/log';
 import './QueueTab.css';
 
 const STATUS_LABEL: Record<PostStatus, string> = {
@@ -73,12 +72,6 @@ function QueueRow({ post }: { post: ScheduledPost }) {
       if (next.status === 'posted' && post.status !== 'posted') {
         await recordSocialPost(next);
       }
-      void logActivity({
-        tool: 'Social queue',
-        action: next.status === 'posted' ? `Posted to ${limits.label}` : `Post to ${limits.label} failed`,
-        target: post.recordIdentifier,
-        changes: [next.status === 'posted' ? (next.externalUrl ?? 'Posted') : (next.error ?? 'Rejected by the platform')],
-      });
       if (next.status === 'failed') setErr(next.error ?? 'The platform rejected the post.');
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Could not send the post.');
@@ -97,12 +90,6 @@ function QueueRow({ post }: { post: ScheduledPost }) {
         await recordSocialPost(next);
       }
       if (next.status !== post.status) {
-        void logActivity({
-          tool: 'Social queue',
-          action: next.status === 'posted' ? `Marked as posted on ${limits.label}` : next.status === 'cancelled' ? `Cancelled a ${limits.label} post` : `Updated a ${limits.label} post`,
-          target: post.recordIdentifier,
-          changes: next.externalUrl && next.status === 'posted' ? [next.externalUrl] : [`${post.status} → ${next.status}`],
-        });
       }
     }
     catch { setErr('Could not save. Check your connection and try again.'); }

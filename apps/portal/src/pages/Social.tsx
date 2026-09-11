@@ -1,12 +1,11 @@
 import { useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ChevronDown, FileSpreadsheet, Paperclip, RotateCcw, Sparkles, TriangleAlert } from 'lucide-react';
-import { addDoc, collection, doc, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useDispatches } from '../hooks/useDispatches';
 import { useRole } from '../hooks/useRole';
-import { logActivity } from '../audit/log';
 import type { Dispatch, DispatchStatus, DispatchPriority, WeatherObs, PlatformCaptions } from '../types';
 import { MEASUREMENT_SCHEMA } from '../types';
 import { normaliseDispatch } from '../repository/normalise';
@@ -320,7 +319,14 @@ function ReviewTab({ items, setActiveId }: { items: Dispatch[]; setActiveId: (id
             <span className={'fld-pill status-' + d.status}>{STATUS_LABEL[d.status]}</span>
             <span className={'fld-priority-dot ' + (d.priority ?? 'routine')} title={PRIORITY_LABEL[d.priority ?? 'routine']} />
             <span className="fld-list-author">{d.authorName}</span>
-            <span className="fld-list-activity">{d.activity}</span>
+            {d.request?.kind === 'post-request' ? (
+              <span className="fld-list-activity fld-request">
+                <span className="fld-request-tag">Post request</span> {d.notes.slice(0, 70)}{d.notes.length > 70 ? '…' : ''}
+                {d.request.deadline && <span className="fld-request-due"> · due {new Date(d.request.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>}
+              </span>
+            ) : (
+              <span className="fld-list-activity">{d.activity}</span>
+            )}
           </div>
           <span className="fld-list-date">{new Date(d.observedAt ?? d.createdAt).toLocaleDateString()}</span>
         </li>
@@ -540,6 +546,25 @@ function ApproveTab({ items }: { items: Dispatch[] }) {
       const allowed = canPublishDispatch({ ...active, status: 'approved' });
       if (!allowed.ok) { setError(allowed.reason); return; }
 
+      /* An admin's post request about a record already in the archive is a
+       * post about that record — approving it must not mint a second copy.
+       * It is marked approved against the existing record, which the
+       * scheduling dialog then opens on. */
+      if (active.request?.recordId) {
+        const snap = await getDoc(doc(db, 'publicArchive', active.request.recordId));
+        if (!snap.exists()) { setError('The archive record this request was about no longer exists.'); return; }
+        const existing = { id: snap.id, ...snap.data() } as RepositoryRecord;
+        await updateDoc(doc(db, 'dispatches', active.id), {
+          status: 'approved' satisfies DispatchStatus,
+          publicRecordId: existing.id,
+          publicIdentifier: existing.metadata?.identifier ?? null,
+          updatedAt: Date.now(),
+        });
+        if (andSchedule) setScheduleFor(existing);
+        setActiveId(null); setAi(null);
+        return;
+      }
+
       const { dispatch: clean, measurements } = normaliseDispatch(active);
       const stored = active.publicSummary;
       const summary = stored
@@ -555,10 +580,6 @@ function ApproveTab({ items }: { items: Dispatch[] }) {
         publicRecordId: record.id,
         publicIdentifier: identifier,
         updatedAt: Date.now(),
-      });
-      void logActivity({
-        tool: 'Approve desk', action: 'Approved and published a field record', target: identifier,
-        changes: [`“${record.title}” is now in the public archive`],
       });
       if (andSchedule) setScheduleFor(record);
       setActiveId(null); setAi(null);

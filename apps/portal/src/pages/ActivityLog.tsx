@@ -17,16 +17,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { collection, limit, onSnapshot, orderBy, query, type Timestamp } from 'firebase/firestore';
 import { ChevronDown, History, ScrollText } from 'lucide-react';
 import { db } from '../firebase';
-import { AUDIT_COLLECTION, type AuditEntry, type AuditTool } from '../audit/log';
+import { AUDIT_CATEGORIES, AUDIT_COLLECTION, categoryOf, type AuditCategory, type AuditEntry } from '../audit/log';
 import './ActivityLog.css';
 
 const ROLE_LABEL: Record<string, string> = {
-  scientist: 'Scientist', publisher: 'Publisher', admin: 'Admin', site_manager: 'Site Manager', unknown: '—',
+  scientist: 'Scientist', publisher: 'Publisher', admin: 'Admin', site_manager: 'Site Manager',
+  unknown: '—', system: 'System', public: 'Public',
 };
 
-/** The Site section's tools, called out so "what did they change on the
- *  site" can be filtered to in one click. */
-const SITE_TOOLS: AuditTool[] = ['Site editor', 'Maintenance mode', 'Site analytics', 'Q&A moderation'];
+const OP_LABEL: Record<string, string> = { create: 'Created', update: 'Edited', delete: 'Deleted' };
 
 const MAX_ENTRIES = 300;
 
@@ -47,6 +46,8 @@ function initials(name: string | null, email: string | null): string {
   return label.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase()).join('') || '?';
 }
 
+const slug = (c: string) => c.toLowerCase().replace(/[^a-z]+/g, '-');
+
 function Entry({ e, now }: { e: AuditEntry; now: number }) {
   const [open, setOpen] = useState(false);
   const changes = e.changes ?? [];
@@ -63,8 +64,12 @@ function Entry({ e, now }: { e: AuditEntry; now: number }) {
         </div>
         {e.actorEmail && e.actorName && <div className="al-email">{e.actorEmail}</div>}
         <div className="al-action">
-          <span className={'al-tool' + (SITE_TOOLS.includes(e.tool) ? ' is-site' : '') + (e.tool === 'Sign-in check' ? ' is-security' : '') + (e.alert ? ' is-alert' : '')}>{e.tool}</span>
-          <span>{e.action}</span>
+          <span className={`al-cat cat-${slug(categoryOf(e))}` + (e.alert ? ' is-alert' : '')}>{categoryOf(e)}</span>
+          {e.op && <span className={`al-op op-${e.op}`}>{OP_LABEL[e.op]}</span>}
+          <span className="al-tool-name">{e.tool}</span>
+        </div>
+        <div className="al-action">
+          <span className="al-action-text">{e.action}</span>
           {e.target && <span className="al-target">· {e.target}</span>}
         </div>
         {changes.length > 0 && (
@@ -124,29 +129,32 @@ export function ActivityLog({ fixture }: { fixture?: AuditEntry[] } = {}) {
   }, []);
 
   const people = useMemo(() => {
-    const byUid = new Map<string, { uid: string; name: string; email: string | null; role: string; tools: Map<string, number>; last: number }>();
+    const byUid = new Map<string, { uid: string; name: string; email: string | null; role: string; areas: Map<AuditCategory, number>; last: number }>();
     for (const e of entries) {
       let p = byUid.get(e.actorUid);
       if (!p) {
         // Entries are newest first, so the first one seen carries the
         // person's most recent name and role.
-        p = { uid: e.actorUid, name: e.actorName || e.actorEmail || 'Unknown', email: e.actorEmail, role: e.actorRole, tools: new Map(), last: e.at };
+        p = { uid: e.actorUid, name: e.actorName || e.actorEmail || 'Unknown', email: e.actorEmail, role: e.actorRole, areas: new Map(), last: e.at };
         byUid.set(e.actorUid, p);
       }
-      p.tools.set(e.tool, (p.tools.get(e.tool) ?? 0) + 1);
+      const c = categoryOf(e);
+      p.areas.set(c, (p.areas.get(c) ?? 0) + 1);
     }
     return [...byUid.values()];
   }, [entries]);
 
-  const tools = useMemo(() => [...new Set(entries.map((e) => e.tool))].sort(), [entries]);
+  const counts = useMemo(() => {
+    const m = new Map<AuditCategory, number>();
+    for (const e of entries) m.set(categoryOf(e), (m.get(categoryOf(e)) ?? 0) + 1);
+    return m;
+  }, [entries]);
   const alerts = entries.filter((e) => e.alert).length;
 
   const shown = entries.filter((e) =>
     (person === 'all' || e.actorUid === person)
     && (tool === 'all'
-      || (tool === '__site' ? SITE_TOOLS.includes(e.tool)
-        : tool === '__alerts' ? e.alert === true
-          : e.tool === tool)));
+      || (tool === '__alerts' ? e.alert === true : categoryOf(e) === tool)));
 
   return (
     <aside className="al-panel" aria-labelledby="al-title">
@@ -161,21 +169,21 @@ export function ActivityLog({ fixture }: { fixture?: AuditEntry[] } = {}) {
           {loading ? '…' : `${entries.length}${entries.length === MAX_ENTRIES ? '+' : ''} entries`}
         </span>
       </header>
-      <p className="al-sub">Who changed what, with which tool. Entries can’t be edited or deleted — by anyone.</p>
+      <p className="al-sub">Every create, edit and delete across the portal, field app and public site — recorded by the server, by category. Entries can’t be edited or deleted, by anyone.</p>
 
       {error && <p className="fld-error">{error}</p>}
 
       {!error && !loading && entries.length === 0 && (
         <p className="al-empty">
           <History size={16} />
-          Nothing logged yet. Actions in the Site editor, moderation, the approve desk, the social queue and on
-          this page will appear here as they happen.
+          Nothing logged yet. Every change anyone makes — records, reports, posts, the website, access — appears
+          here as it happens.
         </p>
       )}
 
       {people.length > 0 && (
-        <section className="al-people" aria-label="Tools used by each person">
-          <h3>Tools used</h3>
+        <section className="al-people" aria-label="Areas each person worked in">
+          <h3>Areas worked in</h3>
           <ul>
             {people.map((p) => (
               <li key={p.uid}>
@@ -193,9 +201,9 @@ export function ActivityLog({ fixture }: { fixture?: AuditEntry[] } = {}) {
                   <span className={`al-role role-${p.role}`}>{ROLE_LABEL[p.role] ?? p.role}</span>
                 </button>
                 <div className="al-tool-chips">
-                  {[...p.tools.entries()].sort((a, b) => b[1] - a[1]).map(([t, n]) => (
-                    <span key={t} className={'al-tool' + (SITE_TOOLS.includes(t as AuditTool) ? ' is-site' : '')}>
-                      {t} <b>{n}</b>
+                  {[...p.areas.entries()].sort((a, b) => b[1] - a[1]).map(([c, n]) => (
+                    <span key={c} className={`al-cat cat-${slug(c)}`}>
+                      {c} <b>{n}</b>
                     </span>
                   ))}
                 </div>
@@ -206,17 +214,30 @@ export function ActivityLog({ fixture }: { fixture?: AuditEntry[] } = {}) {
       )}
 
       {entries.length > 0 && (
+        <div className="al-cats" role="tablist" aria-label="Categories">
+          <button type="button" role="tab" aria-selected={tool === 'all'} className={'al-catbtn' + (tool === 'all' ? ' is-on' : '')} onClick={() => setTool('all')}>
+            All <b>{entries.length}</b>
+          </button>
+          {AUDIT_CATEGORIES.filter((c) => counts.get(c)).map((c) => (
+            <button key={c} type="button" role="tab" aria-selected={tool === c}
+              className={`al-catbtn cat-${slug(c)}` + (tool === c ? ' is-on' : '')} onClick={() => setTool(tool === c ? 'all' : c)}>
+              {c} <b>{counts.get(c)}</b>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {entries.length > 0 && (
         <>
           <div className="al-filters">
             <select value={person} onChange={(e) => setPerson(e.target.value)} aria-label="Filter by person">
               <option value="all">Everyone</option>
               {people.map((p) => <option key={p.uid} value={p.uid}>{p.name}</option>)}
             </select>
-            <select value={tool} onChange={(e) => setTool(e.target.value)} aria-label="Filter by tool">
-              <option value="all">All tools</option>
-              <option value="__site">Site changes only</option>
-              <option value="__alerts">Security alerts only</option>
-              {tools.map((t) => <option key={t} value={t}>{t}</option>)}
+            <select value={tool} onChange={(e) => setTool(e.target.value)} aria-label="Filter by category">
+              <option value="all">All categories</option>
+              <option value="__alerts">Alerts only</option>
+              {AUDIT_CATEGORIES.filter((c) => counts.get(c)).map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
 

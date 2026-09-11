@@ -277,6 +277,10 @@ export interface Dispatch {
    *  publisher and their answers, and the writer's exact instructions. See
    *  studio/trace.ts. Null or absent when the agent was not used. */
   agentTrace?: AgentTrace | null;
+  /** Present when this is not a field report but an admin's request for a
+   *  post (pages/PostRequestWizard.tsx). The studio opens pre-set from it;
+   *  approval promotes the linked record rather than minting a new one. */
+  request?: PostRequest | null;
   createdAt: number;
   updatedAt: number;
   /** Set by the approve desk alongside `status: 'approved'` — the id and
@@ -297,6 +301,23 @@ export interface Dispatch {
 
   /** @deprecated superseded by structured `weather`; kept so older docs render. */
   conditions?: string;
+}
+
+/** An admin's request for a post, carried on a dispatch. */
+export interface PostRequest {
+  kind: 'post-request';
+  goal: string;
+  platforms: ('instagram' | 'story' | 'x' | 'linkedin')[];
+  audience: 'public' | 'students' | 'researchers' | 'press';
+  tone: 'plain' | 'warm' | 'formal' | 'punchy';
+  /** Epoch ms, end of the chosen day; null for no deadline. */
+  deadline: number | null;
+  recordId: string | null;
+  recordIdentifier: string | null;
+  recordTitle: string | null;
+  instructions: string | null;
+  requestedBy: string;
+  requestedByName: string;
 }
 
 /** Firestore-safe record of a post graphic's design decisions.

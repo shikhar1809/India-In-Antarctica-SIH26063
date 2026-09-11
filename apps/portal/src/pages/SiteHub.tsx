@@ -27,7 +27,6 @@ import { Activity, Flame, MessageCircleQuestion, PenSquare } from 'lucide-react'
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useRole } from '../hooks/useRole';
-import { logActivity } from '../audit/log';
 import './SiteHub.css';
 
 function ClarityCard({ isAdmin }: { isAdmin: boolean }) {
@@ -58,10 +57,6 @@ function ClarityCard({ isAdmin }: { isAdmin: boolean }) {
     setSaving(true); setErr(null);
     try {
       await setDoc(doc(db, 'publicSiteData', 'settings'), { clarityProjectId: trimmed }, { merge: true });
-      void logActivity({
-        tool: 'Site analytics', action: 'Connected Microsoft Clarity', target: 'Public site',
-        changes: [`Clarity project: ${projectId ?? 'none'} → ${trimmed}`],
-      });
       setProjectId(trimmed);
     } catch {
       setErr('Could not save. Check your connection and try again.');
