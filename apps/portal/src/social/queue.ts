@@ -109,7 +109,25 @@ export interface ScheduledPost {
    *  e.g. LinkedIn only reports per-post metrics for company-page posts.
    *  Written by functions/engagement.js; cleared once numbers arrive. */
   engagementNote?: string | null;
+  /** Whether the post is still up on the platform, as last cross-checked by
+   *  functions/liveness.js. 'unknown' means the check could not tell — it is
+   *  never taken as live or as removed. */
+  liveCheck?: LiveCheck | null;
+  /** When the post was first found deleted on the platform. */
+  removedAt?: number | null;
 }
+
+export interface LiveCheck {
+  state: 'live' | 'removed' | 'unknown';
+  /** Which check decided it: x-syndication, linkedin-embed, instagram-api. */
+  how: string;
+  note?: string;
+  checkedAt: number;
+}
+
+/** Sent, and since deleted on the platform. Still in the audit trail;
+ *  no longer counted as anything the public can see. */
+export const isRemoved = (p: Pick<ScheduledPost, 'liveCheck'>): boolean => p.liveCheck?.state === 'removed';
 
 export interface EngagementSnapshot {
   likes: number;

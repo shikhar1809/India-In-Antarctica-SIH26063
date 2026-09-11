@@ -189,14 +189,21 @@ service cloud.firestore {
        * could read all of it; the "publisher and admin only" in the comment
        * above was enforced nowhere but a client-side filter, which is UI, not
        * a boundary. Scientists see their own work, reviewers see the queue. */
+      /* A raw report has not been screened yet: only its author and the
+       * admins read it. Publishers see a report once an admin has screened
+       * it and redacted what should not travel — 'cleared' onwards. */
       allow read: if request.auth != null && (
         resource.data.authorUid == request.auth.uid
-        || isPublisher()
+        || (isPublisher() && resource.data.status != 'raw')
         || isAdmin()
       );
       allow create: if request.auth != null
         && request.resource.data.authorUid == request.auth.uid
-        && request.resource.data.status == 'raw'
+        && (
+          request.resource.data.status == 'raw'
+          // An admin's own post request needs no screening.
+          || (isAdmin() && request.resource.data.status == 'cleared' && request.resource.data.request is map)
+        )
         && request.resource.data.observedAt is int
         && request.resource.data.activity is string
         && request.resource.data.priority in ['routine', 'notable', 'urgent']
@@ -227,10 +234,10 @@ service cloud.firestore {
             && request.resource.data.sopChecklist.hashtags == true
           )
           ||
-          // Admin: approve or flag
+          // Admin: screen (redact, keep raw, or clear to the publishers), approve or flag
           (
             isAdmin()
-            && request.resource.data.status in ['approved', 'flagged']
+            && request.resource.data.status in ['raw', 'cleared', 'approved', 'flagged']
           )
           ||
           // Admin: mark up the post graphic for the publisher — pins, drawn
@@ -253,6 +260,15 @@ service cloud.firestore {
         );
       allow delete: if request.auth != null
         && resource.data.authorUid == request.auth.uid;
+
+      /* The words an admin redacted at screening, and the photos withheld —
+       * moved here so the dispatch the publishers read never carries them.
+       * Admins read and write; the report's author may read their own. */
+      match /private/{docId} {
+        allow read: if isAdmin()
+          || (request.auth != null && get(/databases/$(database)/documents/dispatches/$(dispatchId)).data.authorUid == request.auth.uid);
+        allow write: if isAdmin();
+      }
     }
 
     /* Scheduled social posts — the dissemination queue.

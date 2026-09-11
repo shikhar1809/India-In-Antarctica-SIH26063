@@ -31,6 +31,49 @@ would have been easy to build a progress animation over a single prompt
 fired at the start; this is not that, and the tests in
 `studio/agent.test.ts` pin the behaviour down.
 
+### The Basic questions
+
+Before the agent starts, the Basic step asks what it would otherwise guess,
+in three columns — each question a row of options, most with **Agent
+decides** as the default ([`studio/basics.ts`](../apps/portal/src/studio/basics.ts)):
+
+| Column | Question | What it settles |
+|---|---|---|
+| **What is it about** | What happened? | The story, from the field notes |
+| | What kind of post is it? | The content type, and the three angles the writer takes |
+| | Is it about, or citing, something in the public knowledge base? | *No* skips the archive search; *about* or *cites* links a record — its facts go into the brief, its permanent address onto every caption. Removing it takes its facts back out |
+| | How firm is the data? | Preliminary readings are labelled; "confirms" and "proves" are banned |
+| **What do you want the post to have** | Images | Uploaded photographs are measured: under 1080 px on the short side is flagged *low-res* (soft on Instagram), under 600 px *too small*. Or **Let the agent find one** — see below |
+| | Reference posts | Up to three posts whose shape and voice to follow: one of the portal's own sent posts, or a pasted link with its text. Style only — never facts |
+| | Links | One box per link, **+** for another (up to five). The portal adds them to the end of every caption after writing — the model never types a URL — and the alignment check confirms each one arrived |
+| | Who gets credit? | NCPOR and the station, the observer by name, or no individual |
+| **Who is it meant for** | Audience, tone, language, platforms | Who reads it, how it sounds, English / Hindi / both, where it goes |
+
+**An admin's post request asks the same questions.** "Create a new post"
+(`pages/PostRequestWizard.tsx`) uses the same fields
+([`studio/BasicFields.tsx`](../apps/portal/src/studio/BasicFields.tsx)) in
+the same groups, and stores the answers on the request (`request.basics`);
+photographs the admin attaches ride on the dispatch like a field report's.
+In the studio, a request shows **Auto-fill from the admin's requirements**
+on Basic — one click puts the admin's answers in (with Undo), and the
+publisher changes whatever they need. A field report from the scientist app
+has no request, so no button: the publisher answers everything. The
+*Requirements as per admin* drawer and the admin's own review screen list the
+request through one function (`studio/requestSummary.ts`), and anything the
+admin left to the agent is not held against the drafts by the alignment
+check.
+
+The call to action is no longer asked: a post linked to a record asks readers
+to read it. The observance is left to the agent, which asks during the run.
+
+**When the agent finds the photograph**, it takes it from the image search
+(Wikimedia Commons, NASA, Openverse) only if all of these hold: the title is
+on the post's subject or its polar setting; the licence is public domain,
+CC0, CC BY or CC BY-SA (never NC, ND or unknown — text is laid over it, and
+this is an official account); and it is at least 600 px, preferring 1080 px.
+It is copied into the portal's storage where the source allows, and every
+caption must end with its credit line — which the alignment check verifies.
+
 ### The eleven steps
 
 | Step | What it really does |
@@ -40,15 +83,39 @@ fired at the start; this is not that, and the tests in
 | **Reads what each platform demands** | Character limits, whether a photograph is required, hashtag conventions — and flags what cannot be satisfied yet |
 | **Reads the accounts' analytics** | Followers and 30-day reach per connected account, the best day of the week to post (with how many days of data it rests on), and Instagram's audience by age and place |
 | **Learns from posts already sent** | Real engagement on posts the portal sent — per platform, the best post, the hashtags on the stronger half — plus the house style of earlier captions |
-| **Works out who it is for** | Infers the audience from the content type, unless the publisher chose one, and says who actually follows |
-| **Matches the tone** | Same, for tone |
+| **Chooses who it is for and how it sounds** | Audience and tone, weighed from the content type, the purpose, the platforms and who actually follows — unless the publisher chose them |
 | **Checks what people are paying attention to** | Wikipedia daily views for the subject (this week against the month before), recent news coverage, and upcoming observances that fit the topic |
 | **Gathers sources** | Wikipedia background for checking claims, and peer-reviewed papers (OpenAlex) — offered only if they are on the post's subject |
 | **Searches the web for references** | Real image search, with the queries and results shown as they arrive |
-| **Writes three options** | The generation call, given everything above |
+| **Writes three options** | The generation call, given everything above — with a per-platform hashtag plan and a suggested posting time |
+| **Checks the drafts against the requirements** | Reads the finished drafts back against every requirement — the admin's post request, the Basic answers, the platforms' rules — and marks each met, partly met, missed, or for a person to judge |
 
-Reach, trends and sources each reach the network and each can fail on its
-own: the step says what failed and the run continues without it.
+Reach, trends, sources and image references all start together when the run
+begins, and each can fail on its own: the step says what failed and the run
+continues without it.
+
+### The alignment check
+
+Telling the writer the requirements is not the same as meeting them, and
+asking a model "did you follow the brief?" gets a yes. So the last step
+checks by rule, against the actual captions
+([`studio/alignment.ts`](../apps/portal/src/studio/alignment.ts)):
+
+- **From the admin** — purpose, platforms, audience, tone, the archive record
+  (and that every draft links to it), the deadline against the suggested
+  posting time, and the free-text notes (never auto-passed: marked for a
+  person, with which of their key words appear)
+- **From Basic** — call to action at the end of each caption, no overclaiming
+  on preliminary data, the credit rule, the language, the takeaway, the day
+- **Platform rules** — every caption within its length limit; the planned
+  hashtags used
+
+A posting time after the admin's deadline is put to the publisher as a
+question. Misses in the words themselves can be fixed with **one** rewrite,
+if the publisher says so — the writer is told exactly what was missed, and
+the result is checked again. The verdicts appear as ✓ ◐ ✗ ? beside each
+requirement in the *Requirements as per admin* drawer, and at the top of the
+trace the approving admin reads.
 
 ### Content types
 
@@ -104,7 +171,9 @@ why it could not decide — instead of guessing:
 | The only archive match is a keyword overlap | *Is this post about “…”?* — the wrong record would put its facts and link in the post |
 | Instagram is selected and there is no photograph | Drop Instagram, or keep it and add a photo |
 | The brief is very short and has no record behind it | *What is the one fact this post has to get across?* |
-| A relevant observance is coming up | *Tie this post to it?* — an editorial call, not the agent's |
+| A relevant observance is coming up (and Basic left it open) | *Tie this post to it?* — an editorial call, not the agent's |
+| The best posting time is after the admin's deadline | *Which should win?* |
+| The drafts missed a requirement a rewrite could fix | *Rewrite them?* |
 
 The answer changes what follows (a picked content type re-derives audience
 and tone; a declined observance never reaches the writer) and is kept.
@@ -293,15 +362,14 @@ results are cached per instance for ten minutes.
 
 The analysis steps complete in single-digit milliseconds. Eleven results
 appearing simultaneously reads as a page load, not as reasoning anyone can
-follow, so each step holds for `STEP_DWELL_MS` (1000ms) after its work
-finishes — long enough to read the conclusion, which is the entire point of
-showing it.
+follow, so each step stays on screen for at least `MIN_STEP_MS` (800ms) from
+when it started — long enough to read the conclusion. A step whose research
+already took longer than that adds nothing.
 
-A full run takes **about 25 seconds** plus however long the publisher takes
-to answer questions — most of it genuine network time: analytics, research,
-three live image searches and a generation call. `STEP_DWELL_MS` in
-`studio/AgentThinking.tsx` is the single number to change if the pacing
-feels wrong.
+The network work — analytics, trends, sources, three live image searches —
+starts in parallel when the run begins, so a full run costs roughly the
+slowest lookup plus the generation call (**about 20 seconds**), plus however
+long the publisher takes to answer questions.
 
 ---
 

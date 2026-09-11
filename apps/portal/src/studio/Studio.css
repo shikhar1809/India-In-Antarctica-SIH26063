@@ -333,6 +333,60 @@
 
 .stu-photo.is-on { border-color: var(--cyan); }
 .stu-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.stu-photo { position: relative; }
+.stu-photo.is-low { border-color: var(--warn); }
+.stu-photo.is-poor { border-color: #ff8a80; }
+.stu-photo-flag { position: absolute; left: 0; right: 0; bottom: 0; padding: 2px 0; font: 700 8.5px/1.2 var(--font-ui); text-transform: uppercase; letter-spacing: .04em; color: #0b1622; background: var(--warn); text-align: center; }
+.stu-photo.is-poor .stu-photo-flag { background: #ff8a80; }
+.stu-lowres { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; line-height: 1.4; color: var(--warn); }
+.stu-lowres li { display: flex; gap: 6px; align-items: flex-start; }
+.stu-lowres svg { flex: none; margin-top: 2px; }
+
+/* Basic: the knowledge-base record, linked */
+.stu-kb-linked { display: flex; align-items: flex-start; gap: 9px; padding: 9px 11px; border: 1px solid rgba(95, 217, 255, 0.35); border-radius: 10px; background: rgba(95, 217, 255, 0.06); color: var(--cyan); }
+.stu-kb-linked > svg { flex: none; margin-top: 2px; }
+.stu-kb-linked > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; font-size: 11.5px; color: var(--ice-dim); }
+.stu-kb-linked strong { color: var(--ice); font-size: 12.5px; font-weight: 600; overflow-wrap: anywhere; }
+.stu-kb-linked code { color: var(--cyan); font-size: 11px; }
+.stu-linkbtn { flex: none; background: none; border: 0; padding: 2px 0; color: var(--ice-faint); font: 600 11.5px/1 var(--font-ui); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.stu-linkbtn:hover { color: var(--ice); }
+
+/* Basic: chips that carry an icon */
+.stu-chip--icon { display: inline-flex; align-items: center; gap: 5px; }
+.stu-chip:disabled { opacity: .5; cursor: default; }
+
+/* Basic: reference posts */
+.stu-refs { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 5px; }
+.stu-refs li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; font-size: 11.5px; }
+.stu-refs-label { color: var(--cyan); font-weight: 600; white-space: nowrap; }
+.stu-refs-text { color: var(--ice-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stu-refs button { background: none; border: 0; color: var(--ice-faint); cursor: pointer; padding: 2px; display: grid; }
+.stu-refs button:hover { color: var(--ice); }
+.stu-refpick { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; max-height: 150px; overflow-y: auto; }
+.stu-refpick button { width: 100%; text-align: left; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; color: var(--ice-dim); font: 400 11.5px/1.4 var(--font-ui); cursor: pointer; }
+.stu-refpick button:hover { border-color: var(--line-strong); color: var(--ice); }
+.stu-refpick b { color: var(--ice); margin-right: 4px; }
+.stu-reflink { display: flex; flex-direction: column; gap: 6px; }
+.stu-reflink .stu-ghost { align-self: flex-start; }
+
+/* Basic: links — one box per link, + adds another */
+.stu-links { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.stu-linkbox {
+  flex: 1 1 220px; min-width: 0; display: flex; align-items: center; gap: 7px;
+  padding: 0 8px 0 10px; border: 1px solid var(--line); border-radius: 9px; background: rgba(0, 0, 0, 0.18);
+  color: var(--ice-faint); transition: border-color .15s;
+}
+.stu-linkbox:focus-within { border-color: var(--cyan); color: var(--cyan); }
+.stu-linkbox.is-bad { border-color: #ff8a80; color: #ff8a80; }
+.stu-linkbox svg { flex: none; }
+.stu-linkbox input { flex: 1; min-width: 0; background: none; border: 0; outline: none; padding: 9px 0; color: var(--ice); font: 400 12.5px/1.2 var(--font-ui); }
+.stu-linkbox button { flex: none; display: grid; place-items: center; background: none; border: 0; padding: 3px; color: var(--ice-faint); cursor: pointer; }
+.stu-linkbox button:hover { color: var(--ice); }
+.stu-linkadd {
+  flex: none; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 9px;
+  border: 1px dashed var(--line-strong); background: none; color: var(--ice-dim); cursor: pointer;
+}
+.stu-linkadd:hover { color: var(--cyan); border-color: var(--cyan); }
 
 /* ── review ────────────────────────────────────────────────────────── */
 
@@ -610,7 +664,7 @@
    rail beside the form. */
 .stu-briefwrap {
   display: grid;
-  grid-template-columns: minmax(0, 880px) minmax(280px, 400px);
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   align-items: start;
 }
@@ -766,3 +820,208 @@
   .stu-briefwrap { grid-template-columns: 1fr; }
   .stu-reqs { position: static; }
 }
+
+/* ═══════════════════════════════════════════════════════ fit the window ══
+ * On a desktop the studio is exactly the height of the window below it
+ * (--stu-h, measured in Studio.tsx) and never scrolls the page. Each step
+ * spreads across the width in columns; a column that genuinely overflows
+ * scrolls inside itself. Narrow screens keep the ordinary flowing layout. */
+
+.stu-stepbar { align-items: center; }
+.stu-stepbar .stu-hint { flex: 1 1 280px; margin: 0; font-size: 12.5px; }
+
+.stu-reqbtn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ice-dim);
+  font: 600 12.5px/1 var(--font-ui);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.stu-reqbtn:hover { color: var(--ice); border-color: var(--ice-dim); }
+.stu-reqbtn.has-req { border-color: rgba(179, 157, 219, 0.6); color: #cbb8ee; }
+.stu-reqbtn.is-open { background: rgba(179, 157, 219, 0.14); color: var(--ice); }
+/* The story: a card in the column, a full-screen editor when opened */
+.stu-story-card {
+  position: relative; display: flex; flex-direction: column; gap: 8px; width: 100%; min-height: 96px;
+  padding: 12px 14px; text-align: left; cursor: text; overflow: hidden;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--ink-2); color: var(--ice);
+  transition: border-color .15s;
+}
+.stu-story-card:hover { border-color: var(--cyan); }
+.stu-story-text {
+  flex: 1; min-height: 0; overflow: hidden; white-space: pre-wrap; font: 400 13.5px/1.55 var(--font-ui);
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6;
+}
+.stu-story-card.is-empty .stu-story-text { color: var(--ice-faint); }
+.stu-story-open { display: inline-flex; align-items: center; gap: 6px; font: 600 11.5px/1 var(--font-ui); color: var(--cyan); }
+.stu-field--grow .stu-story-card { flex: 1; }
+.stu-field--grow .stu-story-text { -webkit-line-clamp: unset; }
+
+.stu-story-modal {
+  position: fixed; inset: 0; z-index: 1000; display: flex; padding: 16px;
+  background: rgba(3, 10, 18, 0.72); backdrop-filter: blur(4px);
+}
+.stu-story-sheet {
+  flex: 1; display: flex; flex-direction: column; gap: 14px; min-height: 0;
+  padding: 22px 26px; border: 1px solid var(--line-strong); border-radius: 16px;
+  background: var(--ink-1, #0b1622); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+}
+.stu-story-sheet header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.stu-story-sheet h2 { margin: 0; font: 700 18px/1.3 var(--font-ui); color: var(--ice); }
+.stu-story-sheet header p { margin: 4px 0 0; font-size: 13px; color: var(--ice-dim); }
+.stu-story-x { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--line); background: none; color: var(--ice-dim); cursor: pointer; }
+.stu-story-x:hover { color: var(--ice); border-color: var(--line-strong); }
+.stu-story-sheet textarea {
+  /* The sheet fills the screen; the writing stays a readable column in it. */
+  flex: 1; min-height: 0; width: 100%; resize: none; padding: 24px max(24px, calc((100% - 960px) / 2));
+  border: 1px solid var(--line); border-radius: 12px; background: var(--ink-2); color: var(--ice);
+  font: 400 16px/1.7 var(--font-ui);
+}
+.stu-story-sheet textarea:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; border-color: transparent; }
+.stu-story-sheet footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 12.5px; color: var(--ice-faint); }
+.stu-story-sheet footer .stu-primary { align-self: auto; }
+
+/* Auto-fill from the admin's requirements — Basic, requests only */
+.stu-autofill {
+  display: inline-flex; align-items: center; gap: 7px; flex: none;
+  padding: 8px 14px; border-radius: 999px; border: 1px solid rgba(179, 157, 219, 0.55);
+  background: rgba(179, 157, 219, 0.14); color: var(--ice); font: 600 12.5px/1 var(--font-ui); cursor: pointer;
+}
+.stu-autofill:hover { background: rgba(179, 157, 219, 0.24); }
+.stu-autofilled { display: inline-flex; align-items: center; gap: 7px; flex: none; font: 500 12.5px/1 var(--font-ui); color: #7ee2a8; }
+.stu-autofilled .stu-linkbtn { margin-left: 4px; }
+.stu-reqbtn-dot { width: 7px; height: 7px; border-radius: 50%; background: #b39ddb; box-shadow: 0 0 0 3px rgba(179, 157, 219, 0.2); }
+
+.stu-stagewrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.stu-stagewrap.has-reqs { grid-template-columns: minmax(0, 1fr) 340px; }
+.stu-stage { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+/* The alignment verdict beside each admin requirement */
+.stu-reqs-chk { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-left: 4px; border-radius: 50%; font: 700 10px/1 var(--font-ui); vertical-align: 1px; cursor: help; }
+.stu-reqs-chk.chk-met { color: #7ee2a8; background: rgba(126, 226, 168, 0.14); }
+.stu-reqs-chk.chk-partial { color: var(--warn); background: rgba(255, 196, 92, 0.14); }
+.stu-reqs-chk.chk-missed { color: #ff8a80; background: rgba(255, 138, 128, 0.16); }
+.stu-reqs-chk.chk-review { color: var(--ice-dim); background: rgba(255, 255, 255, 0.08); }
+
+/* Basic: three columns — the story | what it is for | who, how and where */
+.stu-brief-cols { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 0.8fr); gap: 26px; }
+.stu-brief-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.stu-brief-col + .stu-brief-col { border-left: 1px solid var(--line); padding-left: 24px; }
+.stu-colhead {
+  font: 700 10.5px/1 var(--font-ui); letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ice-faint); padding-bottom: 2px;
+}
+.stu-q { gap: 6px; }
+.stu-q .stu-sub { margin-top: -2px; }
+.stu-q .stu-chip { padding: 6px 11px; font-size: 12px; }
+.stu-chip--auto { display: inline-flex; align-items: center; gap: 5px; border-style: dashed; }
+.stu-chip--auto.is-on { color: var(--ice); border-color: var(--line-strong); background: rgba(255, 255, 255, 0.05); font-weight: 500; }
+.stu-q-pair { display: grid; grid-template-columns: 1fr; gap: 14px; }
+.stu-opt { font-style: normal; font-weight: 400; color: var(--ice-faint); font-size: 11px; margin-left: 6px; }
+.stu-brief-decided { font-size: 12.5px; color: var(--ice-dim); }
+.stu-field--grow { display: flex; flex-direction: column; }
+.stu-textarea--fill { min-height: 150px; }
+
+/* Pick: context beside the options */
+.stu-pick { display: grid; grid-template-columns: 330px minmax(0, 1fr); gap: 22px; }
+.stu-pick-side, .stu-pick-main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.stu-pick .stu-variants { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+/* Refine: the controls flow into columns beside the canvas */
+.stu-controls { display: block; columns: 2 280px; column-gap: 28px; }
+.stu-controls > * { break-inside: avoid; margin-bottom: 20px; }
+
+/* Review: public page | the post */
+.stu-reviewgrid { display: grid; grid-template-columns: minmax(300px, 0.85fr) minmax(0, 2fr); gap: 16px; }
+.stu-reviewcol { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.stu-sectionhead { margin: 0; }
+.stu-public { max-width: none; }
+
+@media (min-width: 1000px) {
+  .stu--fit { position: relative; height: var(--stu-h, calc(100vh - 140px)); gap: 12px; overflow: hidden; }
+  .stu-stage, .stu-brief-col, .stu-pick-side, .stu-pick-main, .stu-controls, .stu-refine-canvas,
+  .stu-reviewcol > .stu-panel, .stu-review-feeds, .stu-review-side, .stu-reqs { position: relative; }
+  .stu--fit > * { flex: none; }
+  .stu--fit > .stu-stagewrap { flex: 1; min-height: 0; }
+  .stu-stagewrap > * { min-height: 0; }
+  .stu-stage { overflow: hidden; }
+  .stu-stage > * { flex: none; }
+  .stu-stage > .stu-briefwrap,
+  .stu-stage > .stu-agentstep,
+  .stu-stage > .stu-pick,
+  .stu-stage > .stu-refine,
+  .stu-stage > .stu-reviewgrid { flex: 1; min-height: 0; }
+
+  .stu-reqs { position: static; max-height: 100%; overflow-y: auto; align-content: start; }
+
+  .stu-briefwrap { height: 100%; }
+  .stu-brief { height: 100%; min-height: 0; }
+  .stu-brief-cols { flex: 1; min-height: 0; }
+  .stu-brief-col { min-height: 0; overflow-y: auto; padding-right: 4px; }
+  /* The story box takes what is left, but never less than a few lines —
+     below that the column scrolls rather than the box sliding under the
+     questions that follow it. */
+  .stu-field--grow { flex: 1 0 auto; min-height: 150px; }
+  .stu-textarea--fill { flex: 1; min-height: 88px; resize: none; }
+
+  .stu-agentstep { height: 100%; max-width: none; min-height: 0; display: flex; flex-direction: column; }
+  .stu-agentstep > .agent,
+  .stu-agentstep > .trace { flex: 1; min-height: 0; }
+  .stu-agentstep > .trace { overflow-y: auto; }
+
+  .stu-pick { height: 100%; min-height: 0; }
+  .stu-pick-side, .stu-pick-main { min-height: 0; overflow-y: auto; }
+
+  .stu-refine { height: 100%; min-height: 0; align-items: stretch; }
+  .stu-refine-canvas { position: static; min-height: 0; overflow-y: auto; }
+  .stu-controls { min-height: 0; overflow-y: auto; }
+
+  .stu-reviewgrid { height: 100%; grid-template-rows: minmax(0, 1fr); }
+  .stu-pick, .stu-refine, .stu-brief-cols, .stu-stagewrap { grid-template-rows: minmax(0, 1fr); }
+  .stu-reviewcol { min-height: 0; }
+  .stu-reviewcol > .stu-panel { flex: 1; min-height: 0; overflow-y: auto; }
+  .stu-reviewcol--post > .stu-review { overflow: hidden; align-items: stretch; }
+  .stu-review-feeds, .stu-review-side { min-height: 0; overflow-y: auto; padding-right: 4px; }
+}
+
+@media (max-width: 999px) {
+  .stu-stagewrap.has-reqs, .stu-brief-cols, .stu-pick, .stu-reviewgrid { grid-template-columns: 1fr; }
+  .stu-brief-col + .stu-brief-col { border-left: 0; padding-left: 0; }
+  .stu-pick .stu-variants { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+}
+
+/* In the studio the data warning is one line, so it does not take the
+   height the Basic columns need. */
+.stu .fld-datawarn { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding-top: 8px; padding-bottom: 8px; }
+.stu .fld-datawarn ul { display: contents; }
+.stu .fld-datawarn li { list-style: none; margin: 0; }
+.stu .fld-datawarn li + li::before { content: '·'; margin-right: 10px; opacity: .6; }
+
+/* A report an admin screened before it reached the publisher */
+.stu-screened { margin: 0; padding: 7px 12px; border-radius: 9px; font-size: 12px; color: var(--ice-dim); background: rgba(126, 226, 168, 0.06); border: 1px solid rgba(126, 226, 168, 0.25); }
+
+/* Pick: the look each option carries */
+.stu-variant-look { font: 500 10.5px/1 var(--font-mono, monospace); color: var(--ice-faint); }
+
+/* Review: feed previews show each platform's own graphic */
+.stu-fitcanvas { position: relative; width: 100%; overflow: hidden; }
+.stu-fitcanvas > * { transform-origin: top left; }
+.fld-prev-media { display: block; overflow: hidden; }
+.stu-export-stage { position: fixed; left: -100000px; top: 0; pointer-events: none; opacity: 0; }
+
+/* Refine: room to write the words on the graphic */
+.stu-ctrl--words { break-inside: avoid; }
+.stu-words-head { font-size: 15px; font-weight: 600; line-height: 1.4; resize: vertical; }
+.stu-words-body { min-height: 150px; line-height: 1.55; resize: vertical; }
+
+/* Review: the submit action, bottom right, where "Next" is on other steps */
+.stu-submitbar { display: flex; align-items: center; gap: 12px; margin-left: auto; }
+.stu-submit-why { font-size: 12.5px; color: var(--warn); }
+.stu-submitbar .stu-primary[data-blocked] { opacity: .55; }

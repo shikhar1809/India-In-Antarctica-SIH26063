@@ -639,12 +639,15 @@ function PostTable({ posts }: { posts: ScheduledPost[] }) {
                     <div>
                       <span className="an-post-record">{p.recordIdentifier}</span>
                       <span className="an-post-caption" title={p.caption}>{p.caption}</span>
-                      {!e && p.engagementNote && <span className="an-post-note"><Info className="w-3 h-3" /> {p.engagementNote}</span>}
+                      {p.liveCheck?.state === 'removed' && <span className="an-post-note an-post-removed"><Info className="w-3 h-3" /> Deleted on the platform{p.liveCheck.note ? ` — ${p.liveCheck.note}` : ''}</span>}
+                      {!e && p.liveCheck?.state !== 'removed' && p.engagementNote && <span className="an-post-note"><Info className="w-3 h-3" /> {p.engagementNote}</span>}
                     </div>
                   </div>
                 </td>
                 <td className="an-post-date">{p.postedAt ? new Date(p.postedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}</td>
-                {e ? (
+                {p.liveCheck?.state === 'removed' ? (
+                  <td className="num an-post-pending" colSpan={4}>Removed</td>
+                ) : e ? (
                   <>
                     <td className="num">{fmt(e.views)}</td>
                     <td className="num">{fmt(e.likes)}</td>
@@ -737,12 +740,13 @@ export function AnalyticsView({
 
   const pipeline = useMemo(() => ({
     raw: dispatches.filter((d) => d.status === 'raw').length,
+    cleared: dispatches.filter((d) => d.status === 'cleared').length,
     drafted: dispatches.filter((d) => d.status === 'drafted').length,
     flagged: dispatches.filter((d) => d.status === 'flagged').length,
   }), [dispatches]);
 
   const backlog = useMemo(
-    () => dispatches.filter((d) => d.status === 'raw' || d.status === 'drafted' || d.status === 'flagged'),
+    () => dispatches.filter((d) => d.status === 'raw' || d.status === 'cleared' || d.status === 'drafted' || d.status === 'flagged'),
     [dispatches],
   );
 
@@ -826,7 +830,7 @@ export function AnalyticsView({
   const topRecords = useMemo(() => {
     const byRecord = new Map<string, { label: string; value: number }>();
     for (const p of posts) {
-      if (p.status !== 'posted' || !p.engagement) continue;
+      if (p.status !== 'posted' || !p.engagement || p.liveCheck?.state === 'removed') continue;
       const e = p.engagement;
       const entry = byRecord.get(p.recordId) ?? { label: p.recordIdentifier, value: 0 };
       entry.value += e.likes + e.comments + e.shares;
@@ -903,7 +907,7 @@ export function AnalyticsView({
     ),
     backlog: (
       <StatTile icon={<Radio className="w-4 h-4" />} label="Awaiting review" value={backlog.length}
-        hint={`${pipeline.raw} unread · ${pipeline.drafted} drafted · ${pipeline.flagged} sent back`} />
+        hint={`${pipeline.raw} to screen · ${pipeline.cleared} with publishers · ${pipeline.drafted} drafted · ${pipeline.flagged} sent back`} />
     ),
     oldest: (
       <StatTile tone={oldestBacklogDays > 7 ? 'warn' : 'default'} icon={<CalendarClock className="w-4 h-4" />}

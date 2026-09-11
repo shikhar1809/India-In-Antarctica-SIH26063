@@ -54,3 +54,15 @@ test('a site edit is described block by block', () => {
 test('only noise changing is not logged', () => {
   assert.equal(describe('documents', 'x', { title: 't', updatedAt: 1 }, { title: 't', updatedAt: 2 }), null);
 });
+
+test('a screening is logged as counts, never the words removed', () => {
+  const before = { status: 'raw', activity: 'Ice survey', station: 'Maitri', notes: 'Call Kumar on 98765 43210' };
+  const after = {
+    ...before, status: 'cleared', notes: 'Call [name withheld] on [contact withheld]',
+    screening: { at: 1, findings: 3, redacted: { name: 1, contact: 1 }, photosWithheld: 0, modelUsed: true, publishedPublicly: false, sentToPublisher: true, creditObserver: true },
+  };
+  const e = describe('dispatches', 'd1', before, after);
+  assert.match(e.action, /Screened a field report — sent to the publishers/);
+  assert.ok(e.changes.includes('Redacted: 1 name, 1 contact'));
+  assert.ok(!JSON.stringify(e).includes('98765'));
+});

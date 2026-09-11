@@ -96,6 +96,10 @@ export function StudioHarness() {
             recordId: 'historical-d1', recordIdentifier: 'IIA-1999-9004', recordTitle: 'Total Column Ozone at Maitri, 1999–2006',
             instructions: 'Keep it hopeful — the ozone layer is recovering. Use a Maitri photo if there is one.',
             requestedBy: 'harness-admin', requestedByName: 'Harness Admin',
+            basics: {
+              goal: 'announce', kb: 'about', dataStatus: 'verified', imageSource: 'agent', credit: 'institution', language: 'en',
+              links: ['https://www.ncpor.res.in'], references: [], audienceChosen: true, toneChosen: true,
+            },
           },
         } : MOCK}
         onSubmitted={() => console.log('[harness] onSubmitted fired')}

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../services/portal_api.dart';
 import '../../app_theme.dart';
 import '../../models/dispatch.dart';
 import '../../providers/dispatch_provider.dart';
+import '../../providers/auth_provider.dart' as app_auth;
 import 'steps/activity_step.dart';
 import 'steps/position_step.dart';
 import 'steps/weather_step.dart';
@@ -112,12 +113,15 @@ class _FieldReportWizardState extends State<FieldReportWizard> {
   void _refresh() => setState(() {});
 
   Future<void> _submit() async {
-    final user = FirebaseAuth.instance.currentUser!;
+    // The report carries the scientist's own name, from their profile. The
+    // uid is provisional: the sync service stamps whoever is signed in when
+    // the report is actually sent.
+    final profile = context.read<app_auth.AuthProvider>().profile;
     final now = DateTime.now().toUtc();
     final dispatch = Dispatch(
       id: const Uuid().v4(),
-      authorUid: user.uid,
-      authorName: user.displayName ?? user.email ?? '',
+      authorUid: PortalApi.instance.cachedUid ?? profile?.uid ?? 'pending',
+      authorName: profile?.name ?? 'Field scientist',
       observedAt: _state.observedAt,
       station: _state.station,
       lat: _state.lat,
@@ -160,13 +164,16 @@ class _FieldReportWizardState extends State<FieldReportWizard> {
 
   @override
   Widget build(BuildContext context) {
+    // Seven labels do not fit across a phone: there, the bar shows only its
+    // segments, with the current step named underneath.
+    final compact = MediaQuery.sizeOf(context).width < 760;
     return Column(
       children: [
         // ── Step indicator bar — GTA health bar style ──────────────────
         Container(
           color: AppTheme.surface,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          child: Row(
+          padding: EdgeInsets.symmetric(horizontal: compact ? 16 : 24, vertical: 14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(
             children: List.generate(_steps.length, (i) {
               final done = i < _step;
               final active = i == _step;
@@ -189,8 +196,8 @@ class _FieldReportWizardState extends State<FieldReportWizard> {
                                 : AppTheme.border,
                           ),
                         ),
-                        const SizedBox(height: 5),
-                        Text(
+                        if (!compact) const SizedBox(height: 5),
+                        if (!compact) Text(
                           _steps[i].toUpperCase(),
                           style: TextStyle(
                             fontSize: 8,
@@ -211,6 +218,14 @@ class _FieldReportWizardState extends State<FieldReportWizard> {
               );
             }),
           ),
+          if (compact) ...[
+            const SizedBox(height: 8),
+            Text(
+              'STEP ${_step + 1} OF ${_steps.length} · ${_steps[_step].toUpperCase()}',
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.1, color: AppTheme.amber, fontFamily: 'Courier'),
+            ),
+          ],
+          ]),
         ),
 
         Container(height: 1, color: AppTheme.border),
@@ -218,7 +233,7 @@ class _FieldReportWizardState extends State<FieldReportWizard> {
         // ── Step content ───────────────────────────────────────────────
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(28),
+            padding: EdgeInsets.all(compact ? 16 : 28),
             child: _buildStep(),
           ),
         ),

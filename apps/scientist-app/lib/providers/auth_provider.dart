@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
-import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
-import 'package:firebase_core/firebase_core.dart';
+import '../services/portal_api.dart';
 import 'package:flutter/material.dart';
 import '../models/scientist_profile.dart';
 import '../services/local_db.dart';
@@ -108,12 +107,10 @@ class AuthProvider extends ChangeNotifier {
   }
 
   String _generateUid() {
-    // Prefer the Firebase anonymous UID so Firestore rules accept writes.
-    // Fall back to a local ID if Firebase is unavailable (offline first run).
-    if (Firebase.apps.isNotEmpty) {
-      final firebaseUid = fb_auth.FirebaseAuth.instance.currentUser?.uid;
-      if (firebaseUid != null) return firebaseUid;
-    }
+    // The portal account's id when signed in; a local id on an offline
+    // first run (reports are stamped with the real one when they sync).
+    final uid = PortalApi.instance.cachedUid;
+    if (uid != null) return uid;
     final t = DateTime.now().millisecondsSinceEpoch.toRadixString(16);
     final r = (t.hashCode ^ DateTime.now().microsecondsSinceEpoch).abs().toRadixString(16);
     return 'local-$t-$r';

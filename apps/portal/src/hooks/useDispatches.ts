@@ -33,22 +33,27 @@ export function useDispatches() {
     if (roleLoading) return;
     if (!user) { setDispatches([]); setLoading(false); return; }
 
-    const q = reviewer
+    /* An admin reads everything, raw reports included — screening them is
+     * the admin's job. A publisher never sees a raw report: the rule refuses
+     * it, so the query asks only for what a publisher may read. */
+    const q = role === 'admin'
       ? query(collection(db, 'dispatches'), orderBy('createdAt', 'desc'))
-      : query(collection(db, 'dispatches'), where('authorUid', '==', user.uid));
+      : reviewer
+        ? query(collection(db, 'dispatches'), where('status', 'in', ['cleared', 'drafted', 'flagged', 'approved']))
+        : query(collection(db, 'dispatches'), where('authorUid', '==', user.uid));
 
     const unsub = onSnapshot(
       q,
       (snap) => {
         const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Dispatch);
-        if (!reviewer) rows.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+        if (role !== 'admin') rows.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
         setDispatches(rows);
         setLoading(false);
       },
       () => setLoading(false)
     );
     return unsub;
-  }, [user?.uid, reviewer, roleLoading]);
+  }, [user?.uid, reviewer, role, roleLoading]);
 
   return { dispatches, loading };
 }

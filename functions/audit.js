@@ -196,8 +196,28 @@ function describe(collection, id, before, after) {
           : { category: 'Field reports', tool: 'Field app', action: 'Filed a field report', target, alert: doc.safetyFlag === true };
       }
       if (op === 'delete') return { category: isRequest ? 'Post requests' : 'Field reports', tool: 'Dispatch', action: 'Deleted a dispatch', target, alert: true };
+      /* A screening: said as counts, never as the words removed — those are
+       * in the admin-only private record, and must not be copied into the
+       * log by a field diff. */
+      if (after.screening && after.screening.at !== before.screening?.at) {
+        const sc = after.screening;
+        const redacted = Object.entries(sc.redacted || {}).map(([k, v]) => `${v} ${k}`).join(', ');
+        const where = [sc.publishedPublicly && 'published to the public website', sc.sentToPublisher && 'sent to the publishers'].filter(Boolean).join(' and ');
+        return {
+          category: 'Review & approval', tool: 'Screening', target,
+          action: where ? `Screened a field report — ${where}` : 'Screened a field report and kept it in the queue',
+          changes: [
+            `${sc.findings} finding${sc.findings === 1 ? '' : 's'}${sc.modelUsed ? ' (rules and AI)' : ' (rules)'}`,
+            redacted ? `Redacted: ${redacted}` : 'Nothing redacted',
+            ...(sc.photosWithheld ? [`${sc.photosWithheld} photo${sc.photosWithheld === 1 ? '' : 's'} withheld`] : []),
+            ...(sc.creditObserver === false ? ['Observer not named on the public record'] : []),
+            ...(after.publicIdentifier && sc.publishedPublicly ? [`Public record ${after.publicIdentifier}`] : []),
+          ],
+        };
+      }
       if (before.status !== after.status) {
         const map = {
+          cleared: { category: 'Review & approval', tool: 'Screening', action: 'Sent to the publishers' },
           drafted: { category: 'Media studio', tool: 'Media studio', action: 'Submitted a post for approval' },
           approved: { category: 'Review & approval', tool: 'Approve desk', action: 'Approved and published' },
           flagged: { category: 'Review & approval', tool: 'Approve desk', action: 'Sent the post back to the publisher' },

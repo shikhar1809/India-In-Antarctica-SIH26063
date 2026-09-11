@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
+import '../services/portal_api.dart';
 import '../app_theme.dart';
+import '../services/sync_service.dart';
 import '../providers/dispatch_provider.dart';
 import '../providers/auth_provider.dart';
 import '../models/dispatch.dart';
@@ -31,6 +33,18 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() => _online = results.any((r) => r != ConnectivityResult.none));
     });
     context.read<DispatchProvider>().load();
+    // A report reaching the portal flips its dot from QUEUED to SYNCED.
+    SyncService.instance.syncedCount.addListener(_reload);
+  }
+
+  void _reload() {
+    if (mounted) context.read<DispatchProvider>().load();
+  }
+
+  @override
+  void dispose() {
+    SyncService.instance.syncedCount.removeListener(_reload);
+    super.dispose();
   }
 
   Future<void> _checkConnectivity() async {
@@ -45,12 +59,17 @@ class _HomeScreenState extends State<HomeScreen> {
     final dispatches = context.watch<DispatchProvider>();
     final pending = dispatches.items.where((d) => !d.synced).length;
 
-    return Scaffold(
-      body: Row(
-        children: [
-          // ── Left sidebar — GTA pause menu ─────────────────────────────
-          Container(
-            width: 240,
+    /* A phone is narrower than the sidebar and the content together. Below
+     * this width the sidebar becomes a drawer behind a top bar, and each
+     * panel shows its list or its detail — one at a time. */
+    final compact = MediaQuery.sizeOf(context).width < kCompactWidth;
+    void go(_Tab t) {
+      setState(() => _tab = t);
+      if (compact) Navigator.of(context).maybePop(); // close the drawer
+    }
+
+    final sidebar = Container(
+            width: compact ? null : 240,
             color: AppTheme.surface,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -160,7 +179,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   label: 'Field Reports',
                   sub: '${dispatches.items.length} total',
                   selected: _tab == _Tab.reports,
-                  onTap: () => setState(() => _tab = _Tab.reports),
+                  onTap: () => go(_Tab.reports),
                   trailing: pending > 0
                     ? _Badge('$pending', AppTheme.pending)
                     : null,
@@ -169,13 +188,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   label: 'New Report',
                   sub: 'Log an observation',
                   selected: _tab == _Tab.newReport,
-                  onTap: () => setState(() => _tab = _Tab.newReport),
+                  onTap: () => go(_Tab.newReport),
                 ),
                 GtaMenuItem(
                   label: 'Student Q&A',
                   sub: 'Answer incoming questions',
                   selected: _tab == _Tab.comms,
-                  onTap: () => setState(() => _tab = _Tab.comms),
+                  onTap: () => go(_Tab.comms),
                 ),
 
                 const Spacer(),
@@ -187,19 +206,76 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 16),
               ],
             ),
-          ),
+          );
 
+    final content = switch (_tab) {
+      _Tab.reports   => _ReportsPanel(dispatches: dispatches),
+      _Tab.newReport => const FieldReportWizard(),
+      _Tab.comms     => const _CommsPanel(),
+    };
+
+    if (compact) {
+      return Scaffold(
+        appBar: AppBar(
+          backgroundColor: AppTheme.surface,
+          title: Text(
+            switch (_tab) { _Tab.reports => 'FIELD REPORTS', _Tab.newReport => 'NEW REPORT', _Tab.comms => 'STUDENT Q&A' },
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 0.12, fontFamily: 'Courier', color: AppTheme.amber),
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Row(children: [
+                Container(width: 7, height: 7, decoration: BoxDecoration(shape: BoxShape.circle, color: _online ? AppTheme.synced : AppTheme.danger)),
+                const SizedBox(width: 6),
+                Text(_online ? 'ONLINE' : 'OFFLINE${pending > 0 ? ' · $pending QUEUED' : ''}',
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _online ? AppTheme.synced : AppTheme.danger)),
+              ]),
+            ),
+          ],
+        ),
+        drawer: Drawer(backgroundColor: AppTheme.surface, child: SafeArea(child: sidebar)),
+        body: SafeArea(child: content),
+      );
+    }
+
+    return Scaffold(
+      body: Row(
+        children: [
+          // ── Left sidebar — GTA pause menu ─────────────────────────────
+          sidebar,
           Container(width: 1, color: AppTheme.border),
-
           // ── Right content panel ────────────────────────────────────────
-          Expanded(
-            child: switch (_tab) {
-              _Tab.reports   => _ReportsPanel(dispatches: dispatches),
-              _Tab.newReport => const FieldReportWizard(),
-              _Tab.comms     => const _CommsPanel(),
-            },
-          ),
+          Expanded(child: content),
         ],
+      ),
+    );
+  }
+}
+
+/// Below this width (a phone, or a tablet in portrait) panels show one pane
+/// at a time and the sidebar becomes a drawer.
+const kCompactWidth = 760.0;
+
+/// A "back to the list" bar for the one-pane phone layout.
+class _BackBar extends StatelessWidget {
+  final String label;
+  final VoidCallback onBack;
+  const _BackBar({required this.label, required this.onBack});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onBack,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppTheme.border))),
+        child: Row(children: [
+          const Icon(Icons.arrow_back, size: 18, color: AppTheme.amber),
+          const SizedBox(width: 10),
+          Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 0.1, color: AppTheme.amber, fontFamily: 'Courier')),
+        ]),
       ),
     );
   }
@@ -238,17 +314,26 @@ class _ReportsPanel extends StatefulWidget {
 }
 
 class _ReportsPanelState extends State<_ReportsPanel> {
-  Dispatch? _selected;
+  /* The selected report is held by id and looked up in the current list on
+   * every build. Holding the Dispatch object itself froze the detail at the
+   * moment it was clicked: a report that synced while open went on saying
+   * QUEUED, even as its dot in the list turned green. */
+  String? _selectedId;
 
   @override
   Widget build(BuildContext context) {
     final items = widget.dispatches.items;
+    final compact = MediaQuery.sizeOf(context).width < kCompactWidth;
+    final selected = items.where((d) => d.id == _selectedId).firstOrNull;
 
-    return Row(
-      children: [
-        SizedBox(
-          width: 340,
-          child: Column(
+    if (compact && selected != null) {
+      return Column(children: [
+        _BackBar(label: 'ALL REPORTS', onBack: () => setState(() => _selectedId = null)),
+        Expanded(child: _DispatchDetail(d: selected)),
+      ]);
+    }
+
+    final list = Column(
             children: [
               const GtaSectionHead('Your dispatches'),
               Expanded(
@@ -272,21 +357,26 @@ class _ReportsPanelState extends State<_ReportsPanel> {
                         return GtaMenuItem(
                           label: d.activity,
                           sub: '${d.station} · ${_fmtDate(d.observedAt)}',
-                          selected: _selected?.id == d.id,
-                          onTap: () => setState(() => _selected = d),
+                          selected: _selectedId == d.id,
+                          onTap: () => setState(() => _selectedId = d.id),
                           trailing: _SyncDot(synced: d.synced),
                         );
                       },
                     ),
               ),
             ],
-          ),
-        ),
+          );
+
+    if (compact) return list;
+
+    return Row(
+      children: [
+        SizedBox(width: 340, child: list),
 
         Container(width: 1, color: AppTheme.border),
 
         Expanded(
-          child: _selected == null
+          child: selected == null
             ? const Center(
                 child: Text(
                   'SELECT A REPORT',
@@ -297,7 +387,7 @@ class _ReportsPanelState extends State<_ReportsPanel> {
                   ),
                 ),
               )
-            : _DispatchDetail(d: _selected!),
+            : _DispatchDetail(d: selected),
         ),
       ],
     );
@@ -395,17 +485,40 @@ class _DispatchDetail extends StatelessWidget {
             children: [
               _SyncDot(synced: d.synced),
               const SizedBox(width: 8),
-              Text(
-                d.synced ? 'SYNCED TO PORTAL' : 'QUEUED — WILL SYNC WHEN ONLINE',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.08,
-                  color: d.synced ? AppTheme.synced : AppTheme.pending,
+              Flexible(
+                child: ValueListenableBuilder<Map<String, String>>(
+                  valueListenable: SyncService.instance.progress,
+                  builder: (_, progress, __) => Text(
+                    d.synced
+                        ? 'SYNCED TO PORTAL'
+                        : progress[d.id] != null
+                            ? 'SENDING — ${progress[d.id]!.toUpperCase()}'
+                            : 'QUEUED — WILL SYNC WHEN ONLINE',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.08,
+                      color: d.synced ? AppTheme.synced : AppTheme.pending,
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
+          // Why it has not gone yet, when the portal said why.
+          if (!d.synced)
+            ValueListenableBuilder<Map<String, String>>(
+              valueListenable: SyncService.instance.errors,
+              builder: (_, errors, __) => errors[d.id] == null
+                  ? const SizedBox.shrink()
+                  : Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        errors[d.id]!,
+                        style: const TextStyle(fontSize: 10, color: AppTheme.danger, height: 1.4),
+                      ),
+                    ),
+            ),
         ],
       ),
     );
@@ -448,8 +561,32 @@ class _CommsPanelState extends State<_CommsPanel> {
   bool _submitting = false;
   String? _successMsg;
 
+  /* Questions are fetched every two minutes rather than streamed: a live
+   * listener holds a connection open for ever, which a shared satellite link
+   * pays for; a question can wait two minutes. */
+  List<Map<String, dynamic>>? _questions;
+  String? _loadError;
+  Timer? _poll;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    _poll = Timer.periodic(const Duration(minutes: 2), (_) => _load());
+  }
+
+  Future<void> _load() async {
+    try {
+      final q = await PortalApi.instance.readyQuestions();
+      if (mounted) setState(() { _questions = q; _loadError = null; });
+    } catch (e) {
+      if (mounted) setState(() => _loadError = 'Cannot reach the portal — questions will appear when the link is back.');
+    }
+  }
+
   @override
   void dispose() {
+    _poll?.cancel();
     _answerCtrl.dispose();
     super.dispose();
   }
@@ -459,15 +596,9 @@ class _CommsPanelState extends State<_CommsPanel> {
     if (answer.isEmpty) return;
     setState(() { _submitting = true; _successMsg = null; });
     try {
-      await FirebaseFirestore.instance
-          .collection('student_questions')
-          .doc(docId)
-          .update({
-        'status': 'PENDING_ANSWER',
-        'answer': answer,
-        'answeredAt': FieldValue.serverTimestamp(),
-        'answeredByStation': 'Maitri Station',
-      });
+      final station = context.read<AuthProvider>().profile?.station;
+      await PortalApi.instance.answerQuestion(docId, answer, station == null || station.isEmpty ? 'Antarctic station' : '$station Station');
+      unawaited(_load());
       setState(() {
         _successMsg = 'Transmitted! Answer is under admin review.';
         _selected = null;
@@ -485,12 +616,12 @@ class _CommsPanelState extends State<_CommsPanel> {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        // ── Question list ─────────────────────────────────────────────
-        SizedBox(
-          width: 340,
-          child: Column(
+    // On a phone, the list or the answer — one pane at a time. The answer
+    // pane already carries its own "back to list".
+    final compact = MediaQuery.sizeOf(context).width < kCompactWidth;
+
+    // ── Question list ─────────────────────────────────────────────
+    final list = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const GtaSectionHead('Incoming Transmissions'),
@@ -505,39 +636,33 @@ class _CommsPanelState extends State<_CommsPanel> {
                   ),
                 ),
               Expanded(
-                child: StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('student_questions')
-                      .where('status', isEqualTo: 'READY_FOR_SCIENTIST')
-                      .orderBy('questionApprovedAt', descending: false)
-                      .snapshots(),
-                  builder: (ctx, snap) {
-                    if (snap.connectionState == ConnectionState.waiting) {
+                child: Builder(
+                  builder: (ctx) {
+                    if (_questions == null && _loadError == null) {
                       return const Center(child: CircularProgressIndicator(color: AppTheme.amber));
                     }
-                    final docs = snap.data?.docs ?? [];
+                    final docs = _questions ?? const <Map<String, dynamic>>[];
                     if (docs.isEmpty) {
-                      return const Center(
+                      return Center(
                         child: Text(
-                          'NO INCOMING QUESTIONS.\nCHECK BACK LATER.',
+                          _loadError ?? 'NO INCOMING QUESTIONS.\nCHECK BACK LATER.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 11, color: AppTheme.textMuted, letterSpacing: 0.06, height: 1.8),
+                          style: const TextStyle(fontSize: 11, color: AppTheme.textMuted, letterSpacing: 0.06, height: 1.8),
                         ),
                       );
                     }
                     return ListView.builder(
                       itemCount: docs.length,
                       itemBuilder: (ctx, i) {
-                        final doc = docs[i];
-                        final data = doc.data() as Map<String, dynamic>;
-                        final isSelected = _selectedId == doc.id;
+                        final data = docs[i];
+                        final isSelected = _selectedId == data['id'];
                         return GtaMenuItem(
                           label: data['firstName'] ?? 'Student',
                           sub: 'Grade ${data['grade'] ?? '?'} · Tap to answer',
                           selected: isSelected,
                           onTap: () => setState(() {
                             _selected = data;
-                            _selectedId = doc.id;
+                            _selectedId = data['id'] as String;
                             _answerCtrl.clear();
                             _successMsg = null;
                           }),
@@ -548,14 +673,10 @@ class _CommsPanelState extends State<_CommsPanel> {
                 ),
               ),
             ],
-          ),
-        ),
+          );
 
-        Container(width: 1, color: AppTheme.border),
-
-        // ── Answer panel ──────────────────────────────────────────────
-        Expanded(
-          child: _selected == null
+    // ── Answer panel ──────────────────────────────────────────────
+    final answer = _selected == null
             ? const Center(
                 child: Text(
                   'SELECT A QUESTION\nTO ANSWER',
@@ -652,8 +773,14 @@ class _CommsPanelState extends State<_CommsPanel> {
                     ),
                   ],
                 ),
-              ),
-        ),
+              );
+
+    if (compact) return _selected == null ? list : answer;
+    return Row(
+      children: [
+        SizedBox(width: 340, child: list),
+        Container(width: 1, color: AppTheme.border),
+        Expanded(child: answer),
       ],
     );
   }

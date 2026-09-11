@@ -58,6 +58,16 @@ export interface TraceStep {
   asked?: TraceQuestion;
   /** Something the reviewer should look at, not just a finding. */
   warning?: boolean;
+  /** Requirement-by-requirement verdicts (the alignment step). */
+  checks?: TraceCheck[];
+}
+
+export interface TraceCheck {
+  id: string;
+  requirement: string;
+  from: 'admin' | 'basic' | 'platform';
+  status: 'met' | 'partial' | 'missed' | 'review';
+  detail: string;
 }
 
 export interface AgentTrace {
@@ -69,6 +79,10 @@ export interface AgentTrace {
   /** False when the writer was unavailable and the offline draft was used. */
   generated: boolean;
   model: string;
+  /** When the agent suggests posting, and why. */
+  recommendation?: { at: number; label: string; reason: string };
+  /** The hashtags it chose, per platform. */
+  hashtags?: Record<string, string[]>;
 }
 
 /** Strips undefined (Firestore rejects it) and caps sizes, so a trace can
@@ -84,6 +98,7 @@ export function toStoredTrace(t: AgentTrace): AgentTrace {
       reasoning: s.reasoning.slice(0, 12).map((x) => clip(x, 400)),
       decision: clip(s.decision, 300),
       sources: s.sources.slice(0, 16).map((src) => ({ ...src, label: clip(src.label, 200) })),
+      ...(s.checks ? { checks: s.checks.slice(0, 24).map((c) => ({ ...c, requirement: clip(c.requirement, 200), detail: clip(c.detail, 400) })) } : {}),
     })),
   };
   return JSON.parse(JSON.stringify(trimmed));

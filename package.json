@@ -31,7 +31,7 @@
     "deploy:rules": "firebase deploy --only firestore:rules,storage",
     "deploy:api": "firebase deploy --only functions",
     "deploy:hosting": "firebase deploy --only hosting",
-    "test:functions": "node --test functions/test/audit.test.js"
+    "test:functions": "node --test functions/test/audit.test.js functions/test/liveness.test.js functions/test/screen.test.js"
   },
   "devDependencies": {
     "playwright": "^1.62.1"

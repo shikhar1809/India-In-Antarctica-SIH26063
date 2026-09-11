@@ -5,11 +5,11 @@ cmake_minimum_required(VERSION 3.14)
 # policy minimum. This cache variable tells CMake to allow it.
 set(CMAKE_POLICY_VERSION_MINIMUM "3.5" CACHE STRING "" FORCE)
 
-project(scientist_app LANGUAGES CXX)
+project(ScientistOutreachPortal LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
-set(BINARY_NAME "scientist_app")
+set(BINARY_NAME "ScientistOutreachPortal")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.

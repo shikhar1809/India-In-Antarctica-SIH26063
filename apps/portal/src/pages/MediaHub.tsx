@@ -26,6 +26,8 @@ export function MediaHub() {
   const { dispatches } = useDispatches();
   const location = useLocation();
   const justRequested = (location.state as { requested?: string } | null)?.requested;
+  // Unscreened field reports wait in Manage media's queue; the card says so.
+  const unscreened = dispatches.filter((d) => d.status === 'raw').length;
   const isAdmin = role === 'admin';
 
   /* Requests still with the publishers — sent by an admin, not yet
@@ -48,7 +50,7 @@ export function MediaHub() {
       icon: <Sparkles className="w-6 h-6" />,
       title: 'Manage media',
       body: role === 'admin'
-        ? 'Approve drafted dispatches, review what has published, and track the dissemination queue — all on one page.'
+        ? `Screen incoming field reports, approve drafted posts, review what has published, and track the dissemination queue — all on one page.${unscreened ? ` ${unscreened} report${unscreened === 1 ? '' : 's'} waiting to be screened.` : ''}`
         : 'Draft the public-facing post for each field report, and track what is scheduled to go out.',
     },
   ];

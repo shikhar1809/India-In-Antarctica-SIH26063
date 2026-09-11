@@ -51,6 +51,27 @@ platform-specific token, if set, still wins for that platform).
 Account totals are cached per instance for five minutes; the dashboard's
 *Sync now* skips the cache.
 
+### Is the post still up?
+
+A post deleted on the platform used to stay "posted" forever. Every
+`POST /engagement` now cross-checks each sent post first
+([`functions/liveness.js`](../functions/liveness.js)) — `{mode:'live'}` runs
+only that — and stores the verdict on the row as `liveCheck`:
+
+| Platform | How it is checked | Why not Upload-Post |
+|---|---|---|
+| X | The public syndication endpoint embedded tweets use: `Tweet` is live, `TweetTombstone` or 404 is deleted | Upload-Post keeps returning a deleted tweet's metrics as zeros |
+| LinkedIn | The public embed page: 200 live, 404 deleted | No per-post data at all for personal profiles |
+| Instagram | Upload-Post's per-post lookup — counted as deleted only when the account's own analytics still read, otherwise *not verified* | The only route; its error alone cannot tell "deleted" from "token expired" |
+
+A check that fails is `unknown`, never `live`. A post found deleted gets no
+more engagement written, is dropped from the record's public "posted on"
+list, is left out of analytics totals and of what the agent learns from, and
+is marked in the queue. The **Published content** tab runs the check when it
+opens (if the last one is over ten minutes old) and on *Recheck*; a record
+whose every post was deleted moves to its own *Deleted from social media*
+section.
+
 ### Two kinds of number, kept apart
 
 **Account totals** describe everything the account posted, including posts

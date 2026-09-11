@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
-import { draftVariants, generateVariants, refineCopy, withSourceLink, describeRecordForBrief, recordUrl } from './copy';
+import { draftVariants, generateVariants, refineCopy, withSourceLink, describeRecordForBrief, recordUrl, shapeCaption, withLinkInBio } from './copy';
 import type { Brief } from './copy';
 import { simpler, bolder, TEMPLATES, COMPLEXITY_ORDER, templateById } from './templates';
 import { PLATFORM_SPECS, paletteById, PALETTES } from './brand';
@@ -240,11 +240,13 @@ describe('building a post on an archive record', () => {
     expect(recordUrl('IIA-1998-0007')).toBe('https://iia-public.web.app/archive/IIA-1998-0007');
   });
 
-  it('appends the link to every caption', () => {
-    const [v] = withSourceLink([variant({ x: 'Ozone over Maitri.', linkedin: 'Ozone.', instagram: 'Ozone.' })], source);
+  it('appends the link to X and LinkedIn, and "Link in bio" to Instagram', () => {
+    const [v] = withSourceLink([variant({ x: 'Ozone over Maitri.', linkedin: 'Ozone.', instagram: 'Ozone.\n\n#Ozone #NCPOR' })], source);
     expect(v.copy.captions.x).toContain(source.url);
     expect(v.copy.captions.linkedin).toContain(source.url);
-    expect(v.copy.captions.instagram).toContain(source.url);
+    // Instagram does not make caption links clickable: a pointer, above the hashtags.
+    expect(v.copy.captions.instagram).not.toContain(source.url);
+    expect(v.copy.captions.instagram).toBe('Ozone.\n\nLink in bio.\n\n#Ozone #NCPOR');
   });
 
   it('leaves a caption alone when the link would push it over the limit', () => {
@@ -279,5 +281,48 @@ describe('building a post on an archive record', () => {
     expect(material).toContain('Maitri');
     expect(material).toContain('1998');
     expect(material).toContain('108 DU');
+  });
+});
+
+describe('shapeCaption', () => {
+  it('breaks a one-block caption into hook, paragraphs and a hashtag line', () => {
+    const shaped = shapeCaption('Seven years of ozone data are now open. They were taken at Maitri. They show the ozone hole. They help research. #Ozone #NCPOR');
+    expect(shaped.split('\n\n')).toEqual([
+      'Seven years of ozone data are now open.',
+      'They were taken at Maitri. They show the ozone hole.',
+      'They help research.',
+      '#Ozone #NCPOR',
+    ]);
+  });
+  it('leaves a caption that already has line breaks alone', () => {
+    expect(shapeCaption('Hook.\n\nBody. More.')).toBe('Hook.\n\nBody. More.');
+  });
+});
+
+describe('links on LinkedIn', () => {
+  const source = { identifier: 'IIA-1998-0007', title: 'Total column ozone at Maitri', url: 'https://iia-public.web.app/archive/IIA-1998-0007' };
+  const variant = (captions: { x: string; linkedin: string; instagram: string }) =>
+    ({ copy: { kicker: '', headline: '', standfirst: '', stat: null, statLabel: null, captions } });
+
+  it('goes on the "Read the full record" line, not onto the hashtags', () => {
+    const [v] = withSourceLink([variant({ x: 'x', linkedin: 'Hook.\n\nRead the full record.\n\n#Ozone #NCPOR', instagram: 'i' })], source);
+    expect(v.copy.captions.linkedin).toBe(`Hook.\n\nRead the full record: ${source.url}\n\n#Ozone #NCPOR`);
+  });
+  it('goes above the hashtags when there is no call to action', () => {
+    const [v] = withSourceLink([variant({ x: 'x', linkedin: 'Hook.\n\n#Ozone', instagram: 'i' })], source);
+    expect(v.copy.captions.linkedin).toBe(`Hook.\n\n${source.url}\n\n#Ozone`);
+  });
+});
+
+describe('Instagram’s link in bio', () => {
+  it('joins the call to action rather than adding a second line', () => {
+    expect(withLinkInBio('Hook.\n\nRead the full record.\n\n#Ozone')).toBe('Hook.\n\nRead the full record — link in bio.\n\n#Ozone');
+  });
+});
+
+describe('a lost line break', () => {
+  it('is restored between run-together sentences', () => {
+    expect(shapeCaption('Shared with the world.NCPOR is pleased.')).toBe('Shared with the world.\n\nNCPOR is pleased.');
+    expect(shapeCaption('Data from the U.S. team.')).toBe('Data from the U.S. team.');
   });
 });

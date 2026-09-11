@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart' as fb_auth;
 import 'package:provider/provider.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'app_theme.dart';
-import 'firebase_options.dart';
+import 'services/local_db.dart';
+import 'services/portal_api.dart';
 import 'services/sync_service.dart';
 import 'providers/dispatch_provider.dart';
 import 'providers/auth_provider.dart' as app_auth;
@@ -15,18 +13,16 @@ import 'screens/home_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  sqfliteFfiInit();
-  databaseFactory = databaseFactoryFfi;
+  LocalDb.useDesktopSqliteIfNeeded();
 
+  // Who we are, from the saved session — no network needed. Then try to
+  // sign in; offline, the sync service does it once the link is back.
+  await PortalApi.instance.restore();
   try {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-    // Sign in anonymously so Firestore/Storage rules accept dispatch writes.
-    // The anonymous UID is stored in ScientistProfile and used as authorUid.
-    await fb_auth.FirebaseAuth.instance.signInAnonymously();
-    SyncService().startWatching();
-  } catch (_) {
-    // Firebase unavailable — app runs in offline-only mode, sync retries later
-  }
+    await PortalApi.instance.idToken().timeout(const Duration(seconds: 8));
+  } catch (_) {/* offline first launch, or the satellite link is down */}
+  // Outside the try: a failed sign-in must not also switch syncing off.
+  SyncService.instance.startWatching();
 
   runApp(
     MultiProvider(

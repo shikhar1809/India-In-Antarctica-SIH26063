@@ -22,6 +22,10 @@ import { StudioHarness } from './studio/StudioHarness';
 import { RecordEditorHarness } from './components/RecordEditorHarness';
 import { AnalyticsHarness } from './pages/AnalyticsHarness';
 import { AccessHarness } from './pages/AccessHarness';
+import { PublishedHarness } from './pages/PublishedHarness';
+import { ScreenReport } from './pages/ScreenReport';
+import { ScreenHarness } from './pages/ScreenHarness';
+import { ApproveHarness } from './pages/ApproveHarness';
 import './pages/shared.css';
 
 /** Everything a site manager can open: the Site section and its three
@@ -75,7 +79,10 @@ function Gate() {
    *   /__access         the activity log and revoke panel against fixtures
    *   /__securitycheck  the sign-in check; ?status=granted|unassigned|revoked
    *   /__postrequest    the admin's create-a-post wizard (never writes)
-   *   /__archive        the archive page, without sign-in */
+   *   /__archive        the archive page, without sign-in
+   *   /__published      the Published content tab, cross-check fixtures
+   *   /__screen         screening a raw report — rules only, never writes
+   *   /__approve        the admin's Review & approve queue, with incoming reports */
   if (import.meta.env.DEV) {
     const path = window.location.pathname;
     if (path === '/__canvas') return <CanvasGallery />;
@@ -83,6 +90,9 @@ function Gate() {
     if (path === '/__recordeditor') return <RecordEditorHarness />;
     if (path === '/__analytics') return <AnalyticsHarness />;
     if (path === '/__access') return <AccessHarness />;
+    if (path === '/__published') return <BrowserRouter><PublishedHarness /></BrowserRouter>;
+    if (path === '/__screen') return <BrowserRouter><ScreenHarness /></BrowserRouter>;
+    if (path === '/__approve') return <BrowserRouter><ApproveHarness /></BrowserRouter>;
     if (path === '/__securitycheck') return <SecurityCheckHarness />;
     if (path === '/__postrequest') return <BrowserRouter><PostRequestWizard preview /></BrowserRouter>;
     if (path === '/__archive') return <BrowserRouter><div id="archive-harness" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}><Repository preview /></div></BrowserRouter>;
@@ -152,6 +162,7 @@ function Gate() {
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/media" element={<MediaHub />} />
         <Route path="/media/new" element={<PostRequestWizard />} />
+        <Route path="/media/screen/:id" element={<ScreenReport />} />
         <Route path="/site" element={<SiteHub />} />
         <Route path="/site/uptime" element={<UptimePage />} />
         <Route path="/roles" element={<RolesPage />} />

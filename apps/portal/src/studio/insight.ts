@@ -204,7 +204,8 @@ const HASHTAG = /#[\p{L}\p{N}_]+/gu;
 
 export function summarisePerformance(posts: ScheduledPost[]): PerformanceSummary {
   const measured = posts
-    .filter((p) => p.status === 'posted' && p.engagement)
+    // A post deleted on the platform is not evidence of anything working.
+    .filter((p) => p.status === 'posted' && p.engagement && p.liveCheck?.state !== 'removed')
     .map((p) => {
       const e = p.engagement!;
       const engagement = e.likes + e.comments + e.shares;

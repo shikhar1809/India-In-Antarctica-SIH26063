@@ -171,3 +171,6 @@
 }
 
 .sd-record strong { font-size: 0.9rem; font-weight: 600; line-height: 1.35; }
+
+/* The image the platform will receive */
+.sd-image { width: 100%; max-height: 220px; object-fit: contain; border-radius: 10px; border: 1px solid rgba(150, 200, 240, 0.18); background: #05090f; }

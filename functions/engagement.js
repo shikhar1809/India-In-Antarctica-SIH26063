@@ -39,6 +39,12 @@
  *                      accounts the portal posts as. Read-only; nothing is
  *                      stored.
  *
+ *   POST /engagement   also cross-checks that each sent post is still up
+ *                      (liveness.js) and records the verdict as `liveCheck`.
+ *                      A post found removed gets no engagement written, and
+ *                      its entry is taken off the public record's
+ *                      "posted on" list. Body {mode:'live'} runs only this.
+ *
  * The two answer different questions and are kept apart on the page. An
  * account's reach includes everything that account ever posted — for a
  * shared or personal account, most of it has nothing to do with this
@@ -59,6 +65,7 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const { initializeApp, getApps } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
+const { checkLive } = require('./liveness');
 const { getAuth } = require('firebase-admin/auth');
 
 if (!getApps().length) initializeApp();
@@ -425,20 +432,71 @@ exports.engagement = onRequest({ region: 'asia-south1', cors: true }, async (req
 
   const connected = PLATFORMS.filter((platform) => resolveFetcher(platform));
 
+  const liveOnly = req.body?.mode === 'live';
+  const snap = await db.collection(SOCIAL_COLLECTION).where('status', '==', 'posted').get();
+
+  /* ── first: is each post still up? ── */
+  // Instagram's "removed" needs proof the token works; the account read is it.
+  let instagramOk = false;
+  if (uploadPostKey() && snap.docs.some((d) => d.data().platform === 'instagram')) {
+    try {
+      const acc = (accountCache && Date.now() - accountCache.at < ACCOUNT_TTL_MS) ? accountCache.data : await accountAnalytics();
+      instagramOk = !!acc.accounts?.find((a) => a.platform === 'instagram' && a.available);
+    } catch { instagramOk = false; }
+  }
+  const ctx = { key: uploadPostKey(), profile: uploadPostProfile(), accountOk: instagramOk };
+  const verdicts = await Promise.all(snap.docs.map((doc) => checkLive({ id: doc.id, ...doc.data() }, ctx)));
+
+  const removed = [];
+  await Promise.all(snap.docs.map(async (doc, i) => {
+    const v = verdicts[i];
+    const post = doc.data();
+    const was = post.liveCheck?.state;
+    const update = { liveCheck: v };
+    if (v.state === 'removed' && was !== 'removed') update.removedAt = v.checkedAt;
+    if (v.state === 'live' && was === 'removed') update.removedAt = null; // reinstated
+    await doc.ref.update(update).catch(() => {});
+    if (v.state === 'removed') {
+      removed.push(doc.id);
+      // The public site shows "posted on X" from the record's own list; a
+      // post that is gone must not stay advertised there.
+      if (post.recordId && post.externalUrl) {
+        const ref = db.collection('publicArchive').doc(post.recordId);
+        await db.runTransaction(async (tx) => {
+          const rec = await tx.get(ref);
+          const list = rec.exists ? rec.data().socialPosts : null;
+          if (!Array.isArray(list)) return;
+          const kept = list.filter((e) => e?.url !== post.externalUrl);
+          if (kept.length !== list.length) tx.update(ref, { socialPosts: kept });
+        }).catch((err) => console.error('could not unlist removed post', doc.id, err.message));
+      }
+    }
+  }));
+  const liveness = {
+    checked: snap.size,
+    live: verdicts.filter((v) => v.state === 'live').length,
+    removed: removed.length,
+    unknown: verdicts.filter((v) => v.state === 'unknown').length,
+  };
+
+  if (liveOnly) return res.json({ connected, checked: snap.size, updated: 0, liveness });
+
+  // X and LinkedIn liveness needs no credential; engagement does.
   if (connected.length === 0) {
     return res.json({
       connected: [],
-      checked: 0,
+      checked: snap.size,
       updated: 0,
+      liveness,
       message: 'No platform credentials configured. Set UPLOAD_POST_API_KEY (or X_BEARER_TOKEN / INSTAGRAM_ACCESS_TOKEN / LINKEDIN_ACCESS_TOKEN) in functions/.env, then redeploy.',
     });
   }
 
-  const snap = await db.collection(SOCIAL_COLLECTION).where('status', '==', 'posted').get();
-
+  /* ── then: engagement, for the posts still up ── */
   let updated = 0;
   const errors = [];
-  for (const doc of snap.docs) {
+  for (const [i, doc] of snap.docs.entries()) {
+    if (verdicts[i].state === 'removed') continue;
     const post = { id: doc.id, ...doc.data() };
     const fetcher = resolveFetcher(post.platform);
     if (!fetcher) continue;
@@ -459,7 +517,7 @@ exports.engagement = onRequest({ region: 'asia-south1', cors: true }, async (req
     }
   }
 
-  return res.json({ connected, checked: snap.size, updated, errors });
+  return res.json({ connected, checked: snap.size, updated, errors, liveness });
 });
 
 exports._test = { platformPostIdFor, normaliseAccount, toRows, accountAnalytics, fetchViaUploadPost };

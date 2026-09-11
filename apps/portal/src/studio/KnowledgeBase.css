@@ -100,3 +100,8 @@
   color: #3fb950;
   opacity: 1;
 }
+
+/* Compact, for the Basic column: a short list that scrolls in place */
+.kb--compact { gap: 6px; }
+.kb--compact .kb-list { max-height: 170px; }
+.kb--compact .kb-item { padding-top: 6px; padding-bottom: 6px; }

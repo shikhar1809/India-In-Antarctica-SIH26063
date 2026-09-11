@@ -9,20 +9,21 @@
  * scientist or a comms officer rather than a designer.
  *
  * Five steps, each one thing:
- *   Brief   → what happened, who it is for, how it should sound
+ *   Basic   → the story, what the post is for, and how it should sound —
+ *             a few taps of options (studio/basics.ts) that give the agent
+ *             firm ground instead of guesses
+ *   Agent   → research, reasoning and writing, every decision shown
  *   Pick    → three genuinely different takes, rendered, side by side
  *   Refine  → adjust the one they chose with fixed, instant controls
- *   Public  → the plain-language record for the Knowledge Repository
- *   Review  → SOP checklist, in-feed previews, submit for approval
+ *   Review  → the public record, in-feed previews, SOP checks, submit
  *
  * Nothing here reaches an audience on its own: submitting sets the status
  * to `drafted`, and an admin still has to approve. That gate is unchanged.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowLeft, ArrowRight, Check, Download, Paperclip, RotateCcw,
-  PenLine, Sparkles, TriangleAlert, Wand2,
+  ArrowLeft, ArrowRight, Check, ClipboardList, Download, Paperclip, PenLine, RotateCcw, Sparkles, TriangleAlert, Wand2,
 } from 'lucide-react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
@@ -41,14 +42,21 @@ import { TEMPLATES, templateById, simpler, bolder, DEFAULT_TEMPLATE } from './te
 import type { TemplateId } from './templates';
 import {
   AUDIENCES, TONES, COPY_REFINEMENTS, DEFAULT_BRIEF,
-  describeRecordForBrief, draftVariants, generateVariants, recordUrl, refineCopy, withSourceLink,
+  describeRecordForBrief, draftVariants, generateVariants, recordUrl, refineCopy, withLinks, withSourceLink,
 } from './copy';
 import type { Brief, PostCopy, Variant } from './copy';
-import { KnowledgeBase } from './KnowledgeBase';
 import { AgentThinking, type AgentDecisions } from './AgentThinking';
 import { TraceView } from './TraceView';
 import { toStoredTrace, type AgentTrace } from './trace';
 import { researchDirection, type Research } from './insight';
+import {
+  CREDITS, DATA_STATUSES, GOALS, LANGUAGES, basicsDirection, cleanLinks, photoCredit,
+  type BasicAnswers, type Goal,
+} from './basics';
+import { isRemoved } from '../social/queue';
+import { TOKEN_PATTERN } from '../screening/detect';
+import { describeRequest } from './requestSummary';
+import { Choice, ImagesField, KbQuestion, LinksField, PlatformsField, ReferencePostsField, StoryField } from './BasicFields';
 import { useSocialQueue } from '../hooks/useSocialQueue';
 import { MarkupPanel } from './MarkupPanel';
 import type { Revision } from './MarkupPanel';
@@ -60,7 +68,7 @@ import { searchReferences } from './references';
 import type { StyleReference } from './references';
 import { usePublicArchive } from '../hooks/usePublicArchive';
 import { PostCanvas } from './PostCanvas';
-import { downloadPng } from './export';
+import { downloadPng, exportPng } from './export';
 import { PreviewX, PreviewInstagram, PreviewLinkedIn } from './PlatformPreview';
 import './Studio.css';
 
@@ -78,6 +86,49 @@ const STEP_INDEX = Object.fromEntries(STEPS.map((s, i) => [s.id, i])) as Record<
 
 const LINE_BREAK = String.fromCharCode(10);
 
+/** The three options are three looks, not three captions on one look: each
+ *  gets its own layout and palette. A layout built on the photograph is only
+ *  offered when there is a photograph, and "One number" only when the copy
+ *  has a figure to show. */
+function variantLook(i: number, hasPhoto: boolean, hasStat: boolean): { templateId: TemplateId; paletteId: string } {
+  const layouts: TemplateId[] = hasPhoto
+    ? ['photo-led', 'banded', hasStat ? 'stat' : 'statement']
+    : [hasStat ? 'stat' : 'statement', 'banded', 'minimal'];
+  const palette = PALETTES[i % PALETTES.length];
+  return { templateId: layouts[i % layouts.length], paletteId: palette.id };
+}
+
+/** A canvas drawn at whatever scale fills its container's width — for the
+ *  feed previews, which are narrower than any platform's real size. */
+function FitCanvas(props: Omit<Parameters<typeof PostCanvas>[0], 'scale'>) {
+  const box = useRef<HTMLDivElement>(null);
+  const [w, setW] = useState(0);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setW(el.clientWidth));
+    ro.observe(el);
+    setW(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
+  const spec = PLATFORM_SPECS[props.platform];
+  const scale = w ? w / spec.w : 0.25;
+  return (
+    <div ref={box} className="stu-fitcanvas" style={{ height: Math.round(spec.h * scale) }}>
+      <PostCanvas {...props} scale={scale} />
+    </div>
+  );
+}
+
+/** The platforms a finished graphic is rendered for. The story shares the
+ *  Instagram caption and is posted by hand. */
+const GRAPHIC_PLATFORMS = ['x', 'linkedin', 'instagram'] as const;
+
+/** An admin's request goal, as a Basic-step purpose. */
+const REQUEST_GOAL: Record<string, Goal> = {
+  Announce: 'announce', Explain: 'explain', Celebrate: 'celebrate', 'Share data': 'inform', Recruit: 'invite',
+};
+
 export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSubmitted: () => void }) {
   const { user } = useAuth();
 
@@ -92,16 +143,21 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
   const step = STEPS[stepIdx];
 
   /* ── brief ── */
-  /* An admin's post request arrives with its audience, tone and platforms
-   * decided. They are set as choices, so the agent keeps them rather than
-   * re-inferring — and the admin's notes are part of the brief. */
+  /* An admin's post request carries the admin's own answers to the Basic
+   * questions. They are not poured in silently: "Auto-fill from the admin's
+   * requirements" puts them in, visibly, and the publisher can then change
+   * anything. A field report from the scientist app has no request, and so
+   * no such button — the publisher answers everything. */
   const req = d.request?.kind === 'post-request' ? d.request : null;
   const [brief, setBrief] = useState<Brief>(() => ({
     ...DEFAULT_BRIEF,
     topic: req?.instructions ? `${d.notes ?? ''}${LINE_BREAK}${LINE_BREAK}Notes from ${req.requestedByName}: ${req.instructions}` : (d.notes ?? ''),
-    ...(req ? { audience: req.audience, tone: req.tone } : {}),
+    basics: { language: 'en', references: [] },
   }));
-  const [platforms, setPlatforms] = useState<PlatformId[]>(req?.platforms?.length ? req.platforms : ['instagram', 'x', 'linkedin']);
+  const basics: BasicAnswers = brief.basics ?? {};
+  const setBasic = <K extends keyof BasicAnswers>(k: K, v: BasicAnswers[K]) =>
+    setBrief((b) => ({ ...b, basics: { ...b.basics, [k]: v } }));
+  const [platforms, setPlatforms] = useState<PlatformId[]>(['instagram', 'x', 'linkedin']);
 
   /* ── generation ── */
   const [variants, setVariants] = useState<Variant[]>([]);
@@ -124,7 +180,7 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
    * result that only the panel knows about could not do either. */
   const [moderation, setModeration] = useState<ModerationResult | null>(null);
   const [refs, setRefs] = useState<StyleReference[]>([]);
-  const [chose, setChose] = useState<{ audience: boolean; tone: boolean }>({ audience: !!req, tone: !!req });
+  const [chose, setChose] = useState<{ audience: boolean; tone: boolean }>({ audience: false, tone: false });
   const { records: archiveRecords } = usePublicArchive();
   /* Sent posts and their measured engagement — what the agent learns from.
    * Readable by publishers and admins; empty (not an error) for anyone else. */
@@ -134,22 +190,135 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
    * so the admin reviewing it can see how it was made. */
   const [agentTrace, setAgentTrace] = useState<AgentTrace | null>(null);
 
-  /* A request about an archive record brings that record's facts and its
-   * permanent link into the brief — once, as soon as the archive has loaded
-   * — exactly as if the publisher had picked it from the knowledge base. */
+  /* The studio fits the window: it takes the height from its own top edge to
+   * the bottom of the viewport, and every step lays out across that space in
+   * columns instead of growing down the page. Only a column that genuinely
+   * overflows scrolls, inside itself. Measured rather than guessed, because
+   * what sits above it (the header, the back link, a sent-back note) varies. */
+  const rootRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const fit = () => {
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      let h = Math.max(560, window.innerHeight - top - 12);
+      el.style.setProperty('--stu-h', `${h}px`);
+      // Whatever still pushes the page past the window (a wrapper's bottom
+      // padding, say) comes off the studio's height too.
+      const extra = document.documentElement.scrollHeight - window.innerHeight;
+      if (extra > 0) {
+        h = Math.max(560, h - extra);
+        el.style.setProperty('--stu-h', `${h}px`);
+      }
+    };
+    fit();
+    window.addEventListener('resize', fit);
+    return () => window.removeEventListener('resize', fit);
+  }, []);
+
+  /* "View requirements": a drawer beside every step, open or closed as the
+   * publisher left it — remembered across steps and visits. */
+  const [reqOpen, setReqOpen] = useState<boolean>(() => {
+    try { return localStorage.getItem('iia-portal:studio-reqs') === 'open'; } catch { return false; }
+  });
+  const toggleReq = () => setReqOpen((v) => {
+    try { localStorage.setItem('iia-portal:studio-reqs', v ? 'closed' : 'open'); } catch { /* not remembered */ }
+    return !v;
+  });
+
+  /* The three options are drawn at whatever size fits three across the
+   * space they actually have — the drawer opening, or a smaller screen,
+   * shrinks them rather than letting them overlap or push the page down. */
+  const variantsRef = useRef<HTMLDivElement>(null);
+  const [variantScale, setVariantScale] = useState(0.26);
+  useEffect(() => {
+    const el = variantsRef.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.clientWidth;
+      const main = el.parentElement;
+      const h = main ? main.clientHeight : 0;
+      const byWidth = ((w - 2 * 14) / 3 - 28) / 1080;
+      const byHeight = h ? (h - 150) / 1080 : byWidth;
+      setVariantScale(Math.max(0.12, Math.min(0.32, byWidth, byHeight)));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    if (el.parentElement) ro.observe(el.parentElement);
+    return () => ro.disconnect();
+  }, [stepIdx, reqOpen, variants.length]);
+
+  /* Auto-filling a request about an archive record brings that record's
+   * facts and permanent link into the brief — as soon as the archive has
+   * loaded — exactly as if the publisher had picked it themselves. */
+  const [autofilled, setAutofilled] = useState(false);
   const requestRecordAdopted = useRef(false);
   useEffect(() => {
-    if (!req?.recordId || requestRecordAdopted.current || brief.source) return;
+    if (!autofilled || !req?.recordId || requestRecordAdopted.current || brief.source) return;
     const rec = archiveRecords.find((r) => r.id === req.recordId);
     if (!rec) return;
     requestRecordAdopted.current = true;
     const identifier = rec.metadata?.identifier ?? rec.id;
+    linkRecord(describeRecordForBrief(rec), { identifier, title: rec.title, url: recordUrl(identifier) });
+  }, [autofilled, archiveRecords, req, brief.source]);
+
+  /* ── the knowledge base: link, and unlink cleanly ──
+   * The record's material is appended to "What happened?". Remembered, so
+   * removing or changing the record takes its material back out instead of
+   * leaving stale facts in the brief. */
+  const kbMaterial = useRef<string | null>(null);
+  const linkRecord = (material: string, source: NonNullable<Brief['source']>) => {
+    const old = kbMaterial.current;
+    kbMaterial.current = material;
+    setBrief((b) => {
+      const base = old ? b.topic.replace(old, '').trim() : b.topic.trim();
+      // Appended, not replaced: a publisher's own line is never lost to a click.
+      return { ...b, topic: base ? base + LINE_BREAK + LINE_BREAK + material : material, source };
+    });
+  };
+  const unlinkRecord = () => {
+    const old = kbMaterial.current;
+    kbMaterial.current = null;
+    setBrief((b) => ({ ...b, topic: old ? b.topic.replace(old, '').trim() : b.topic, source: undefined }));
+  };
+
+  /* ── auto-fill from the admin's requirements ── */
+  const beforeFill = useRef<{ brief: Brief; platforms: PlatformId[]; chose: typeof chose } | null>(null);
+  const autofill = () => {
+    if (!req) return;
+    beforeFill.current = { brief, platforms, chose };
+    const rb = req.basics ?? {};
+    setPlatforms(req.platforms?.length ? req.platforms : platforms);
     setBrief((b) => ({
       ...b,
-      topic: b.topic.trim() + LINE_BREAK + LINE_BREAK + describeRecordForBrief(rec),
-      source: { identifier, title: rec.title, url: recordUrl(identifier) },
+      audience: req.audience,
+      tone: req.tone,
+      basics: {
+        ...b.basics,
+        // A request made before the Basic questions existed still has a goal.
+        goal: rb.goal ?? REQUEST_GOAL[req.goal] ?? null,
+        kb: rb.kb ?? (req.recordId ? 'about' : null),
+        dataStatus: rb.dataStatus ?? null,
+        imageSource: rb.imageSource ?? null,
+        references: rb.references ?? [],
+        links: rb.links ?? [],
+        credit: rb.credit ?? null,
+        language: rb.language ?? 'en',
+      },
     }));
-  }, [archiveRecords, req, brief.source]);
+    setChose({ audience: rb.audienceChosen ?? true, tone: rb.toneChosen ?? true });
+    requestRecordAdopted.current = false;
+    setAutofilled(true);
+  };
+  const undoAutofill = () => {
+    const was = beforeFill.current;
+    if (!was) return;
+    if (kbMaterial.current && !was.brief.source) kbMaterial.current = null;
+    setBrief(was.brief); setPlatforms(was.platforms); setChose(was.chose);
+    requestRecordAdopted.current = true;
+    setAutofilled(false);
+  };
 
   /* ── the chosen post ── */
   const [copy, setCopy] = useState<PostCopy | null>(null);
@@ -183,6 +352,14 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
   const [exporting, setExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  /* One full-size canvas per platform, off screen, so submitting can export
+   * the finished graphic — text, photo, palette — exactly as designed. */
+  const graphicRefs = {
+    x: useRef<HTMLDivElement>(null),
+    linkedin: useRef<HTMLDivElement>(null),
+    instagram: useRef<HTMLDivElement>(null),
+  };
+  const [graphicNote, setGraphicNote] = useState<string | null>(null);
 
   const template = templateById(templateId);
   const palette = paletteById(paletteId);
@@ -236,9 +413,10 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
   /** The writing step of the run. Kept separate from startAgent so
    *  AgentThinking can place it last, after the publisher has seen every
    *  inference it is about to be built on. */
-  const runWriting = async ({ analysis: active, research, decisions }: {
+  const runWriting = async ({ analysis: active, research, decisions, plan, fixes }: {
     analysis: BriefAnalysis; research: Research; decisions: AgentDecisions;
-  }): Promise<{ instructions: string; generated: boolean }> => {
+    plan: { hashtags: Record<string, string[]> }; fixes?: string[];
+  }): Promise<{ instructions: string; generated: boolean; variants: Variant[]; linked: string | null }> => {
     let briefForModel: Brief = { ...brief, audience: active.audience, tone: active.tone };
 
     // A keyword-matched record the publisher confirmed when asked.
@@ -254,27 +432,59 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
       briefForModel = { ...briefForModel, topic: `${briefForModel.topic.trim()}${LINE_BREAK}${LINE_BREAK}${decisions.extraDetail}` };
     }
     if (decisions.dropInstagram) setPlatforms((ps) => ps.filter((x) => x !== 'instagram'));
+    /* A photograph the agent found: used as the post's image, and credited
+     * — the licence requires it. Copied into the portal's own storage when
+     * the source allows, so the post does not depend on someone else's
+     * server staying up. */
+    const found = decisions.photo && images.length === 0 ? decisions.photo : null;
+    const credit = decisions.photo ? photoCredit(decisions.photo) : null;
+    if (found) {
+      setImages((prev) => (prev.includes(found.fullUrl) ? prev : [...prev, found.fullUrl]));
+      setPhotoIndex(0);
+      void mirrorToStorage(found.fullUrl);
+    }
     setBrief((b) => ({ ...b, topic: briefForModel.topic, source: briefForModel.source }));
 
     const instructions = [
       generatorDirection(active),
+      basicsDirection(
+        // A post linked to a record asks readers to read it — the one call
+        // to action outreach needs, so it is no longer asked on Basic.
+        { ...basics, cta: briefForModel.source ? 'record' : null },
+        {
+          observerName: d.authorName, station: clean.station, hashtags: plan.hashtags,
+          // generatorDirection already names a record the agent found itself.
+          source: briefForModel.source && (!active.archive || basics.kb === 'cites')
+            ? { title: briefForModel.source.title, identifier: briefForModel.source.identifier } : null,
+          photoCredit: credit,
+        },
+      ),
       researchDirection(research),
       ...(decisions.dropInstagram ? ['PLATFORMS: the publisher dropped Instagram for this post; its caption may be left empty.'] : []),
+      // An admin screened the report: placeholders mark what they removed.
+      ...(new RegExp(TOKEN_PATTERN.source).test(briefForModel.topic)
+        ? ['REDACTED: bracketed placeholders such as [name withheld] or [medical detail withheld] mark material an admin removed before this report reached you. Never mention them, hint at them, or guess what they replaced — write around them.']
+        : []),
+      // A second pass after the alignment check: exactly what was missed.
+      ...(fixes?.length ? [`CORRECTIONS — the previous drafts missed these requirements. Meet every one this time:${LINE_BREAK}${fixes.map((f) => `- ${f}`).join(LINE_BREAK)}`] : []),
     ].filter(Boolean).join('\n\n');
+    const linked = briefForModel.source?.identifier ?? null;
 
     try {
       const result = await generateVariants(clean, measurements, briefForModel, undefined, instructions);
-      setVariants(withSourceLink(result.variants, briefForModel.source));
+      const linkedVariants = withLinks(withSourceLink(result.variants, briefForModel.source), cleanLinks(basics.links));
+      setVariants(linkedVariants);
       setGenNote(
         result.generated
           ? 'Written by the generator, against everything the agent worked out. Read it before you submit — it can still get details wrong.'
           : result.reason ?? 'Using the offline draft.',
       );
-      return { instructions, generated: result.generated };
+      return { instructions, generated: result.generated, variants: linkedVariants, linked };
     } catch {
-      setVariants(withSourceLink(draftVariants(clean, measurements, briefForModel), briefForModel.source));
+      const offline = withLinks(withSourceLink(draftVariants(clean, measurements, briefForModel), briefForModel.source), cleanLinks(basics.links));
+      setVariants(offline);
       setGenNote('Using the offline draft.');
-      return { instructions, generated: false };
+      return { instructions, generated: false, variants: offline, linked };
     }
   };
 
@@ -292,10 +502,14 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
     setStepIdx(STEP_INDEX.pick);
   };
 
-  const pick = (v: Variant) => {
+  const pick = (v: Variant, i: number) => {
     setPickedId(v.id);
     setCopy(v.copy);
     setCaptions(v.copy.captions);
+    // The look they chose comes with the words — it is half of what they picked.
+    const look = variantLook(i, !!photoUrl, !!v.copy.stat);
+    setTemplateId(look.templateId);
+    setPaletteId(look.paletteId);
     setStepIdx(STEP_INDEX.refine);
   };
 
@@ -319,6 +533,22 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
    * someone hunting a network problem when Storage actually refused them on
    * a rule. Both were the same mistake: swallowing what went wrong.
    */
+  /** Copies a found photograph into the portal's bucket; keeps the original
+   *  address if the source refuses (no CORS) or the file is too large. */
+  const mirrorToStorage = async (url: string) => {
+    if (!user) return;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const blob = await res.blob();
+      if (!blob.type.startsWith('image/') || blob.size > 10 * 1024 * 1024) return;
+      const objRef = ref(storage, `dispatches/${user.uid}/${d.id}/found-${Date.now()}.${blob.type.split('/')[1] || 'jpg'}`);
+      await uploadBytesResumable(objRef, blob);
+      const stored = await getDownloadURL(objRef);
+      setImages((prev) => prev.map((u) => (u === url ? stored : u)));
+    } catch { /* keep the original address */ }
+  };
+
   const handleFileSelected = async (file: File | undefined) => {
     if (!file) return;
     if (!user) {
@@ -402,12 +632,46 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
    * check saying this photograph must not be published, and the button is
    * disabled until the photograph changes. */
   const photoBlocked = !!moderation?.concerns.some((c) => c.severity === 'blocker');
+  const sopRef = useRef<HTMLElement>(null);
+  const sopDone = SOP_CHECKLIST_ITEMS.filter((i) => sop[i.id]).length;
+  const submitBlocker = photoBlocked
+    ? 'Replace the photograph first — the check found something that must not be published.'
+    : !hasAnyCaption
+      ? 'Write at least one caption first.'
+      : !allChecked
+        ? `Tick the checklist first (${sopDone}/${SOP_CHECKLIST_ITEMS.length}).`
+        : null;
+
+  /** Exports and uploads the finished graphic for each platform the post
+   *  goes to. What a platform receives is this image — never the bare photo. */
+  const renderGraphics = async (): Promise<Partial<Record<(typeof GRAPHIC_PLATFORMS)[number], string>>> => {
+    const out: Partial<Record<(typeof GRAPHIC_PLATFORMS)[number], string>> = {};
+    if (!user) return out;
+    const wanted = GRAPHIC_PLATFORMS.filter((p) => platforms.includes(p) || (p === 'instagram' && platforms.includes('story')));
+    const failed: string[] = [];
+    for (const p of wanted) {
+      const node = graphicRefs[p].current;
+      if (!node) continue;
+      try {
+        const blob = await exportPng(node, p, { pixelRatio: 1 });
+        const objRef = ref(storage, `dispatches/${user.uid}/${d.id}/graphic-${p}-${Date.now()}.png`);
+        await uploadBytesResumable(objRef, blob, { contentType: 'image/png' });
+        out[p] = await getDownloadURL(objRef);
+      } catch {
+        failed.push(PLATFORM_SPECS[p].label);
+      }
+    }
+    setGraphicNote(failed.length ? `The ${failed.join(' and ')} graphic could not be saved — the approver will see the photo instead.` : null);
+    return out;
+  };
 
   const submit = async () => {
     if (!user || !allChecked || !hasAnyCaption || !copy || photoBlocked) return;
     setSaving(true);
     try {
+      const postGraphics = await renderGraphics();
       await updateDoc(doc(db, 'dispatches', d.id), {
+        postGraphics,
         caption: captions.x || captions.linkedin || captions.instagram,
         platformCaptions: captions,
         imageUrls: images,
@@ -429,6 +693,8 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
           generated: genNote?.startsWith('Written by') ?? false,
         },
         status: 'drafted' satisfies DispatchStatus,
+        // A post that was sent back and is coming again is a revision.
+        revision: (d.revision ?? 0) + (d.status === 'flagged' ? 1 : 0),
         publisherUid: user.uid,
         publisherName: authorName,
         adminNotes: null,
@@ -449,6 +715,24 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
     ...(platforms.length === 0 ? ['pick at least one platform'] : []),
   ];
   const basicsReady = basicsMissing.length === 0;
+  const decidedCount = [
+    basics.goal, basics.kb, basics.dataStatus, (images.length || basics.imageSource) ? 'images' : null,
+    basics.credit, basics.language, chose.audience || null, chose.tone || null,
+  ].filter((x) => x != null).length;
+  const pastPosts = queuePosts
+    .filter((x) => x.status === 'posted' && !isRemoved(x))
+    .sort((x, y) => (y.postedAt ?? 0) - (x.postedAt ?? 0))
+    .map((x) => ({ id: x.id, platform: x.platform, platformLabel: PLATFORM_SPECS[x.platform as PlatformId]?.label ?? x.platform, caption: x.caption, url: x.externalUrl ?? undefined, postedAt: x.postedAt }));
+
+  /* The alignment step's verdicts, marked beside each admin requirement in
+   * the drawer — so "was this met?" is answered where the requirement is read. */
+  const alignChecks = agentTrace?.steps.find((s) => s.id === 'alignment')?.checks ?? [];
+  const reqMark = (id: string) => {
+    const c = alignChecks.find((x) => x.id === id);
+    if (!c) return null;
+    const sym = { met: '✓', partial: '◐', missed: '✗', review: '?' }[c.status];
+    return <span className={`stu-reqs-chk chk-${c.status}`} title={c.detail} aria-label={`${c.status}: ${c.detail}`}>{sym}</span>;
+  };
 
   const canAdvance =
     stepIdx === STEP_INDEX.brief ? basicsReady
@@ -457,7 +741,7 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
     : true;
 
   return (
-    <div className="stu">
+    <div className="stu stu--fit" ref={rootRef}>
       {/* One file input for the whole wizard. It used to live inside the
           Refine panel, which meant the ref was null on every other step —
           so the brief's own upload button would have clicked nothing. */}
@@ -474,6 +758,15 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
       )}
 
       <ReviewNotes dispatch={d} />
+
+      {d.screening && (
+        <p className="stu-screened">
+          Screened by {d.screening.byName}
+          {Object.values(d.screening.redacted).reduce((a, b) => a + b, 0)
+            ? ` — ${Object.values(d.screening.redacted).reduce((a, b) => a + b, 0)} passages redacted; the placeholders mark what was removed, and the writer is told never to reconstruct it.`
+            : ' — nothing needed redacting.'}
+        </p>
+      )}
 
       {/* ── stepper, with the agent as one of its steps ── */}
       <div className="stu-stepbar">
@@ -492,8 +785,34 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
             </li>
           ))}
         </ol>
+        <p className="stu-hint">{step.hint}</p>
+        {req && step.id === 'brief' && (
+          autofilled ? (
+            <span className="stu-autofilled">
+              <Check size={13} strokeWidth={3} /> Filled from {req.requestedByName}’s requirements
+              <button type="button" className="stu-linkbtn" onClick={undoAutofill}>Undo</button>
+            </span>
+          ) : (
+            <button type="button" className="stu-autofill" onClick={autofill} title={`Fill in the Basic answers ${req.requestedByName} gave when requesting this post`}>
+              <Wand2 size={14} strokeWidth={2.25} /> Auto-fill from the admin’s requirements
+            </button>
+          )
+        )}
+        <button
+          type="button"
+          className={'stu-reqbtn' + (reqOpen ? ' is-open' : '') + (req ? ' has-req' : '')}
+          onClick={toggleReq}
+          aria-expanded={reqOpen}
+          aria-controls="stu-reqs"
+        >
+          <ClipboardList size={14} strokeWidth={2.25} />
+          {reqOpen ? 'Hide requirements' : 'View requirements'}
+          {req && <span className="stu-reqbtn-dot" aria-label="The admin set requirements for this post" />}
+        </button>
       </div>
-      <p className="stu-hint">{step.hint}</p>
+
+      <div className={'stu-stagewrap' + (reqOpen ? ' has-reqs' : '')}>
+      <div className="stu-stage">
 
       {warnings.length > 0 && stepIdx === 0 && !req && (
         <div className="fld-datawarn">
@@ -506,181 +825,97 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
       {step.id === 'brief' && (
         <div className="stu-briefwrap">
         <div className="stu-panel stu-brief">
-          <label className="stu-field">
-            <span className="stu-label">What happened?</span>
-            <span className="stu-sub">Pre-filled from the field notes. Rewrite it in your own words if that reads better — this is what the post is about.</span>
-            <textarea
-              className="stu-textarea"
-              rows={5}
-              value={brief.topic}
-              onChange={(e) => setBrief((b) => ({ ...b, topic: e.target.value }))}
-              placeholder="e.g. We measured ice thickness at twelve stakes across the shelf this week…"
-            />
-          </label>
+          <div className="stu-brief-cols">
 
-          {/* Not every post follows a fresh field report. Pulling a published
-              record in gives the generator the archive's own facts to write
-              from, and carries the record's permanent link along with it. */}
-          <details className="stu-kb">
-            <summary>
-              <span className="stu-label">From existing knowledge base</span>
-              <span className="stu-sub">Build the post on a published record or dataset — the 1998 Maitri series, a station history, an expedition report.</span>
-            </summary>
-            <KnowledgeBase
-              onPick={(material, source) =>
-                setBrief((b) => ({
-                  ...b,
-                  // Appended, not replaced: a publisher who already wrote a
-                  // line of their own should not lose it to a click.
-                  topic: b.topic.trim() ? b.topic.trim() + LINE_BREAK + LINE_BREAK + material : material,
-                  source,
-                }))
-              }
-            />
-            {brief.source && (
-              <p className="stu-kb-note">
-                Linking to <code>{brief.source.identifier}</code> — the address is added to
-                each caption after the text is written, so it is always the real one.
-              </p>
-            )}
-          </details>
-
-          <div className="stu-chiprow">
-            <span className="stu-label">Who is it for?</span>
-            <div className="stu-chips">
-              {AUDIENCES.map((a) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  className={'stu-chip' + (brief.audience === a.id ? ' is-on' : '')}
-                  onClick={() => {
-                    setBrief((b) => ({ ...b, audience: a.id }));
-                    setChose((c) => ({ ...c, audience: true }));
-                  }}
-                  title={a.hint}
-                >
-                  {a.label}
-                </button>
-              ))}
-            </div>
+          {/* ── 1 · what it is about ── */}
+          <div className="stu-brief-col">
+          <span className="stu-colhead">What is it about</span>
+          <StoryField
+            grow
+            label="What happened?"
+            sub="From the field notes — rewrite it if that reads better."
+            value={brief.topic}
+            onChange={(v) => setBrief((b) => ({ ...b, topic: v }))}
+            placeholder="e.g. We measured ice thickness at twelve stakes across the shelf this week…"
+          />
+          <Choice label="What kind of post is it?" options={GOALS} value={basics.goal} onChange={(v) => setBasic('goal', v)} />
+          <KbQuestion
+            kb={basics.kb}
+            onKb={(v) => setBasic('kb', v)}
+            linked={brief.source ? { identifier: brief.source.identifier, title: brief.source.title } : null}
+            onPick={linkRecord}
+            onRemove={unlinkRecord}
+          />
+          <Choice
+            label="How firm is the data?"
+            sub="An official account never presents field readings as settled."
+            options={DATA_STATUSES}
+            value={basics.dataStatus}
+            onChange={(v) => setBasic('dataStatus', v)}
+          />
           </div>
 
-          <div className="stu-chiprow">
-            <span className="stu-label">How should it sound?</span>
-            <div className="stu-chips">
-              {TONES.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  className={'stu-chip' + (brief.tone === t.id ? ' is-on' : '')}
-                  onClick={() => {
-                    setBrief((b) => ({ ...b, tone: t.id }));
-                    setChose((c) => ({ ...c, tone: true }));
-                  }}
-                  title={t.hint}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
+          {/* ── 2 · what the post should have ── */}
+          <div className="stu-brief-col">
+          <span className="stu-colhead">What do you want the post to have</span>
+          <ImagesField
+            images={images}
+            cover={photoIndex}
+            onCover={setPhotoIndex}
+            onFile={(f) => void handleFileSelected(f)}
+            uploading={uploading}
+            uploadPct={uploadPct}
+            uploadError={uploadError}
+            imageSource={basics.imageSource}
+            onImageSource={(v) => setBasic('imageSource', v)}
+          />
+          <ReferencePostsField references={basics.references ?? []} onChange={(v) => setBasic('references', v)} pastPosts={pastPosts} />
+          <LinksField links={basics.links} onChange={(v) => setBasic('links', v)} />
+          <Choice label="Who gets credit?" options={CREDITS} value={basics.credit} onChange={(v) => setBasic('credit', v)} />
           </div>
 
-          {/* Photographs belong on the brief, not only three steps later in
-              Refine. The agent reads what each platform needs while it is
-              analysing this form — it will tell the publisher that Instagram
-              cannot be posted without one — and being told that with no way
-              to act on it until after a full generation run is the wrong
-              order to do things in. */}
-          <div className="stu-field">
-            <span className="stu-label">Photographs</span>
-            <span className="stu-sub">
-              Real station photography always beats a generated image for a government record.
-              Instagram needs at least one; the others read better with one.
-            </span>
-            {images.length > 0 && (
-              <div className="stu-photos">
-                {images.map((url, i) => (
-                  <button
-                    key={url}
-                    type="button"
-                    className={'stu-photo' + (photoIndex === i ? ' is-on' : '')}
-                    onClick={() => setPhotoIndex(i)}
-                    title={photoIndex === i ? 'Cover photo' : 'Use as the cover photo'}
-                  >
-                    <img src={url} alt="" />
-                  </button>
-                ))}
-              </div>
-            )}
-            <button
-              type="button"
-              className="stu-ghost"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-            >
-              <Paperclip size={13} strokeWidth={2.5} />
-              {uploading ? `Uploading ${uploadPct}%` : images.length ? 'Add another' : 'Add a photo'}
-            </button>
-            {uploadError && <p className="stu-error">{uploadError}</p>}
+          {/* ── 3 · who it is meant for ── */}
+          <div className="stu-brief-col">
+          <span className="stu-colhead">Who is it meant for</span>
+          <Choice
+            label="Audience"
+            options={AUDIENCES.map((a) => ({ id: a.id, label: a.label, hint: a.hint }))}
+            value={chose.audience ? brief.audience : null}
+            onChange={(v) => {
+              if (v) setBrief((b) => ({ ...b, audience: v }));
+              setChose((c) => ({ ...c, audience: !!v }));
+            }}
+          />
+          <Choice
+            label="How should it sound to them?"
+            options={TONES.map((t) => ({ id: t.id, label: t.label, hint: t.hint }))}
+            value={chose.tone ? brief.tone : null}
+            onChange={(v) => {
+              if (v) setBrief((b) => ({ ...b, tone: v }));
+              setChose((c) => ({ ...c, tone: !!v }));
+            }}
+          />
+          <Choice label="In which language?" options={LANGUAGES} value={basics.language} onChange={(v) => setBasic('language', v)} />
+          <PlatformsField
+            label="Where will they see it?"
+            options={PLATFORM_ORDER.map((p) => ({ id: p, label: PLATFORM_SPECS[p].label, hint: PLATFORM_SPECS[p].note }))}
+            value={platforms}
+            onChange={setPlatforms}
+          />
           </div>
-
-          <div className="stu-chiprow">
-            <span className="stu-label">Where is it going?</span>
-            <div className="stu-chips">
-              {PLATFORM_ORDER.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  className={'stu-chip' + (platforms.includes(p) ? ' is-on' : '')}
-                  onClick={() => setPlatforms((prev) =>
-                    prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p])}
-                  title={PLATFORM_SPECS[p].note}
-                >
-                  {PLATFORM_SPECS[p].label}
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* The form's submit: once the basics are in, the agent takes over. */}
           <div className="stu-brief-submit">
-            {!basicsReady && <span className="stu-brief-missing">First {basicsMissing.join(' and ')}.</span>}
+            {!basicsReady
+              ? <span className="stu-brief-missing">First {basicsMissing.join(' and ')}.</span>
+              : <span className="stu-brief-decided">{decidedCount} of 8 decided by you — the agent decides the rest and shows why.</span>}
             <button type="button" className="stu-primary" onClick={startAgent} disabled={!basicsReady}>
               <Sparkles size={15} strokeWidth={2.5} /> Let the agent handle it
             </button>
           </div>
         </div>
 
-        {/* What the admin asked for, beside the form the publisher fills in. */}
-        <aside className="stu-reqs" aria-label="Requirements as per admin">
-          <h4 className="stu-reqs-title">Requirements as per admin</h4>
-          {req ? (
-            <>
-              <p className="stu-reqs-from">Requested by <strong>{req.requestedByName}</strong></p>
-              <dl className="stu-reqs-list">
-                <div><dt>Brief</dt><dd>{d.notes}</dd></div>
-                <div><dt>Goal</dt><dd>{req.goal}</dd></div>
-                <div><dt>Archive record</dt><dd>{req.recordIdentifier ? `${req.recordIdentifier} — ${req.recordTitle}` : 'None — a new topic'}</dd></div>
-                <div><dt>Platforms</dt><dd>{req.platforms.map((p) => PLATFORM_SPECS[p]?.label ?? p).join(', ')}</dd></div>
-                <div><dt>Audience</dt><dd>{AUDIENCES.find((a) => a.id === req.audience)?.label ?? req.audience}</dd></div>
-                <div><dt>Tone</dt><dd>{TONES.find((t) => t.id === req.tone)?.label ?? req.tone}</dd></div>
-                <div><dt>Needed by</dt><dd>{req.deadline ? new Date(req.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : 'No deadline'}</dd></div>
-                <div><dt>Priority</dt><dd className={`stu-reqs-pri pri-${d.priority}`}>{d.priority}</dd></div>
-                {req.instructions && <div><dt>Notes</dt><dd>{req.instructions}</dd></div>}
-              </dl>
-              <p className="stu-reqs-foot">Platforms, audience and tone above are pre-set from this request; the agent keeps them.</p>
-            </>
-          ) : (
-            <>
-              <p className="stu-reqs-none">No admin requirements for this post.</p>
-              <p className="stu-reqs-foot">
-                It comes from a field report — {d.activity}{d.station ? ` at ${d.station}` : ''}, filed by {d.authorName}
-                {d.observedAt ? ` on ${new Date(d.observedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}.
-                Write it as you judge best; the admin reviews it before it goes out.
-              </p>
-            </>
-          )}
-        </aside>
 
         </div>
       )}
@@ -697,6 +932,9 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
               hasImage={images.length > 0}
               posts={queuePosts}
               archiveCount={archiveRecords.length}
+              basics={{ ...basics, cta: brief.source ? 'record' : null }}
+              requirements={req}
+              observerName={d.authorName}
               runReferences={(queries, onPartial) => searchReferences(queries, onPartial)}
               runWriting={runWriting}
               onComplete={agentDone}
@@ -721,7 +959,8 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
 
       {/* ═══════════════════════════════════════════════════ 3 · PICK ══ */}
       {step.id === 'pick' && (
-        <div className="stu-panel">
+        <div className="stu-panel stu-pick">
+          <div className="stu-pick-side">
           {genNote && <p className="stu-gennote">{genNote}</p>}
 
           {/* What these three were written against. Shown here rather than
@@ -776,21 +1015,27 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
               <TraceView trace={agentTrace} />
             </details>
           )}
-          <div className="stu-variants">
-            {variants.map((v) => (
-              <button key={v.id} type="button" className="stu-variant" onClick={() => pick(v)}>
+          </div>
+          <div className="stu-pick-main">
+          <div className="stu-variants" ref={variantsRef}>
+            {variants.map((v, i) => {
+              const look = variantLook(i, !!photoUrl, !!v.copy.stat);
+              return (
+              <button key={v.id} type="button" className="stu-variant" onClick={() => pick(v, i)}>
                 <PostCanvas
                   platform="instagram"
-                  template={template}
-                  palette={palette}
+                  template={templateById(look.templateId)}
+                  palette={paletteById(look.paletteId)}
                   copy={v.copy}
                   photoUrl={photoUrl}
-                  scale={0.26}
+                  scale={variantScale}
                 />
                 <span className="stu-variant-angle">{v.angle}</span>
+                <span className="stu-variant-look">{templateById(look.templateId).label} · {paletteById(look.paletteId).label}</span>
                 <span className="stu-variant-pick">Choose this</span>
               </button>
-            ))}
+              );
+            })}
           </div>
           <button
             type="button"
@@ -800,6 +1045,7 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
           >
             <RotateCcw size={13} strokeWidth={2.5} /> Three different ones
           </button>
+          </div>
         </div>
       )}
 
@@ -938,10 +1184,12 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
               {uploadError && <p className="stu-error">{uploadError}</p>}
             </div>
 
-            <div className="stu-ctrl">
+            <div className="stu-ctrl stu-ctrl--words">
               <span className="stu-label">Words on the graphic</span>
-              <input
-                className="stu-input"
+              <span className="stu-sub">Headline</span>
+              <textarea
+                className="stu-textarea stu-words-head"
+                rows={2}
                 value={copy.headline}
                 onChange={(e) => setCopy({ ...copy, headline: e.target.value })}
                 placeholder="Headline"
@@ -954,9 +1202,10 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
               {!template.slots.headline && (
                 <p className="stu-sub">This layout shows the figure instead of a headline. The wording above still goes into the captions.</p>
               )}
+              <span className="stu-sub">Supporting line</span>
               <textarea
-                className="stu-textarea"
-                rows={2}
+                className="stu-textarea stu-words-body"
+                rows={6}
                 value={copy.standfirst}
                 onChange={(e) => setCopy({ ...copy, standfirst: e.target.value })}
                 placeholder="One supporting sentence"
@@ -976,9 +1225,9 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
 
       {/* ═══════════════════════════════════ 5 · REVIEW (public page first) ══ */}
       {step.id === 'review' && (
-        <h3 className="stu-sectionhead">Public page <span>— the plain-language version for the Knowledge Repository, the permanent record</span></h3>
-      )}
-      {step.id === 'review' && (
+        <div className="stu-reviewgrid">
+        <section className="stu-reviewcol">
+        <h3 className="stu-sectionhead">Public page <span>— the permanent record</span></h3>
         <div className="stu-panel stu-public">
           <label className="stu-field">
             <span className="stu-label">Headline</span>
@@ -1013,25 +1262,34 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
             <RotateCcw size={13} strokeWidth={2.5} /> Start this draft again
           </button>
         </div>
-      )}
+        </section>
 
-      {step.id === 'review' && copy && (
-        <h3 className="stu-sectionhead">The post <span>— how it looks in each feed, and the checks before it goes to an admin</span></h3>
-      )}
-      {step.id === 'review' && copy && (
+        {copy && (
+        <section className="stu-reviewcol stu-reviewcol--post">
+        <h3 className="stu-sectionhead">The post <span>— in each feed, and the checks before an admin sees it</span></h3>
         <div className="stu-panel stu-review">
+          {/* Off screen, full size: what submitting exports and uploads. */}
+          <div className="stu-export-stage" aria-hidden="true">
+            {GRAPHIC_PLATFORMS.map((p) => (
+              <PostCanvas key={p} platform={p} template={template} palette={palette} copy={copy} photoUrl={photoUrl} exportRef={graphicRefs[p]} />
+            ))}
+          </div>
+          {graphicNote && <p className="stu-error">{graphicNote}</p>}
           <div className="stu-review-feeds">
             {platforms.includes('x') && (
               <PreviewX name={authorName} avatarUrl={user?.photoURL} caption={captions.x}
-                imageUrl={photoUrl} onCopy={() => copyCaption('x')} copied={copiedId === 'x'} />
+                imageUrl={photoUrl} onCopy={() => copyCaption('x')} copied={copiedId === 'x'}
+                media={<FitCanvas platform="x" template={template} palette={palette} copy={copy} photoUrl={photoUrl} />} />
             )}
             {platforms.includes('instagram') && (
               <PreviewInstagram name={authorName} avatarUrl={user?.photoURL} caption={captions.instagram}
-                imageUrl={photoUrl} onCopy={() => copyCaption('instagram')} copied={copiedId === 'instagram'} />
+                imageUrl={photoUrl} onCopy={() => copyCaption('instagram')} copied={copiedId === 'instagram'}
+                media={<FitCanvas platform="instagram" template={template} palette={palette} copy={copy} photoUrl={photoUrl} />} />
             )}
             {platforms.includes('linkedin') && (
               <PreviewLinkedIn name={authorName} avatarUrl={user?.photoURL} caption={captions.linkedin}
-                imageUrl={photoUrl} onCopy={() => copyCaption('linkedin')} copied={copiedId === 'linkedin'} />
+                imageUrl={photoUrl} onCopy={() => copyCaption('linkedin')} copied={copiedId === 'linkedin'}
+                media={<FitCanvas platform="linkedin" template={template} palette={palette} copy={copy} photoUrl={photoUrl} />} />
             )}
           </div>
 
@@ -1100,7 +1358,7 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
               </details>
             </section>
 
-            <aside className="fld-sop">
+            <aside className="fld-sop" ref={sopRef}>
               <div className="fld-sop-head">
                 <span>Before you submit</span>
                 <span className="fld-sop-count">
@@ -1138,7 +1396,48 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
             {!allChecked && <p className="stu-sub">Every check has to be ticked before this can go to an admin.</p>}
           </div>
         </div>
+        </section>
+        )}
+        </div>
       )}
+
+      </div>
+      {/* What the admin asked for — a drawer beside every step. */}
+      {reqOpen && (
+        <aside className="stu-reqs" id="stu-reqs" aria-label="Requirements as per admin">
+          <h4 className="stu-reqs-title">Requirements as per admin</h4>
+          {req ? (
+            <>
+              <p className="stu-reqs-from">Requested by <strong>{req.requestedByName}</strong></p>
+              <dl className="stu-reqs-list">
+                {describeRequest(req, { brief: d.notes, priority: d.priority, imageCount: req.basics ? d.imageUrls?.length : 0 }).map((r) => (
+                  <div key={r.id}>
+                    <dt>{r.label} {reqMark(r.id)}</dt>
+                    <dd className={r.id === 'priority' ? `stu-reqs-pri pri-${d.priority}` : undefined}>{r.value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="stu-reqs-foot">
+                {alignChecks.length
+                  ? 'The agent checked the drafts against each of these: ✓ met · ◐ partly · ✗ missed · ? for a person to judge. Hover a mark for the detail.'
+                  : autofilled
+                    ? 'These are on your Basic step now. After writing, the agent checks the drafts against each of them.'
+                    : 'Use “Auto-fill from the admin’s requirements” on Basic to start from these. After writing, the agent checks the drafts against each.'}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="stu-reqs-none">No admin requirements for this post.</p>
+              <p className="stu-reqs-foot">
+                It comes from a field report — {d.activity}{d.station ? ` at ${d.station}` : ''}, filed by {d.authorName}
+                {d.observedAt ? ` on ${new Date(d.observedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}.
+                Write it as you judge best; the admin reviews it before it goes out.
+              </p>
+            </>
+          )}
+        </aside>
+      )}
+      </div>
 
       {/* ── nav ── */}
       <div className="stu-nav">
@@ -1154,6 +1453,24 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
           <button type="button" className="stu-primary stu-primary--sm" onClick={() => setStepIdx((i) => i + 1)} disabled={!canAdvance}>
             Next <ArrowRight size={14} strokeWidth={2.5} />
           </button>
+        )}
+        {/* The last step's action, where every other step's "Next" is — not
+            at the foot of a scrolling column. If something is still missing it
+            says what, and a click takes the publisher to the checklist. */}
+        {step.id === 'review' && (
+          <div className="stu-submitbar">
+            {submitBlocker && <span className="stu-submit-why">{submitBlocker}</span>}
+            <button
+              type="button"
+              className="stu-primary stu-primary--sm"
+              onClick={() => (submitBlocker ? sopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) : void submit())}
+              disabled={saving}
+              aria-disabled={!!submitBlocker}
+              data-blocked={submitBlocker ? 'true' : undefined}
+            >
+              <Check size={14} strokeWidth={2.5} /> {saving ? 'Sending…' : 'Submit for admin approval'}
+            </button>
+          </div>
         )}
       </div>
     </div>

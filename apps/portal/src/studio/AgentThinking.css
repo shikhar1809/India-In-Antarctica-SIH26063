@@ -414,6 +414,21 @@ a.agent-src:hover { border-color: var(--line-strong); color: var(--ice); }
 .trace-asked { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.45rem; }
 .trace-asked li { display: flex; flex-direction: column; gap: 0.12rem; padding: 0.45rem 0.6rem; border-left: 2px solid var(--cyan); background: rgba(95, 217, 255, 0.05); font-size: 0.8rem; }
 .trace-q { color: var(--ice); font-weight: 600; }
+
+/* The alignment step: a full-width card, its checks in columns */
+.agent-step--wide { grid-column: 1 / -1; }
+.agent-checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.6rem 1.2rem; margin: 0.35rem 0 0.2rem; }
+.agent-checks-group ul { margin: 0.25rem 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.3rem; }
+.agent-checks-group li { display: grid; grid-template-columns: 16px minmax(0, 1fr); column-gap: 0.45rem; font-size: 0.78rem; line-height: 1.35; }
+.agent-check-mark { grid-row: span 2; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; font-weight: 700; font-size: 10px; margin-top: 1px; }
+.agent-check-req { color: var(--ice); font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.agent-check-detail { color: var(--ice-faint); font-size: 0.74rem; overflow-wrap: anywhere; }
+.chk-met .agent-check-mark { color: #7ee2a8; background: rgba(126, 226, 168, 0.14); }
+.chk-partial .agent-check-mark { color: var(--warn); background: rgba(255, 196, 92, 0.14); }
+.chk-missed .agent-check-mark { color: #ff8a80; background: rgba(255, 138, 128, 0.16); }
+.chk-review .agent-check-mark { color: var(--ice-dim); background: rgba(255, 255, 255, 0.08); }
+.trace-plan { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.8rem; color: var(--ice-dim); }
+.trace-plan b { color: var(--ice); font-weight: 600; margin-right: 0.35rem; text-transform: capitalize; }
 .trace-why { color: var(--ice-faint); }
 .trace-a { color: var(--ice-dim); }
 .trace-a b { color: var(--ice); }
@@ -433,3 +448,51 @@ a.agent-src:hover { border-color: var(--line-strong); color: var(--ice); }
   border: 1px solid var(--line); border-radius: 6px; background: rgba(0, 0, 0, 0.3);
   font-family: var(--font-mono); font-size: 0.72rem; line-height: 1.5; color: var(--ice-dim); white-space: pre-wrap;
 }
+
+/* ── Across, not down ─────────────────────────────────────────────────── */
+
+.agent-body { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; }
+
+.agent-steps { grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 10px; align-content: start; }
+
+.agent-step {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(6, 16, 25, 0.35);
+}
+.agent-step.is-running { border-color: rgba(95, 217, 255, 0.45); background: rgba(95, 217, 255, 0.05); }
+.agent-step.is-warning { border-color: rgba(255, 207, 92, 0.35); }
+
+.agent-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.agent-side .agent-ask, .agent-side .agent-vision { margin-top: 0; }
+
+.agent-now {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: rgba(6, 16, 25, 0.35);
+}
+.agent-now-label { font-family: var(--font-mono); font-size: 0.64rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--cyan); }
+.agent-now strong { font-size: 0.95rem; color: var(--ice); }
+.agent-now-bar { display: block; height: 4px; border-radius: 2px; background: rgba(150, 200, 240, 0.12); overflow: hidden; }
+.agent-now-bar span { display: block; height: 100%; background: var(--cyan); transition: width 0.4s ease; }
+.agent-now-sub { font-size: 0.76rem; color: var(--ice-faint); line-height: 1.45; }
+
+@media (min-width: 1000px) {
+  .stu-agentstep .agent { display: flex; flex-direction: column; }
+  .stu-agentstep .agent-body { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1fr); }
+  /* position: relative so absolutely-positioned descendants (the scramble
+     text's screen-reader copy) are clipped by the column instead of
+     stretching the page past the window. */
+  .stu-agentstep .agent-steps, .stu-agentstep .agent-side { position: relative; min-height: 0; overflow-y: auto; padding-right: 4px; }
+}
+
+@media (max-width: 999px) {
+  .agent-body { grid-template-columns: 1fr; }
+}
+
+/* denser cards: the label and its confidence share a line when they fit */
+.agent-step-label { flex-wrap: wrap; row-gap: 3px; }

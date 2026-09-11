@@ -32,6 +32,7 @@ const review = require('./review');
 const agent = require('./studioagent');
 const publisher = require('./publishpost');
 const research = require('./research');
+const screen = require('./screen');
 
 const MODEL = 'gemini-2.5-flash';
 const ENDPOINT = (model) =>
@@ -74,6 +75,23 @@ const TONE_BRIEF = {
   punchy: 'short lines and strong verbs',
 };
 
+/* The three editorial angles, per purpose (mirrors studio/basics.ts
+ * ANGLES). "Measured / place / why" suits a finding; an invitation or an
+ * explainer needs different ones, or all three variants read alike. */
+const ANGLES = {
+  inform: ['Lead with what was measured — the finding itself.', 'Lead with the place — Antarctica, the station, the conditions.', 'Lead with why it matters — the significance to people who are not scientists.'],
+  announce: ['Lead with what is new — the thing being announced.', 'Lead with when and where — the people and the place behind it.', 'Lead with what it opens up — who can use it and how.'],
+  explain: ['Lead with the question a curious reader would ask.', 'Lead with how it works — the mechanism, simply.', 'Lead with what this data shows about it.'],
+  celebrate: ['Lead with the people who did the work.', 'Lead with the milestone or the day being marked.', 'Lead with what it built toward — the legacy.'],
+  invite: ['Lead with the opportunity itself.', 'Lead with what the reader gets out of it.', 'Lead with how to take part — the first step.'],
+};
+
+const LANGUAGE_RULE = {
+  en: 'Write in British English.',
+  hi: 'Write the headline, standfirst and all three captions in Hindi, in Devanagari script — clear, standard Hindi as a national science body would publish it. Keep station names, hashtags and scientific units as they are.',
+  bilingual: 'Write the headline and standfirst in British English. Write each caption in British English first, then the same caption in Hindi (Devanagari script) after a blank line. Hashtags once, at the very end.',
+};
+
 function cors(res) {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -82,6 +100,8 @@ function cors(res) {
 
 function buildPrompt(body) {
   const { station, activity, notes, measurements, audience, tone, direction } = body;
+  const angles = ANGLES[body.goal] || ANGLES.inform;
+  const languageRule = LANGUAGE_RULE[body.language] || LANGUAGE_RULE.en;
 
   /* Readings are filtered as well as cleaned: a measurement whose value is
    * an identifier rather than a quantity — a stake id, a sample code — is
@@ -116,30 +136,50 @@ ${String(direction).slice(0, 6000)}
 ` : ''}
 
 Produce exactly three variants, each taking a genuinely different editorial angle:
-1. Lead with what was measured — the finding itself.
-2. Lead with the place — Antarctica, the station, the conditions.
-3. Lead with why it matters — the significance to people who are not scientists.
+1. ${angles[0]}
+2. ${angles[1]}
+3. ${angles[2]}
 
 The angle has to run through the WHOLE variant, not just its headline. A
 publisher sees these three side by side and picks one, so if the supporting
 sentence is the same in all three there is no real choice being offered.
-- Variant 1's standfirst adds detail about the measurement and how it was taken.
-- Variant 2's standfirst adds detail about the location, season or conditions.
-- Variant 3's standfirst says who this work is useful to, and why.
+- Each variant's standfirst develops its own angle, not the headline's words again.
 No sentence may be reused word-for-word across two variants.
 
 RULES, all of them strict:
-- Use ONLY facts present in the field report above. Invent nothing: no dates, no numbers, no names, no claims about firsts or records.
+- Use ONLY facts present in the field report above, in an archive record quoted in it, or in the BACKGROUND lines of what the studio worked out. Invent nothing: no dates, no numbers, no names, no claims about firsts or records.
 - If a fact is not in the report, leave it out rather than guessing.
 - Never state or imply a scientific conclusion the notes do not already state.
 - Never reproduce internal field shorthand even if it appears above: no stake or sample identifiers (like MAI-S12), no QC flags, no instrument serial numbers. A reader outside the programme cannot parse any of it.
 - No emoji in the headline or standfirst.
 - The headline is at most 12 words. The standfirst is one sentence.
-- Write in British English.
+- ${languageRule}
 - This is a government institution: no hype, no exclamation marks, no marketing language.
 
+EACH PLATFORM GETS ITS OWN CAPTION — written for how that platform is read,
+never a trimmed copy of another. The three captions of a variant must open
+with three different first lines.
+- X: at most 250 characters in total (a link is added after, and counts). The
+  single most striking fact in the first eight words. One idea, no paragraphs.
+  One or two hashtags at most, at the end. No "thread" markers.
+- LinkedIn: the first line is a hook under 140 characters — it is all a reader
+  sees before "…see more", so it must make them click. Then two or three short
+  paragraphs separated by blank lines: what was done, what it shows, why it
+  matters to science or to India's polar programme. Write as the institution
+  ("our team at Maitri"). End with one line that invites discussion, then up
+  to three hashtags on the last line.
+- Instagram: the first line is under 125 characters — all that shows before
+  "…more" — and speaks to the place or the moment (the ice, the light, the
+  cold). Then two short, conversational paragraphs with line breaks. Up to two
+  fitting emoji in the body, never in the first line. Never write a URL:
+  Instagram does not make links clickable; the portal adds "Link in bio" when
+  there is one. Hashtags on their own line after a blank line, at the end.
+- Line breaks are part of the caption: inside the JSON strings, write them as
+  \\n (and a blank line as \\n\\n). A LinkedIn or Instagram caption with no
+  line breaks is wrong.
+
 Return ONLY a JSON object of this exact shape, with no markdown fence and no commentary:
-{"variants":[{"angle":"short label for this angle","headline":"...","standfirst":"...","captions":{"x":"under 280 characters","linkedin":"2-3 short paragraphs","instagram":"2 short paragraphs then hashtags"}}]}`;
+{"variants":[{"angle":"short label for this angle","headline":"...","standfirst":"...","captions":{"x":"one idea, under 250 characters","linkedin":"hook line, 2-3 short paragraphs, a discussion line, hashtags","instagram":"hook line, 2 short paragraphs, blank line, hashtags"}}]}`;
 }
 
 /** The model is asked for bare JSON but sometimes wraps it in a fence
@@ -192,19 +232,26 @@ const RESPONSE_SCHEMA = {
  * paragraphs — ran past 2048 and came back truncated mid-JSON, which then
  * surfaced as a parse error rather than as the budget problem it was.
  *
- * `thinkingBudget: 0` matters for the same reason. On 2.5-flash, reasoning
- * tokens are drawn from the same output budget, so leaving it on spends the
- * ceiling on deliberation this task does not need and truncates the answer.
+ * On 2.5-flash, reasoning tokens are drawn from the same output budget. It
+ * was once 0 because an uncapped thinker spent the ceiling and truncated the
+ * answer; it is now a capped 1024 inside a 12k ceiling — enough to follow a
+ * long, rule-heavy brief, never enough to starve the output.
  */
 function buildRequest(body) {
   return {
     contents: [{ parts: [{ text: buildPrompt(body) }] }],
     generationConfig: {
       temperature: 0.7,
-      maxOutputTokens: 8192,
+      // The budget below is shared with thinking on 2.5-flash; 12k leaves the
+      // three variants (and a bilingual set of captions) room after it.
+      maxOutputTokens: 12288,
       responseMimeType: 'application/json',
       responseSchema: RESPONSE_SCHEMA,
-      thinkingConfig: { thinkingBudget: 0 },
+      /* A small thinking budget, not none. The brief now carries a purpose,
+       * a call to action, a data-status rule, a credit rule, hashtags and
+       * research fences; a little deliberation is what gets all of them
+       * honoured at once. Kept small so latency stays a few seconds. */
+      thinkingConfig: { thinkingBudget: 1024 },
     },
   };
 }
@@ -240,6 +287,10 @@ exports.studio = onRequest(
      * own module, sharing this deployment and this API key rather than
      * standing up a second function for one more endpoint. */
     if (path === '/review') return review.handle(req, res);
+
+    /* An admin screening a raw field report for personal and sensitive
+     * content before it goes anywhere. Admin-only; see screen.js. */
+    if (path === '/screen') return screen.handle(req, res);
 
     /* The agentic half of the studio — visual references, A/B judgement and
      * the pre-publication look at the photograph. Same deployment and same

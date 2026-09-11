@@ -28,6 +28,8 @@ import type { RepositoryRecord } from '../repository/contract';
 import type { Audience, Brief, PostSource, Tone } from './copy';
 import { describeRecordForBrief, recordUrl } from './copy';
 import type { PlatformId } from './brand';
+import { contentTypeForGoal, GOALS } from './basics';
+import { researchTerms } from './insight';
 
 /* ═══════════════════════════════════════════════════════ content type ══ */
 
@@ -558,6 +560,15 @@ export function referenceQueries(
   return queries.slice(0, 3);
 }
 
+/** One image query on the post's actual subject ("Ozone layer Maitri")
+ *  ahead of the content-type defaults, which are generic by design. */
+function subjectFirstQueries(base: string[], topic: string, station: string | undefined, record: RepositoryRecord | null): string[] {
+  const subject = researchTerms(topic, station, record).find((t) => !/station|Antarctica|Oasis|Hills|Gangotri/.test(t));
+  if (!subject) return base;
+  const place = station && station !== 'Other' ? station : 'Antarctica';
+  return [`${subject} ${place}`, ...base.filter((q) => !q.toLowerCase().includes(subject.toLowerCase()))].slice(0, 3);
+}
+
 /* ═══════════════════════════════════════════════════════ the analysis ══ */
 
 export interface BriefAnalysis {
@@ -595,7 +606,8 @@ export function analyseBrief(input: {
 }): BriefAnalysis {
   const { brief, platforms, hasImage, station, archiveRecords } = input;
 
-  const archive = brief.source
+  // "No — it's new" on Basic: the archive is not searched at all.
+  const archive = brief.source || brief.basics?.kb === 'none'
     ? null
     : detectArchiveReference(brief.topic, archiveRecords);
 
@@ -603,7 +615,19 @@ export function analyseBrief(input: {
     ?? archiveRecords.find((r) => (r.metadata?.identifier ?? r.id) === brief.source?.identifier)
     ?? null;
 
-  const classification = classifyContentType(brief.topic, record);
+  const inferred = classifyContentType(brief.topic, record);
+  /* A purpose the publisher chose on the Basic step is firmer ground than
+   * keyword inference: it picks the type (among those the purpose allows),
+   * and the agent does not then ask what kind of post this is. */
+  const goal = brief.basics?.goal;
+  const classification: Classification = goal
+    ? {
+        ...inferred,
+        type: CONTENT_TYPES[contentTypeForGoal(goal, inferred.ranked) as ContentType],
+        confidence: 'high',
+        evidence: [`purpose: ${GOALS.find((g) => g.id === goal)?.label}`],
+      }
+    : inferred;
 
   const audienceChosen = !!input.audienceChosen;
   const toneChosen = !!input.toneChosen;
@@ -619,7 +643,7 @@ export function analyseBrief(input: {
     requirements: platforms.map((p) => PLATFORM_REQUIREMENTS[p]).filter(Boolean),
     gaps: platformGaps(platforms, hasImage),
     bestPractice: historicalBestPractice(archiveRecords),
-    queries: referenceQueries(classification, station, brief.topic),
+    queries: subjectFirstQueries(referenceQueries(classification, station, brief.topic), brief.topic, station, record),
   };
 }
 

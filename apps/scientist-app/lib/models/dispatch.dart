@@ -2,7 +2,9 @@
 // Local dispatches use a UUID as id; once synced to Firestore the same id
 // is used as the Firestore document ID so the record is idempotent.
 
-enum DispatchStatus { raw, drafted, flagged, approved }
+// 'cleared' is the portal's: an admin screened the report and sent it to the
+// publishers. The app never writes it; it is here so the mirror stays exact.
+enum DispatchStatus { raw, cleared, drafted, flagged, approved }
 enum DispatchPriority { routine, notable, urgent }
 
 class WeatherObs {

@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import '../../../app_theme.dart';
 import '../field_report_wizard.dart';
 import '../wizard_common.dart';
+import '../../../services/sync_service.dart';
 
 class DataStep extends StatefulWidget {
   final WizardState state;
@@ -23,8 +24,18 @@ class _DataStepState extends State<DataStep> {
     );
     if (result == null) return;
     final paths = result.files.where((f) => f.path != null).map((f) => f.path!).toList();
-    setState(() => widget.state.imagePaths.addAll(paths));
+    // The portal accepts at most five photographs per report; a sixth would
+    // get the whole report refused on every sync.
+    final room = SyncService.maxPhotos - widget.state.imagePaths.length;
+    final added = paths.take(room < 0 ? 0 : room).toList();
+    setState(() => widget.state.imagePaths.addAll(added));
     widget.onChanged();
+    if (added.length < paths.length && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('UP TO ${SyncService.maxPhotos} PHOTOS PER REPORT — ${paths.length - added.length} NOT ADDED'),
+        backgroundColor: AppTheme.surface,
+      ));
+    }
   }
 
   Future<void> _pickCsv() async {

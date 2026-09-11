@@ -81,6 +81,21 @@ describe('dispatches — raw field records are not readable by every account', (
   });
 });
 
+describe('dispatches — a raw report is screened by an admin before publishers see it', () => {
+  const block = matchBlock('dispatches/{dispatchId}');
+
+  it('lets a publisher read a dispatch only once it is past raw', () => {
+    const read = allowsFor(block, 'read')[0];
+    expect(read).toMatch(/isPublisher\(\)\s*&&\s*resource\.data\.status\s*!=\s*'raw'/);
+  });
+
+  it('keeps the redacted originals admin-only (and the author’s own)', () => {
+    const priv = matchBlock('private/{docId}');
+    expect(allowsFor(priv, 'write').join('')).toMatch(/:\s*if isAdmin\(\)\s*$/);
+    expect(allowsFor(priv, 'read').join('')).not.toMatch(/isPublisher/);
+  });
+});
+
 describe('role lookups go through the null-safe helper', () => {
   it('has no inline roles/ get() left outside roleOf()', () => {
     // An inline get() on a missing roles document aborts rule evaluation

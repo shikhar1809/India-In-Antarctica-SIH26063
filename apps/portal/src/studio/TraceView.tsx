@@ -11,7 +11,7 @@
  */
 
 import { AlertTriangle, CheckCircle2, HelpCircle, ScrollText } from 'lucide-react';
-import { SourceChip } from './AgentThinking';
+import { SourceChip, CheckList } from './AgentThinking';
 import type { AgentTrace, TraceSource } from './trace';
 
 const KIND_ORDER: TraceSource['kind'][] = ['archive', 'paper', 'wikipedia', 'news', 'analytics', 'queue', 'calendar', 'image', 'brief', 'model'];
@@ -27,6 +27,7 @@ export function TraceView({ trace, audience = 'publisher' }: { trace: AgentTrace
   const warnings = trace.steps.filter((s) => s.warning);
   const lows = trace.steps.filter((s) => s.confidence === 'low' && !s.asked);
   const secs = Math.max(1, Math.round((trace.finishedAt - trace.startedAt) / 1000));
+  const alignment = trace.steps.find((s) => s.id === 'alignment');
 
   return (
     <div className="trace">
@@ -44,6 +45,13 @@ export function TraceView({ trace, audience = 'publisher' }: { trace: AgentTrace
         <span>{ordered.length} source{ordered.length === 1 ? '' : 's'} consulted</span>
         {warnings.length > 0 && <span className="is-low">{warnings.length} step{warnings.length === 1 ? '' : 's'} with something to check</span>}
       </div>
+
+      {alignment?.checks && (
+        <div className="trace-block">
+          <span className="trace-label">Alignment with the requirements — {alignment.decision}</span>
+          <CheckList checks={alignment.checks} />
+        </div>
+      )}
 
       {asked.length > 0 && (
         <div className="trace-block">
@@ -86,6 +94,20 @@ export function TraceView({ trace, audience = 'publisher' }: { trace: AgentTrace
           ))}
         </ol>
       </div>
+
+      {(trace.recommendation || (trace.hashtags && Object.keys(trace.hashtags).length > 0)) && (
+        <div className="trace-block">
+          <span className="trace-label">What it recommends</span>
+          <ul className="trace-plan">
+            {trace.recommendation && (
+              <li><b>Post {trace.recommendation.label}</b> — {trace.recommendation.reason}</li>
+            )}
+            {Object.entries(trace.hashtags ?? {}).map(([p, tags]) => (
+              <li key={p}><b>{p}</b> {tags.length ? tags.join(' ') : 'no hashtags'}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {trace.instructions && (
         <details className="trace-block trace-instructions">

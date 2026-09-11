@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ChevronDown, FileSpreadsheet, Paperclip, RotateCcw, Sparkles, TriangleAlert } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, CheckCircle2, ChevronDown, FileSpreadsheet, Inbox, Paperclip, RotateCcw, Send, ShieldAlert, Sparkles, TriangleAlert } from 'lucide-react';
 import { addDoc, collection, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
@@ -10,11 +10,14 @@ import type { Dispatch, DispatchStatus, DispatchPriority, WeatherObs, PlatformCa
 import { MEASUREMENT_SCHEMA } from '../types';
 import { normaliseDispatch } from '../repository/normalise';
 import { draftPublicSummary } from '../repository/summarise';
-import { canPublishDispatch, mintIdentifier, publishRecord, unpublishRecord, toRepositoryRecord } from '../repository/publish';
+import { canPublishDispatch, mintIdentifier, publishRecord, unpublishRecord, toRepositoryRecord, updatePublishedRecord } from '../repository/publish';
 import { redactionOf } from '../repository/redaction';
 import type { RepositoryRecord } from '../repository/contract';
 import { RedactionPreview } from '../components/RedactionPreview';
 import { QueueTab } from '../social/QueueTab';
+import { useSocialQueue } from '../hooks/useSocialQueue';
+import { isRemoved, type ScheduledPost } from '../social/queue';
+import { checkLiveness } from '../social/engagementClient';
 import { ScheduleDialog } from '../social/ScheduleDialog';
 import { Studio } from '../studio/Studio';
 import { PostCanvas } from '../studio/PostCanvas';
@@ -32,7 +35,8 @@ import './Social.css';
 import './ApproveDesk.css';
 
 const STATUS_LABEL: Record<DispatchStatus, string> = {
-  raw: 'Awaiting draft',
+  raw: 'Awaiting screening',
+  cleared: 'Awaiting draft',
   drafted: 'Awaiting approval',
   flagged: 'Sent back — needs revision',
   approved: 'Live'
@@ -118,7 +122,9 @@ const DEMO_DISPATCHES: Omit<Dispatch, 'id' | 'authorUid' | 'authorName'>[] = [
   },
 ];
 
-async function seedDemoDispatches(uid: string, name: string) {
+/** Seeded as raw reports, as the field app files them: they land in the
+ *  admin's Incoming reports on the Media page, to be screened first. */
+export async function seedDemoDispatches(uid: string, name: string) {
   await Promise.all(
     DEMO_DISPATCHES.map((d) => addDoc(collection(db, 'dispatches'), { ...d, authorUid: uid, authorName: name }))
   );
@@ -148,9 +154,15 @@ export function Social() {
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get('tab');
 
-  const toReview  = useMemo(() => dispatches.filter((d) => d.status === 'raw' || d.status === 'flagged'), [dispatches]);
+  /* A scientist's report reaches the publishers only once an admin has
+   * screened it ('cleared'); an admin's own post request is born cleared. */
+  const toReview  = useMemo(() => dispatches.filter((d) => d.status === 'cleared' || d.status === 'flagged'), [dispatches]);
   const toApprove = useMemo(() => dispatches.filter((d) => d.status === 'drafted'), [dispatches]);
   const live      = useMemo(() => dispatches.filter((d) => d.status === 'approved'), [dispatches]);
+  /* Raw reports straight from the scientist app, not yet screened. Admins
+   * only (the rules keep them from publishers); they sit at the top of the
+   * admin's queue, marked apart, with the way to screen them. */
+  const incoming  = useMemo(() => dispatches.filter((d) => d.status === 'raw').sort((a, b) => b.createdAt - a.createdAt), [dispatches]);
 
   // Lifted up out of PublisherView (not local to it) so this component can
   // tell when the publisher is actually composing a post and, when they
@@ -185,7 +197,7 @@ export function Social() {
 
   return (
     <div className={'fld-page' + (isStaff ? ' fld-page-compact' : '')}>
-      <div className="fld-center">
+      <div className={'fld-center' + (role === 'admin' ? ' fld-center--wide' : '')}>
         {!isStaff && (
           <>
             <h1 className="fld-title">Field reports</h1>
@@ -206,7 +218,7 @@ export function Social() {
             setActiveId={setPubActiveId}
           />
         )}
-        {role === 'admin'     && <AdminView toApprove={toApprove} live={live} initialTab={initialTab} />}
+        {role === 'admin'     && <AdminView toApprove={toApprove} incoming={incoming} live={live} initialTab={initialTab} />}
       </div>
     </div>
   );
@@ -277,8 +289,10 @@ function PublisherView({
 
 /* ============================================================= Admin view */
 function AdminView({
-  toApprove, live, initialTab,
-}: { toApprove: Dispatch[]; live: Dispatch[]; initialTab?: string | null }) {
+  toApprove, incoming, live, initialTab,
+}: { toApprove: Dispatch[]; incoming: Dispatch[]; live: Dispatch[]; initialTab?: string | null }) {
+  const location = useLocation();
+  const screened = (location.state as { screened?: string; outcome?: string } | null) ?? null;
   const [tab, setTab] = useState<'approve' | 'feed' | 'queue'>(
     initialTab === 'queue' || initialTab === 'feed' ? initialTab : 'approve',
   );
@@ -286,12 +300,15 @@ function AdminView({
     <>
       <div className="fld-tabs" role="tablist">
         <button role="tab" aria-selected={tab === 'approve'} className={'fld-tab' + (tab === 'approve' ? ' active' : '')} onClick={() => setTab('approve')}>
-          Approve {toApprove.length > 0 && <span className="fld-count">{toApprove.length}</span>}
+          Review &amp; approve {toApprove.length + incoming.length > 0 && <span className="fld-count">{toApprove.length + incoming.length}</span>}
         </button>
         <button role="tab" aria-selected={tab === 'feed'} className={'fld-tab' + (tab === 'feed' ? ' active' : '')} onClick={() => setTab('feed')}>Published content</button>
         <button role="tab" aria-selected={tab === 'queue'} className={'fld-tab' + (tab === 'queue' ? ' active' : '')} onClick={() => setTab('queue')}>Dissemination</button>
       </div>
-      {tab === 'approve' && <ApproveTab items={toApprove} />}
+      {tab === 'approve' && screened?.screened && (
+        <p className="fld-notice"><CheckCircle2 size={14} strokeWidth={2.5} /> Screened — {screened.screened}: {screened.outcome}.</p>
+      )}
+      {tab === 'approve' && <ApproveTab items={toApprove} incoming={incoming} />}
       {tab === 'feed'    && <FeedTab items={live} />}
       {tab === 'queue'   && <QueueTab />}
     </>
@@ -306,7 +323,7 @@ function ReviewTab({ items, setActiveId }: { items: Dispatch[]; setActiveId: (id
     return (
       <div className="fld-empty-state">
         <p className="fld-empty">Nothing in the queue right now.</p>
-        <DemoSeedButton />
+        <p className="fld-empty-sub">Field reports reach you once an admin has screened them for personal and sensitive content.</p>
       </div>
     );
   }
@@ -335,12 +352,11 @@ function ReviewTab({ items, setActiveId }: { items: Dispatch[]; setActiveId: (id
   );
 }
 
-/** Only ever visible on an empty queue — a real dispatch reaching the queue
- *  naturally makes it disappear, so this can't accumulate clutter the way
- *  a permanent "seed data" button in a live product normally would. Writes
- *  as the currently signed-in user (whichever role), same as any other
- *  write this app makes — no service account, no rules bypass. */
-function DemoSeedButton() {
+/** Only ever visible on an empty intake queue — a real report arriving makes
+ *  it disappear, so it can't accumulate clutter the way a permanent "seed
+ *  data" button in a live product would. Writes as the signed-in user, same
+ *  as any other write this app makes — no service account, no rules bypass. */
+export function DemoSeedButton() {
   const { user } = useAuth();
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
@@ -447,7 +463,67 @@ function MySubmissionsTab({ dispatches, onRevise }: { dispatches: Dispatch[]; on
  * judge: whether the public wording is actually supported by the notes.
  * The model can never block a publish; only a rule does that.
  */
-function ApproveTab({ items }: { items: Dispatch[] }) {
+type QueueFilter = 'approval' | 'revisions' | 'field' | 'requests' | 'all';
+const QUEUE_FILTERS: { id: QueueFilter; label: string; hint: string }[] = [
+  { id: 'approval', label: 'Awaiting approval', hint: 'Posts a publisher has submitted for the first time' },
+  { id: 'revisions', label: 'Revisions', hint: 'Posts resubmitted after you sent them back' },
+  { id: 'field', label: 'Field app', hint: 'Reports from the scientist app, not yet screened' },
+  { id: 'requests', label: 'Post requests', hint: 'Old post requests waiting to be passed to the publishers' },
+  { id: 'all', label: 'All', hint: 'Everything in the queue' },
+];
+
+/**
+ * Reports that came straight from the scientist app and have not been
+ * screened — marked apart from the posts awaiting approval, each with the
+ * way to screen it (the AI screening page). A raw post request, from before
+ * requests were born cleared, needs no screening: it is passed straight on.
+ */
+function IncomingGroup({ items, compact = false, title = 'Incoming — not screened' }: { items: Dispatch[]; compact?: boolean; title?: string }) {
+  const navigate = useNavigate();
+  const [sending, setSending] = useState<string | null>(null);
+  const passOn = async (id: string) => {
+    setSending(id);
+    try { await updateDoc(doc(db, 'dispatches', id), { status: 'cleared' satisfies DispatchStatus, updatedAt: Date.now() }); } finally { setSending(null); }
+  };
+  if (!items.length) return null;
+  return (
+    <div className={'ad-incoming' + (compact ? ' is-compact' : '')}>
+      <span className="ad-incoming-head"><Inbox size={12} strokeWidth={2.5} /> {title} <b>{items.length}</b></span>
+      {items.map((d) => {
+        const isRequest = d.request?.kind === 'post-request';
+        const incident = d.safetyFlag || d.activity === 'Emergency / incident';
+        return (
+          <div
+            key={d.id}
+            className={`ad-incoming-item pri-${d.priority ?? 'routine'}` + (isRequest ? '' : ' is-clickable')}
+            role={isRequest ? undefined : 'button'}
+            tabIndex={isRequest ? undefined : 0}
+            onClick={isRequest ? undefined : () => navigate(`/media/screen/${d.id}`)}
+            onKeyDown={isRequest ? undefined : (e) => { if (e.key === 'Enter') navigate(`/media/screen/${d.id}`); }}
+          >
+            <span className="ad-incoming-tag">{isRequest ? 'Post request' : 'From the field app'}</span>
+            <span className="ad-queue-name">{isRequest ? d.notes.slice(0, 60) : `${d.station} · ${d.activity}`}</span>
+            <span className="ad-queue-meta">
+              {d.authorName} · {new Date(d.createdAt).toLocaleDateString()}
+              {incident && <em className="ad-incoming-flag"><ShieldAlert size={10} /> incident</em>}
+            </span>
+            {isRequest ? (
+              <button type="button" className="ad-incoming-btn" onClick={() => void passOn(d.id)} disabled={sending === d.id}>
+                <Send size={12} /> {sending === d.id ? 'Sending…' : 'Send to publishers'}
+              </button>
+            ) : (
+              <button type="button" className="ad-incoming-btn is-primary" onClick={(e) => { e.stopPropagation(); navigate(`/media/screen/${d.id}`); }}>
+                <Sparkles size={12} /> AI screening
+              </button>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incoming?: Dispatch[] }) {
   const { user } = useAuth();
   const [activeId, setActiveId] = useState<string | null>(items[0]?.id ?? null);
   const [flagging, setFlagging] = useState(false);
@@ -461,6 +537,10 @@ function ApproveTab({ items }: { items: Dispatch[] }) {
      than derived, because the dispatch leaves the queue the moment it is
      approved and the dialog still needs the record it was about. */
   const [scheduleFor, setScheduleFor] = useState<(RepositoryRecord & { id: string }) | null>(null);
+  /* What the publisher actually made — their captions per platform and the
+   * finished graphics — carried into the scheduling dialog, so the post that
+   * goes out is the one that was approved, not the bare photograph. */
+  const [schedulePostOf, setSchedulePostOf] = useState<Pick<Dispatch, 'platformCaptions' | 'postGraphics'> | null>(null);
 
   /* Markup on the post graphic — a right-click radial menu of drawing tools
      over an enlarged view, so an admin can point at exactly what's wrong
@@ -475,6 +555,54 @@ function ApproveTab({ items }: { items: Dispatch[] }) {
   const [savingAnnotations, setSavingAnnotations] = useState(false);
 
   const active = items.find((d) => d.id === activeId) ?? items[0] ?? null;
+
+  /* The queue, by kind. Posts awaiting approval come first — they are what
+   * this desk exists for; field reports waiting to be screened next. */
+  const isRevision = (d: Dispatch) => (d.revision ?? 0) > 0 || (d.reviewAnnotations?.length ?? 0) > 0;
+  const firstTime = items.filter((d) => !isRevision(d));
+  const revisions = items.filter(isRevision);
+  const fieldReports = incoming.filter((d) => d.request?.kind !== 'post-request');
+  const postRequests = incoming.filter((d) => d.request?.kind === 'post-request');
+  const counts: Record<QueueFilter, number> = {
+    approval: firstTime.length, revisions: revisions.length, field: fieldReports.length,
+    requests: postRequests.length, all: items.length + incoming.length,
+  };
+  const [filter, setFilter] = useState<QueueFilter>(() => {
+    try {
+      const saved = localStorage.getItem('iia-portal:approve-filter') as QueueFilter | null;
+      if (saved && QUEUE_FILTERS.some((f) => f.id === saved)) return saved;
+    } catch { /* not remembered */ }
+    return 'approval';
+  });
+  const chooseFilter = (f: QueueFilter) => {
+    setFilter(f);
+    try { localStorage.setItem('iia-portal:approve-filter', f); } catch { /* not remembered */ }
+    const first = f === 'approval' ? firstTime[0] : f === 'revisions' ? revisions[0] : null;
+    if (first) select(first.id);
+  };
+  const queueItem = (d: Dispatch) => {
+    const w = worstSeverity(checksById.get(d.id) ?? []);
+    const headline = d.postDesign?.headline || d.publicSummary?.title || d.caption?.slice(0, 70);
+    return (
+      <button
+        key={d.id}
+        type="button"
+        className={'ad-queue-item' + (active && d.id === active.id ? ' is-active' : '')}
+        onClick={() => select(d.id)}
+      >
+        {isRevision(d) && <span className="ad-queue-tag">Revision{(d.revision ?? 0) > 1 ? ` ${d.revision}` : ''}</span>}
+        {headline && <span className="ad-queue-title">{headline}</span>}
+        <span className="ad-queue-name">{d.publisherName ? `${d.publisherName} · for ${d.authorName}` : d.authorName}</span>
+        <span className="ad-queue-meta">
+          <i className={'ad-dot ' + (w ?? 'clear')} />
+          {d.station ? `${d.station} · ` : ''}{d.activity}
+        </span>
+        <span className="ad-queue-meta">
+          Submitted {new Date(d.updatedAt ?? d.createdAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+        </span>
+      </button>
+    );
+  };
 
   const openAnnotator = async () => {
     if (!canvasRef.current || !active?.postDesign) return;
@@ -546,6 +674,25 @@ function ApproveTab({ items }: { items: Dispatch[] }) {
       const allowed = canPublishDispatch({ ...active, status: 'approved' });
       if (!allowed.ok) { setError(allowed.reason); return; }
 
+      /* A report the admin published at screening is already on the public
+       * site. Approving the publisher's post must not mint a second copy:
+       * it is approved against that record, whose wording takes the
+       * publisher's public summary if they wrote one. */
+      if (active.publicRecordId) {
+        const snap = await getDoc(doc(db, 'publicArchive', active.publicRecordId));
+        if (!snap.exists()) { setError('The public record published at screening no longer exists.'); return; }
+        const existing = { id: snap.id, ...snap.data() } as RepositoryRecord;
+        if (active.publicSummary) {
+          await updatePublishedRecord(existing.id, { title: active.publicSummary.title, body: active.publicSummary.body, table: active.publicSummary.table });
+        }
+        await updateDoc(doc(db, 'dispatches', active.id), {
+          status: 'approved' satisfies DispatchStatus, updatedAt: Date.now(),
+        });
+        if (andSchedule) { setSchedulePostOf(active); setScheduleFor(existing); }
+        setActiveId(null); setAi(null);
+        return;
+      }
+
       /* An admin's post request about a record already in the archive is a
        * post about that record — approving it must not mint a second copy.
        * It is marked approved against the existing record, which the
@@ -560,7 +707,7 @@ function ApproveTab({ items }: { items: Dispatch[] }) {
           publicIdentifier: existing.metadata?.identifier ?? null,
           updatedAt: Date.now(),
         });
-        if (andSchedule) setScheduleFor(existing);
+        if (andSchedule) { setSchedulePostOf(active); setScheduleFor(existing); }
         setActiveId(null); setAi(null);
         return;
       }
@@ -581,7 +728,7 @@ function ApproveTab({ items }: { items: Dispatch[] }) {
         publicIdentifier: identifier,
         updatedAt: Date.now(),
       });
-      if (andSchedule) setScheduleFor(record);
+      if (andSchedule) { setSchedulePostOf(active); setScheduleFor(record); }
       setActiveId(null); setAi(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not publish this record. Nothing was changed.');
@@ -602,7 +749,15 @@ function ApproveTab({ items }: { items: Dispatch[] }) {
     } finally { setBusy(false); }
   };
 
-  if (items.length === 0 || !active) return <p className="fld-empty">Nothing waiting on approval.</p>;
+  if (items.length === 0 || !active) {
+    return (
+      <div className="ad-empty-wrap">
+        <IncomingGroup items={incoming} />
+        <p className="fld-empty">Nothing waiting on approval.</p>
+        {incoming.length === 0 && <DemoSeedButton />}
+      </div>
+    );
+  }
 
   const summary = active.publicSummary;
   const coords = active.lat != null && active.lon != null
@@ -646,29 +801,39 @@ function ApproveTab({ items }: { items: Dispatch[] }) {
       <div className="ad-col ad-col--queue">
         <div className="ad-col-head">
           <strong>Queue</strong>
-          <span className="ad-ai-muted">{items.length}</span>
+          <span className="ad-ai-muted">{counts.all}</span>
+        </div>
+        <div className="ad-filter" role="tablist" aria-label="Filter the queue">
+          {QUEUE_FILTERS.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              role="tab"
+              aria-selected={filter === f.id}
+              className={'ad-filter-chip' + (filter === f.id ? ' is-on' : '')}
+              onClick={() => chooseFilter(f.id)}
+              title={f.hint}
+            >
+              {f.label} <b>{counts[f.id]}</b>
+            </button>
+          ))}
         </div>
         <div className="ad-col-body ad-queue">
-          {items.map((d) => {
-            const w = worstSeverity(checksById.get(d.id) ?? []);
-            return (
-              <button
-                key={d.id}
-                type="button"
-                className={'ad-queue-item' + (d.id === active.id ? ' is-active' : '')}
-                onClick={() => select(d.id)}
-              >
-                <span className="ad-queue-name">{d.authorName}</span>
-                <span className="ad-queue-meta">
-                  <i className={'ad-dot ' + (w ?? 'clear')} />
-                  {d.activity}
-                </span>
-                <span className="ad-queue-meta">
-                  {new Date(d.observedAt ?? d.createdAt).toLocaleDateString()}
-                </span>
-              </button>
-            );
-          })}
+          {(filter === 'approval' || filter === 'all') && firstTime.length > 0 && (
+            <>
+              {filter === 'all' && <span className="ad-incoming-head ad-approve-head">Awaiting approval <b>{firstTime.length}</b></span>}
+              {firstTime.map((d) => queueItem(d))}
+            </>
+          )}
+          {(filter === 'revisions' || filter === 'all') && revisions.length > 0 && (
+            <>
+              {filter === 'all' && <span className="ad-incoming-head ad-approve-head">Revisions <b>{revisions.length}</b></span>}
+              {revisions.map((d) => queueItem(d))}
+            </>
+          )}
+          {(filter === 'field' || filter === 'all') && <IncomingGroup items={fieldReports} compact title="From the field app — not screened" />}
+          {(filter === 'requests' || filter === 'all') && <IncomingGroup items={postRequests} compact title="Post requests — not sent on" />}
+          {counts[filter] === 0 && <p className="ad-queue-empty">Nothing here.</p>}
         </div>
       </div>
 
@@ -973,8 +1138,9 @@ function ApproveTab({ items }: { items: Dispatch[] }) {
     {scheduleFor && user && (
       <ScheduleDialog
         record={scheduleFor}
+        post={schedulePostOf}
         createdBy={user.uid}
-        onClose={() => setScheduleFor(null)}
+        onClose={() => { setScheduleFor(null); setSchedulePostOf(null); }}
       />
     )}
 
@@ -1001,41 +1167,132 @@ function ApproveTab({ items }: { items: Dispatch[] }) {
  *
  *  Every card here is a dispatch that already crossed the projection in
  *  publish.ts, so `publicIdentifier` is set. The button links straight to
- *  the record's permanent address on the public site (recordSlug's own
- *  scheme: /archive/<identifier>), which is the fastest way to answer "did
- *  this actually go live, and does it read right?" without hunting for it
- *  in the archive by hand. */
-function FeedTab({ items }: { items: Dispatch[] }) {
+ *  the record's permanent address on the public site.
+ *
+ *  Cross-checked against the platforms: each card lists the social posts
+ *  made about it and whether each is still up (functions/liveness.js). A
+ *  record whose every post has been deleted on the platform moves to its
+ *  own section — it is still in the public archive, but nothing on social
+ *  media carries it any more, and presenting it as live content would be
+ *  wrong. The check runs when the tab opens if the last one is over ten
+ *  minutes old, and on demand. */
+const PLATFORM_NAME: Record<string, string> = { x: 'X', linkedin: 'LinkedIn', instagram: 'Instagram' };
+const LIVE_LABEL = { live: 'live', removed: 'deleted', unknown: 'not verified' } as const;
+const RECHECK_AFTER_MS = 10 * 60 * 1000;
+
+export function FeedTab({ items, posts: given, preview }: { items: Dispatch[]; posts?: ScheduledPost[]; preview?: boolean }) {
+  const { posts: fromQueue } = useSocialQueue();
+  const posts = given ?? fromQueue;
+  const sent = useMemo(() => posts.filter((p) => p.status === 'posted'), [posts]);
+  const [checking, setChecking] = useState(false);
+  const [checkNote, setCheckNote] = useState<string | null>(null);
+  const autoChecked = useRef(false);
+
+  const lastChecked = sent.length ? Math.min(...sent.map((p) => p.liveCheck?.checkedAt ?? 0)) : null;
+
+  const recheck = async () => {
+    if (preview) return;
+    setChecking(true);
+    setCheckNote(null);
+    const r = await checkLiveness();
+    setChecking(false);
+    if (!r.ok) setCheckNote(r.reason);
+    else if (r.result.liveness) {
+      const l = r.result.liveness;
+      setCheckNote(`${l.checked} post${l.checked === 1 ? '' : 's'} checked: ${l.live} live, ${l.removed} deleted${l.unknown ? `, ${l.unknown} could not be verified` : ''}.`);
+    }
+  };
+
+  useEffect(() => {
+    if (autoChecked.current || preview || !sent.length) return;
+    if (lastChecked === 0 || (lastChecked !== null && Date.now() - lastChecked > RECHECK_AFTER_MS)) {
+      autoChecked.current = true;
+      void recheck();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sent.length, lastChecked]);
+
   if (items.length === 0) return <p className="fld-empty">Nothing published yet.</p>;
+
+  const postsFor = (d: Dispatch) => sent.filter((p) => !!d.publicIdentifier && p.recordIdentifier === d.publicIdentifier);
+  const gone = (d: Dispatch) => { const ps = postsFor(d); return ps.length > 0 && ps.every(isRemoved); };
+  const current = items.filter((d) => !gone(d));
+  const removed = items.filter(gone);
+
+  const card = (d: Dispatch, dim = false) => {
+    const ps = postsFor(d);
+    return (
+      <article key={d.id} className={'fld-feed-card' + (dim ? ' is-gone' : '')}>
+        {d.imageUrls?.[0] && <img src={d.imageUrls[0]} alt="" />}
+        <div className="fld-feed-body">
+          <p>{d.caption}</p>
+          {d.voiceUrl && <audio controls src={d.voiceUrl} />}
+          <div className="fld-feed-meta">
+            <span>{d.authorName}</span>
+            <span>{d.station}</span>
+            <span>{new Date(d.updatedAt).toLocaleDateString()}</span>
+          </div>
+          <div className="fld-live">
+            {ps.length === 0 ? (
+              <span className="fld-live-chip is-none">Not posted to social media</span>
+            ) : ps.map((p) => {
+              const st = p.liveCheck?.state ?? 'unknown';
+              const title = p.liveCheck
+                ? `${LIVE_LABEL[st]} — checked ${new Date(p.liveCheck.checkedAt).toLocaleString('en-GB')}${p.liveCheck.note ? `. ${p.liveCheck.note}` : ''}`
+                : 'Not checked yet';
+              const label = `${PLATFORM_NAME[p.platform] ?? p.platform} · ${p.liveCheck ? LIVE_LABEL[st] : 'not checked'}`;
+              return st === 'live' && p.externalUrl
+                ? <a key={p.id} className="fld-live-chip is-live" href={p.externalUrl} target="_blank" rel="noreferrer" title={title}>{label}</a>
+                : <span key={p.id} className={`fld-live-chip is-${st}`} title={title}>{label}</span>;
+            })}
+          </div>
+          <div className="fld-feed-share">
+            {d.publicIdentifier && (
+              <a
+                href={`${PUBLIC_SITE_URL}/archive/${d.publicIdentifier}`}
+                target="_blank"
+                rel="noreferrer"
+                className="ph-btn primary small"
+              >View on main site</a>
+            )}
+            {!dim && PLATFORMS.map((p) => (
+              <a key={p.id} href={p.share(d.caption, PORTAL_URL)} target="_blank" rel="noreferrer" className="ph-btn ghost small">{p.label}</a>
+            ))}
+          </div>
+        </div>
+      </article>
+    );
+  };
+
   return (
     <div className="fld-feed">
-      {items.map((d) => (
-        <article key={d.id} className="fld-feed-card">
-          {d.imageUrls?.[0] && <img src={d.imageUrls[0]} alt="" />}
-          <div className="fld-feed-body">
-            <p>{d.caption}</p>
-            {d.voiceUrl && <audio controls src={d.voiceUrl} />}
-            <div className="fld-feed-meta">
-              <span>{d.authorName}</span>
-              <span>{d.station}</span>
-              <span>{new Date(d.updatedAt).toLocaleDateString()}</span>
-            </div>
-            <div className="fld-feed-share">
-              {d.publicIdentifier && (
-                <a
-                  href={`${PUBLIC_SITE_URL}/archive/${d.publicIdentifier}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="ph-btn primary small"
-                >View on main site</a>
-              )}
-              {PLATFORMS.map((p) => (
-                <a key={p.id} href={p.share(d.caption, PORTAL_URL)} target="_blank" rel="noreferrer" className="ph-btn ghost small">{p.label}</a>
-              ))}
-            </div>
-          </div>
-        </article>
-      ))}
+      <div className="fld-livebar">
+        <span>
+          {checking
+            ? 'Cross-checking with X, LinkedIn and Instagram…'
+            : checkNote ?? (lastChecked
+              ? `Cross-checked with the platforms ${new Date(lastChecked).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}.`
+              : sent.length ? 'Not cross-checked with the platforms yet.' : 'No social posts to cross-check.')}
+        </span>
+        {sent.length > 0 && !preview && (
+          <button type="button" className="ph-btn ghost small" onClick={recheck} disabled={checking}>
+            <RotateCcw size={12} strokeWidth={2.5} /> Recheck
+          </button>
+        )}
+      </div>
+
+      {current.map((d) => card(d))}
+
+      {removed.length > 0 && (
+        <details className="fld-gone" open={current.length === 0}>
+          <summary>Deleted from social media ({removed.length})</summary>
+          <p className="fld-gone-note">
+            Every social post about these records has been deleted on the platform. The records stay in
+            the public archive; their “posted on” links have been taken off the public site.
+          </p>
+          {removed.map((d) => card(d, true))}
+        </details>
+      )}
     </div>
   );
 }

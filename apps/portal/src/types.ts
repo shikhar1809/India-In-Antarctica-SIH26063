@@ -1,3 +1,4 @@
+import type { BasicAnswers } from './studio/basics';
 import type { Annotation } from './review/annotations';
 import type { AgentTrace } from './studio/trace';
 
@@ -78,7 +79,33 @@ export interface ResearchDocument {
   createdAt: number;         // upload timestamp — separate from observedAt
 }
 
-export type DispatchStatus = 'raw' | 'drafted' | 'flagged' | 'approved';
+/** raw — filed by a scientist, waiting for an admin to screen it (admins only).
+ *  cleared — screened by an admin and in the publisher queue; an admin's own
+ *            post request is born cleared.
+ *  drafted — the publisher's post, waiting for approval.
+ *  flagged — sent back to the publisher with a note.
+ *  approved — published. */
+export type DispatchStatus = 'raw' | 'cleared' | 'drafted' | 'flagged' | 'approved';
+
+/** An admin's screening of a raw field report: what was found and what was
+ *  decided. The words removed are deliberately not here — they sit in the
+ *  admin-only dispatches/{id}/private/original document, so the copy the
+ *  publishers read never carries them. */
+export interface ScreeningRecord {
+  by: string;
+  byName: string;
+  at: number;
+  /** Findings raised, by the rules and the model together. */
+  findings: number;
+  /** Placeholders written, by category ("name": 2). */
+  redacted: Record<string, number>;
+  photosWithheld: number;
+  modelUsed: boolean;
+  recommendation: 'publish' | 'publish-after-redaction' | 'hold' | null;
+  creditObserver: boolean;
+  publishedPublicly: boolean;
+  sentToPublisher: boolean;
+}
 export type DispatchPriority = 'routine' | 'notable' | 'urgent';
 
 export const ACTIVITY_TYPES = [
@@ -281,6 +308,14 @@ export interface Dispatch {
    *  post (pages/PostRequestWizard.tsx). The studio opens pre-set from it;
    *  approval promotes the linked record rather than minting a new one. */
   request?: PostRequest | null;
+  /** The finished post graphics, rendered from the studio's canvas at each
+   *  platform's size — what actually gets posted, text and all. */
+  postGraphics?: Partial<Record<'x' | 'linkedin' | 'instagram', string>> | null;
+  /** How many times the publisher has resubmitted this post after an admin
+   *  sent it back. 0 or absent for a first submission. */
+  revision?: number;
+  /** An admin's screening of the raw report — see ScreeningRecord. */
+  screening?: ScreeningRecord;
   createdAt: number;
   updatedAt: number;
   /** Set by the approve desk alongside `status: 'approved'` — the id and
@@ -318,7 +353,17 @@ export interface PostRequest {
   instructions: string | null;
   requestedBy: string;
   requestedByName: string;
+  /** The admin's answers to the Basic questions (studio/basics.ts) — what
+   *  the publisher's "Auto-fill from the admin's requirements" puts back.
+   *  Absent on requests made before the admin form asked them. */
+  basics?: RequestBasics;
 }
+
+export type RequestBasics = BasicAnswers & {
+  /** False when the admin left audience or tone to the agent. */
+  audienceChosen?: boolean;
+  toneChosen?: boolean;
+};
 
 /** Firestore-safe record of a post graphic's design decisions.
  *

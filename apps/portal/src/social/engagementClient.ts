@@ -17,6 +17,8 @@ export interface EngagementRefreshResult {
   connected: string[];
   checked: number;
   updated: number;
+  /** The cross-check of which sent posts are still up. */
+  liveness?: { checked: number; live: number; removed: number; unknown: number };
   message?: string;
   errors?: { postId: string; message: string }[];
 }
@@ -84,7 +86,14 @@ export async function fetchAccountAnalytics(fresh = false): Promise<
   }
 }
 
-export async function refreshEngagement(): Promise<
+/** Only the cross-check: asks each platform whether every sent post is
+ *  still up, and records the answer on the post. Fast, and needs no
+ *  platform credential for X or LinkedIn. */
+export function checkLiveness() {
+  return refreshEngagement('live');
+}
+
+export async function refreshEngagement(mode?: 'live'): Promise<
   { ok: true; result: EngagementRefreshResult } | { ok: false; reason: string }
 > {
   const user = auth.currentUser;
@@ -94,7 +103,8 @@ export async function refreshEngagement(): Promise<
     const token = await user.getIdToken();
     const res = await fetch(ENGAGEMENT_URL, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(mode ? { mode } : {}),
     });
     if (!res.ok) {
       const body = await res.json().catch(() => null);

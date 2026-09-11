@@ -41,8 +41,11 @@ function fieldsOf(r: RepositoryRecord) {
 
 export function KnowledgeBase({
   onPick,
+  compact = false,
 }: {
   onPick: (material: string, source: PostSource) => void;
+  /** Fewer results, in a short scrolling list — for the Basic column. */
+  compact?: boolean;
 }) {
   const { records, loading } = usePublicArchive();
   const [query, setQuery] = useState('');
@@ -55,11 +58,11 @@ export function KnowledgeBase({
   }, [records]);
 
   const results = useMemo(
-    () =>
-      semanticRank(records, query, (r) => prepared.get(r.id)!)
-        .slice(0, 8)
-        .map((s) => s.item),
-    [records, query, prepared],
+    // Compact mode lists nothing until there is something to search for.
+    () => (compact && !query.trim() ? [] : semanticRank(records, query, (r) => prepared.get(r.id)!)
+      .slice(0, compact ? 4 : 8)
+      .map((s) => s.item)),
+    [records, query, prepared, compact],
   );
 
   const pick = (r: RepositoryRecord) => {
@@ -80,7 +83,7 @@ export function KnowledgeBase({
   };
 
   return (
-    <div className="kb">
+    <div className={'kb' + (compact ? ' kb--compact' : '')}>
       <div className="kb-search">
         <Search size={14} strokeWidth={2.5} />
         <input

@@ -11,7 +11,7 @@
   /* Review carries the AI verdict, the blocking checks and both action
      buttons — it was the narrowest column despite doing the most, so it is
      now the widest of the four rather than the fixed 320px it used to be. */
-  grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1fr) 460px;
+  grid-template-columns: 300px minmax(0, 1fr) minmax(0, 1fr) 480px;
   gap: 14px;
   align-items: stretch;
   /* The staff console dropped its hero title (see .fld-page-compact), which
@@ -431,3 +431,53 @@
   }
   .ad-col { max-height: 62vh; }
 }
+
+/* ── incoming: unscreened reports from the field app ───────────────── */
+
+.ad-incoming { display: flex; flex-direction: column; gap: 6px; padding-bottom: 8px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+.ad-incoming-head {
+  display: flex; align-items: center; gap: 6px; padding: 4px 4px 2px;
+  font: 700 10px/1 var(--font-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--warn);
+}
+.ad-incoming-head b { margin-left: auto; font-family: var(--font-mono); color: var(--ice-dim); }
+.ad-approve-head { color: var(--ice-faint); padding-top: 6px; }
+.ad-incoming-item {
+  display: flex; flex-direction: column; gap: 4px; padding: 9px 10px;
+  border: 1px dashed rgba(255, 196, 92, 0.45); border-radius: 9px; background: rgba(255, 196, 92, 0.05);
+}
+.ad-incoming-item.pri-urgent { border-color: rgba(255, 138, 128, 0.6); background: rgba(255, 138, 128, 0.06); }
+.ad-incoming-tag {
+  align-self: flex-start; padding: 3px 7px; border-radius: 5px;
+  font: 700 9.5px/1 var(--font-ui); letter-spacing: .06em; text-transform: uppercase;
+  color: #0b1622; background: var(--warn);
+}
+.ad-incoming-flag { display: inline-flex; align-items: center; gap: 3px; font-style: normal; color: #ff8a80; }
+.ad-incoming-btn {
+  align-self: flex-start; display: inline-flex; align-items: center; gap: 5px; margin-top: 2px;
+  padding: 6px 10px; border-radius: 8px; border: 1px solid var(--line-strong); background: none;
+  color: var(--ice); font: 600 11.5px/1 var(--font-ui); cursor: pointer;
+}
+.ad-incoming-btn.is-primary { background: var(--warn); border-color: var(--warn); color: #0b1622; }
+.ad-incoming-btn:hover { filter: brightness(1.08); }
+.ad-incoming:not(.is-compact) { max-width: 560px; border-bottom: 0; }
+.ad-incoming:not(.is-compact) .ad-incoming-item { flex-direction: row; flex-wrap: wrap; align-items: center; column-gap: 10px; }
+.ad-empty-wrap { display: flex; flex-direction: column; gap: 14px; }
+
+.fld-notice { display: flex; align-items: center; gap: 7px; margin: 0 0 12px; padding: 9px 12px; border-radius: 10px; font-size: 13px; color: #7ee2a8; background: rgba(126, 226, 168, 0.08); border: 1px solid rgba(126, 226, 168, 0.3); }
+
+/* ── the queue filter ─────────────────────────────────────────────── */
+.ad-filter { display: flex; flex-wrap: wrap; gap: 5px; padding: 8px 8px 6px; border-bottom: 1px solid var(--line); }
+.ad-filter-chip {
+  display: inline-flex; align-items: center; gap: 5px; padding: 5px 9px; border-radius: 999px;
+  border: 1px solid var(--line); background: none; color: var(--ice-dim); font: 600 11px/1 var(--font-ui); cursor: pointer;
+}
+.ad-filter-chip b { font-family: var(--font-mono); font-weight: 600; color: var(--ice-faint); }
+.ad-filter-chip:hover { color: var(--ice); border-color: var(--line-strong); }
+.ad-filter-chip.is-on { color: var(--cyan); border-color: rgba(95, 217, 255, 0.55); background: rgba(95, 217, 255, 0.1); }
+.ad-filter-chip.is-on b { color: var(--cyan); }
+.ad-queue-empty { margin: 16px 8px; font-size: 12px; color: var(--ice-faint); }
+.ad-queue-title { font: 600 12.5px/1.35 var(--font-ui); color: var(--ice); }
+.ad-queue-title + .ad-queue-name { font-weight: 500; color: var(--ice-dim); font-size: 11.5px; }
+.ad-queue-tag { align-self: flex-start; padding: 2px 7px; border-radius: 5px; font: 700 9.5px/1.3 var(--font-ui); letter-spacing: .05em; text-transform: uppercase; color: #0b1622; background: #b39ddb; }
+.ad-incoming-item.is-clickable { cursor: pointer; transition: background .14s, border-color .14s; }
+.ad-incoming-item.is-clickable:hover { background: rgba(255, 196, 92, 0.1); border-color: rgba(255, 196, 92, 0.7); }

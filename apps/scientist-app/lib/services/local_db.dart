@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
@@ -21,9 +22,17 @@ class LocalDb {
     return _db!;
   }
 
+  /// Desktop (Windows) needs SQLite through FFI; Android and iOS have it
+  /// built in, and the default sqflite factory is the right one there.
+  static void useDesktopSqliteIfNeeded() {
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
+  }
+
   Future<Database> _open() async {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
+    useDesktopSqliteIfNeeded();
     final dir = await getApplicationDocumentsDirectory();
     final path = join(dir.path, 'iia_scientist.db');
     return openDatabase(

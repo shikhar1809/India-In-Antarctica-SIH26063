@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../../app_theme.dart';
 import '../field_report_wizard.dart';
 import '../wizard_common.dart';
+import '../../../models/field_vocabulary.dart';
 
 // Matches POSITION_SOURCES in the portal — see field_vocabulary.dart.
 const _posSources = kPositionSources;

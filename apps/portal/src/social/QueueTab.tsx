@@ -118,7 +118,12 @@ function QueueRow({ post }: { post: ScheduledPost }) {
       {post.error && <p className="sq-error">{post.error}</p>}
       {err && <p className="sq-error">{err}</p>}
 
-      {post.status === 'posted' && post.externalUrl && (
+      {post.status === 'posted' && post.liveCheck?.state === 'removed' && (
+        <p className="sq-error">
+          Deleted on the platform{post.removedAt ? ` (found ${when(post.removedAt)})` : ''}{post.liveCheck.note ? ` — ${post.liveCheck.note}` : ''}
+        </p>
+      )}
+      {post.status === 'posted' && post.externalUrl && post.liveCheck?.state !== 'removed' && (
         <p className="sq-posted">
           Posted {post.postedAt ? when(post.postedAt) : ''} ·{' '}
           <a href={post.externalUrl} target="_blank" rel="noreferrer">view the post</a>

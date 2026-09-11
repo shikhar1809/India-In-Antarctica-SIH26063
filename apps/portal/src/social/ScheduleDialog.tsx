@@ -27,6 +27,7 @@ import { Archive, Clock, ListChecks, Send, Type } from 'lucide-react';
 import { CircuitBoard } from '@/components/ui/circuit-board';
 import { saveScheduledPost } from '../hooks/useSocialQueue';
 import type { RepositoryRecord } from '../repository/contract';
+import type { Dispatch } from '../types';
 import {
   PLATFORM_LIMITS,
   SOCIAL_PLATFORMS,
@@ -60,25 +61,39 @@ function toLocalInput(ts: number): string {
 
 export function ScheduleDialog({
   record,
+  post,
   createdBy,
   onClose,
 }: {
   /** The published record being disseminated. Required — see the note above. */
   record: RepositoryRecord & { id: string };
+  /** The approved post, when scheduling straight from approval: its caption
+   *  for each platform and its finished graphic for each. Without it the
+   *  dialog falls back to a caption drafted from the record and the record's
+   *  photograph. */
+  post?: Pick<Dispatch, 'platformCaptions' | 'postGraphics'> | null;
   createdBy: string;
   onClose: () => void;
 }) {
   const now = useNow();
 
-  const [platform, setPlatform] = useState<SocialPlatform>('x');
-  /* Seeded from the record so the publisher edits a draft rather than facing
-     an empty box. The headline was already written for a general audience by
-     summarise.ts, which is exactly the register a post wants. */
-  const [caption, setCaption] = useState(() => {
+  /* The first platform the publisher actually wrote for. */
+  const [platform, setPlatform] = useState<SocialPlatform>(
+    () => SOCIAL_PLATFORMS.find((p) => post?.platformCaptions?.[p]?.trim()) ?? 'x',
+  );
+  const fromRecord = () => {
     const lead = record.body?.[0] ?? '';
     const first = lead.split('. ')[0];
     return first ? `${record.title} — ${first}.` : record.title;
-  });
+  };
+  /* The publisher's caption for this platform; failing that, one drafted
+     from the record so there is a draft to edit rather than an empty box. */
+  const captionFor = (p: SocialPlatform) => post?.platformCaptions?.[p]?.trim() || fromRecord();
+  const [caption, setCaption] = useState(() => captionFor(platform));
+  const [edited, setEdited] = useState(false);
+  /* What the platform receives: the finished graphic made for it, text and
+     all — never the bare photograph when a graphic exists. */
+  const imageUrl = post?.postGraphics?.[platform] ?? record.photoUrls?.[0] ?? null;
   const [when, setWhen] = useState(() => toLocalInput(Date.now() + 3600_000));
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -88,8 +103,8 @@ export function ScheduleDialog({
   const length = captionLength(caption);
 
   const issues = useMemo(
-    () => validatePost({ platform, caption, imageUrl: record.photoUrls?.[0] ?? null, scheduledFor }, now),
-    [record, platform, caption, scheduledFor, now],
+    () => validatePost({ platform, caption, imageUrl, scheduledFor }, now),
+    [imageUrl, platform, caption, scheduledFor, now],
   );
 
   const errors = issues.filter((i) => i.level === 'error');
@@ -114,7 +129,7 @@ export function ScheduleDialog({
         caption,
         scheduledFor,
         createdBy,
-        record.photoUrls?.[0] ?? null,
+        imageUrl,
       );
       await saveScheduledPost(post);
       onClose();
@@ -172,7 +187,12 @@ export function ScheduleDialog({
                   key={p}
                   type="button"
                   className={'sd-platform' + (platform === p ? ' selected' : '')}
-                  onClick={() => setPlatform(p)}
+                  onClick={() => {
+                    setPlatform(p);
+                    // Switching platform brings that platform's own caption,
+                    // unless the admin has already rewritten this one.
+                    if (!edited) setCaption(captionFor(p));
+                  }}
                 >
                   {PLATFORM_LIMITS[p].label}
                   <small>{PLATFORM_LIMITS[p].maxChars} chars</small>
@@ -186,13 +206,23 @@ export function ScheduleDialog({
             <textarea
               rows={4}
               value={caption}
-              onChange={(e) => setCaption(e.target.value)}
+              onChange={(e) => { setCaption(e.target.value); setEdited(true); }}
               placeholder={`Write the ${limits.label} post…`}
             />
             <small className={length > limits.maxChars ? 'sd-over' : undefined}>
               {length} / {limits.maxChars} characters
             </small>
           </label>
+
+          <div className="sd-field">
+            <span>Image that goes out</span>
+            {imageUrl ? <img src={imageUrl} alt="" className="sd-image" /> : <small>No image — a text-only post.</small>}
+            <small>
+              {post?.postGraphics?.[platform]
+                ? `The finished graphic made for ${limits.label}, text and all.`
+                : 'The record’s photograph — no finished graphic was saved for this platform.'}
+            </small>
+          </div>
 
           <label className="sd-field">
             <span>Goes out at</span>

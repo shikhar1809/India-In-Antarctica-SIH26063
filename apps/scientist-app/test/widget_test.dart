@@ -1,30 +1,30 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../lib/models/dispatch.dart';
+import '../lib/models/field_vocabulary.dart';
+import '../lib/services/sync_service.dart';
 
-import 'package:scientist_app/main.dart';
-
+// The app's half of the contract with the portal. The portal's own test
+// (apps/portal/src/repository/fieldAppContract.test.ts) reads
+// field_vocabulary.dart and checks it against types.ts; these check the
+// app-side rules the portal's firestore.rules depend on.
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  test('weather goes over the wire as `present`, the portal\'s name', () {
+    final m = const WeatherObs(presentWeather: 'Blowing snow').toMap();
+    expect(m['present'], 'Blowing snow');
+    expect(m.containsKey('presentWeather'), isFalse);
+  });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  test('at most five photos — the portal refuses a sixth', () {
+    expect(SyncService.maxPhotos, 5);
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  test('numbers outside a plausible range are caught', () {
+    expect(validateNumber('-999', kAirTempRange, 'Air temperature'), isNotNull);
+    expect(validateNumber('-24', kAirTempRange, 'Air temperature'), isNull);
+    expect(validateNumber('', kAirTempRange, 'Air temperature'), isNull);
+  });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  test('stations are India\'s, as the portal lists them', () {
+    expect(kStations, ['Maitri', 'Bharati', 'Dakshin Gangotri', 'Other']);
   });
 }

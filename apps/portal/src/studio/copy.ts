@@ -15,6 +15,7 @@
 import type { Dispatch } from '../types';
 import type { Measurement } from '../repository/contract';
 import { HASHTAG_BY_STATION, HASHTAG_BY_ACTIVITY, PLATFORM_LIMITS } from '../types';
+import type { BasicAnswers } from './basics';
 
 /* ────────────────────────────────────────────────────────────── brief ── */
 
@@ -46,6 +47,9 @@ export interface Brief {
    *  captions without the model ever being asked to reproduce a URL, which is
    *  the one thing a language model is reliably bad at. */
   source?: PostSource;
+  /** The Basic step's answers — purpose, call to action, occasion, data
+   *  status, credit, language, links. See studio/basics.ts. */
+  basics?: BasicAnswers;
 }
 
 export interface PostSource {
@@ -121,8 +125,79 @@ export function withSourceLink<T extends { copy: PostCopy }>(
     const captions = { ...v.copy.captions };
     for (const key of Object.keys(captions) as (keyof PostCopy['captions'])[]) {
       const current = captions[key];
+      // Instagram does not make caption links clickable — it gets a pointer.
+      if (key === 'instagram') { captions[key] = withLinkInBio(current, limits[key]); continue; }
       if (current.includes(source.url)) continue;
+      if (key === 'linkedin') {
+        const next = placeLinkedInLink(current, source.url);
+        if (next.length <= limits[key]) captions[key] = next;
+        continue;
+      }
       if (current.length + suffix.length <= limits[key]) captions[key] = current + suffix;
+    }
+    return { ...v, copy: { ...v.copy, captions } };
+  });
+}
+
+export const LINK_IN_BIO = 'Link in bio.';
+
+/** Instagram's stand-in for a link: one "Link in bio." line, placed before
+ *  the hashtag block if there is one, never twice. */
+export function withLinkInBio(caption: string, limit = 2200): string {
+  if (!caption || /link in bio/i.test(caption)) return caption;
+  // "Read the full record." becomes "Read the full record — link in bio."
+  const lines = caption.split(NEWLINE);
+  const cta = lines.findIndex((l) => /read the (full )?record|explore the (open )?data|visit the/i.test(l));
+  if (cta >= 0) {
+    lines[cta] = `${lines[cta].replace(/[.:]?\s*$/, '')} — link in bio.`;
+    const merged = lines.join(NEWLINE);
+    return merged.length <= limit ? merged : caption;
+  }
+  const next = aboveTags(caption, LINK_IN_BIO);
+  return next.length <= limit ? next : caption;
+}
+
+/** Inserts a line just above a trailing hashtag line, or at the end. */
+function aboveTags(caption: string, line: string): string {
+  const lines = caption.split(NEWLINE);
+  const tagsAt = lines.findIndex((l) => /^\s*(#[\p{L}\p{N}_]+\s*)+$/u.test(l));
+  if (tagsAt <= 0) return caption + NEWLINE + NEWLINE + line;
+  // Keep the caption's own spacing: a blank line before the tags stays one.
+  const spaced = lines[tagsAt - 1].trim() === '';
+  return [...lines.slice(0, tagsAt), ...(spaced ? [line, ''] : [line]), ...lines.slice(tagsAt)].join(NEWLINE);
+}
+
+/** LinkedIn: a link belongs on the "Read the full record" line when there is
+ *  one, else on its own line above the hashtags — never tacked onto them. */
+function placeLinkedInLink(caption: string, url: string): string {
+  const lines = caption.split(NEWLINE);
+  const cta = lines.findIndex((l) => /read the (full )?record|explore the (open )?data|visit the/i.test(l) && !l.includes('http'));
+  if (cta >= 0) { lines[cta] = `${lines[cta].replace(/[.:]?\s*$/, ':')} ${url}`; return lines.join(NEWLINE); }
+  return aboveTags(caption, url);
+}
+
+/**
+ * Attach the publisher's own links to every caption, each on its own line,
+ * after generation — for the same reason as the source link. A link that
+ * does not fit a platform's ceiling is left off that caption, not forced in;
+ * the alignment check reports it.
+ */
+export function withLinks<T extends { copy: PostCopy }>(
+  variants: T[],
+  links: string[],
+  limits: Record<keyof PostCopy['captions'], number> = { x: 280, linkedin: 3000, instagram: 2200 },
+): T[] {
+  if (!links.length) return variants;
+  return variants.map((v) => {
+    const captions = { ...v.copy.captions };
+    for (const key of Object.keys(captions) as (keyof PostCopy['captions'])[]) {
+      if (key === 'instagram') { captions[key] = withLinkInBio(captions[key], limits[key]); continue; }
+      for (const link of links) {
+        const current = captions[key];
+        if (!current || current.includes(link)) continue;
+        const next = key === 'linkedin' ? aboveTags(current, link) : current + NEWLINE + link;
+        if (next.length <= limits[key]) captions[key] = next;
+      }
     }
     return { ...v, copy: { ...v.copy, captions } };
   });
@@ -158,6 +233,30 @@ function sentences(text: string): string[] {
     .split(/(?<=[.!?])\s+/)
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+/**
+ * Gives a LinkedIn or Instagram caption the shape its feed reads in, when the
+ * writer returned it as one block (it often does in JSON mode): the first
+ * sentence alone as the hook — the only line shown before "…see more" /
+ * "…more" — then paragraphs of two sentences, then the hashtags on their own
+ * line. A caption that already has line breaks was shaped on purpose and is
+ * left exactly as it is.
+ */
+export function shapeCaption(raw: string): string {
+  // A sentence run straight into the next ("the world.NCPOR is…") is a line
+  // break the writer lost, not a sentence it meant to write.
+  const text = (raw || '').replace(/([a-z0-9][.!?])(?=[A-Z])/g, '$1\n\n');
+  if (!text || text !== raw || text.includes('\n')) return text;
+  const tagMatch = text.match(/(\s+#[\p{L}\p{N}_]+)+\s*$/u);
+  const tags = tagMatch ? tagMatch[0].trim() : '';
+  const bodyText = tagMatch ? text.slice(0, tagMatch.index).trim() : text.trim();
+  const sentences = bodyText.match(/[^.!?]+[.!?]+["”’)]*(\s+|$)|[^.!?]+$/g)?.map((s) => s.trim()).filter(Boolean) ?? [bodyText];
+  if (sentences.length < 3 && !tags) return text;
+  const [hook, ...rest] = sentences;
+  const paragraphs: string[] = [];
+  for (let i = 0; i < rest.length; i += 2) paragraphs.push(rest.slice(i, i + 2).join(' '));
+  return [hook, ...paragraphs, ...(tags ? [tags] : [])].join('\n\n');
 }
 
 function clamp(text: string, limit: number): string {
@@ -331,6 +430,8 @@ export async function generateVariants(
         measurements: measurements.map((m) => ({ label: m.label, value: m.value, unit: m.unit })),
         audience: brief.audience,
         tone: brief.tone,
+        goal: brief.basics?.goal ?? undefined,
+        language: brief.basics?.language ?? 'en',
         direction: direction ?? '',
       }),
     });
@@ -356,8 +457,8 @@ export async function generateVariants(
           standfirst: v.standfirst || base.copy.standfirst,
           captions: {
             x: clamp(v.captions?.x || base.copy.captions.x, PLATFORM_LIMITS.x),
-            linkedin: clamp(v.captions?.linkedin || base.copy.captions.linkedin, PLATFORM_LIMITS.linkedin),
-            instagram: clamp(v.captions?.instagram || base.copy.captions.instagram, PLATFORM_LIMITS.instagram),
+            linkedin: clamp(shapeCaption(v.captions?.linkedin || base.copy.captions.linkedin), PLATFORM_LIMITS.linkedin),
+            instagram: clamp(shapeCaption(v.captions?.instagram || base.copy.captions.instagram), PLATFORM_LIMITS.instagram),
           },
         },
       };
