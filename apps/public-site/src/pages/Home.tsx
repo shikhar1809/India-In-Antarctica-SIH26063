@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Render } from '@measured/puck';
 import { config } from '../puck.config';
 import RouteLoading from '../components/RouteLoading';
-import BookShelf from '../components/ui/book-shelf';
 import { AskScientistBanner } from '../components/AskScientistBanner';
 import './Home.css';
 import '../blocks.css';
@@ -65,7 +64,6 @@ function withGalleryAfterLegacy(data: any) {
 }
 
 export default function Home() {
-  const navigate = useNavigate();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -180,11 +178,6 @@ export default function Home() {
           )
         }
       </main>
-
-      {/* ── The Complete Shelf ── */}
-      {/* Clicking a book here jumps straight to its record on the Archive
-        * page — no need to open the picker there and find it again. */}
-      <BookShelf onOpenRecord={(id) => navigate(`/archive/${id}`)} />
 
       {/* ── Ask a scientist ──
         * Under the shelf on purpose: the shelf is what has been published,

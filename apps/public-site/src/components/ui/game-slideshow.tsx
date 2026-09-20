@@ -120,25 +120,6 @@ export function GameSlideshow() {
         </svg>
       </button>
 
-      {/* Launch CTA overlay */}
-      <a
-        href="https://iia-game.web.app"
-        target="_blank"
-        rel="noreferrer"
-        className="absolute bottom-14 right-4 z-10 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold tracking-wide uppercase"
-        style={{
-          background: "rgba(34,211,238,0.15)",
-          border: "1px solid rgba(34,211,238,0.4)",
-          color: "#22d3ee",
-          backdropFilter: "blur(6px)",
-          textDecoration: "none",
-        }}
-      >
-        Play Now
-        <svg width="10" height="10" viewBox="0 0 16 16" fill="none">
-          <path d="M6 3l5 5-5 5" stroke="#22d3ee" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </a>
     </div>
   );
 }

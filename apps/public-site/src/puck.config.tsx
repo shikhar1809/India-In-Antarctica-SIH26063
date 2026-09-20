@@ -333,7 +333,7 @@ export const config: Config<Props> = {
         ctaLabel: 'Launch PolarQuest 3D',
         ctaUrl: 'https://iia-game.web.app',
       },
-      render: () => (
+      render: ({ ctaLabel, ctaUrl }) => (
         <div className="overflow-hidden">
           <ContainerScroll
             titleComponent={
@@ -360,6 +360,19 @@ export const config: Config<Props> = {
           >
             <GameSlideshow />
           </ContainerScroll>
+
+          {/* The way in, under the tablet rather than tucked inside it: a
+              small chip in the corner of a screenshot reads as part of the
+              picture, not as the button that starts the game. */}
+          <div className="pq-launch-wrap">
+            <a className="pq-launch" href={ctaUrl || 'https://iia-game.web.app'} target="_blank" rel="noreferrer">
+              <span className="pq-launch-play" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 2.8v10.4a.6.6 0 0 0 .92.5l8.2-5.2a.6.6 0 0 0 0-1l-8.2-5.2a.6.6 0 0 0-.92.5Z" /></svg>
+              </span>
+              {ctaLabel || 'Launch PolarQuest 3D'}
+            </a>
+            <p className="pq-launch-note">Runs in the browser · No download</p>
+          </div>
         </div>
       ),
     },
