@@ -43,6 +43,11 @@ export interface RecordMetadata {
     accuracyM: number | null
   }
   temporal: { observedAt: number }
+  /** Which pole. NCPOR's own data centre splits its holdings this way, and
+   *  so does the public repository's region toggle. Absent on records
+   *  published before this existed — repository/taxonomy.ts derives those
+   *  from the station, then from the record's own words. */
+  region?: 'antarctic' | 'arctic'
   license: string
   rights: string
   instrument: string | null
@@ -56,7 +61,8 @@ export interface RecordMetadata {
 }
 
 export type CoverCategory = 'expedition' | 'dataset' | 'publication' | 'media' | 'institution'
-export type CoverStation = 'maitri' | 'bharati' | 'dakshin' | 'ship' | 'ncpor'
+/** Himadri is India's Arctic station, at Ny-Ålesund on Svalbard. */
+export type CoverStation = 'maitri' | 'bharati' | 'dakshin' | 'ship' | 'ncpor' | 'himadri'
 
 export interface RecordFact { label: string; value: string }
 
@@ -228,6 +234,9 @@ export interface RepositoryRecord {
   sections?: ReportSection[]
   /** Present on dataset records that published a schema and sample rows. */
   dataset?: DatasetPreview
+  /** Science keywords, in NCPOR's vocabulary — see repository/taxonomy.ts.
+   *  Derived from the record's own text when absent. */
+  themes?: string[]
   references?: Reference[]
 
   sources?: RecordSource[]

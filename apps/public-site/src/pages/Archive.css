@@ -20,11 +20,12 @@
    means the shelf wrapper below it (targeted by `.arch2-hero > div`) still
    gets the full flex-allocated height; this just paints on top. */
 .arch2-topbar {
-  position: absolute;
-  z-index: 2;
-  top: max(16px, 2.5vh);
-  left: 0;
-  right: 0;
+  /* In the flow now, at the very top of the screen: the shelf is no longer
+     the first thing on the page, so a bar floating over it read as
+     belonging to the search band underneath it. */
+  position: relative;
+  z-index: 7;
+  padding: 0.9rem 1rem 0.2rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1154,4 +1155,142 @@
   text-decoration: underline;
   text-decoration-style: dotted;
   text-underline-offset: 3px;
+}
+
+/* ── finding things: search, region, science ─────────────────────────────
+   A band of its own between the top bar and the shelf, because the shelf is
+   the result. NCPOR's own data centre asks the same two questions (by
+   location, by science keyword). */
+.arch2-find {
+  position: relative;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  align-items: center;
+  text-align: center;
+  padding: 0.85rem 1rem 1rem;
+  border-bottom: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(6, 16, 25, 0.92), rgba(6, 16, 25, 0.72));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.arch2-search {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: min(760px, 100%);
+  padding: 0.65rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(150, 200, 240, 0.28);
+  background: rgba(6, 16, 25, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  color: var(--ice-faint);
+  box-shadow: 0 14px 40px -24px rgba(0, 0, 0, 0.95);
+  transition: border-color 0.2s ease;
+}
+.arch2-search:focus-within { border-color: rgba(95, 217, 255, 0.6); }
+.arch2-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: var(--ice);
+  font: 400 0.92rem/1.4 var(--font-ui);
+}
+.arch2-search input::placeholder { color: var(--ice-faint); }
+.arch2-search input:focus { outline: none; }
+.arch2-search input::-webkit-search-cancel-button { display: none; }
+.arch2-search-clear {
+  border: 0; background: none; cursor: pointer;
+  color: var(--ice-faint); font-size: 1.2rem; line-height: 1; padding: 0 0.2rem;
+}
+.arch2-search-clear:hover { color: var(--ice); }
+
+.arch2-filters { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; }
+
+.arch2-regions, .arch2-themes { display: flex; flex-wrap: wrap; gap: 0.35rem; justify-content: center; }
+
+.arch2-regions button,
+.arch2-themes button {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.36rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(150, 200, 240, 0.22);
+  background: rgba(6, 16, 25, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--ice-dim);
+  font: 600 0.72rem/1 var(--font-ui);
+  cursor: pointer;
+  transition: color 0.18s, border-color 0.18s, background 0.18s;
+}
+.arch2-regions button b { font-family: var(--font-mono); font-weight: 600; color: var(--ice-faint); }
+.arch2-regions button:hover, .arch2-themes button:hover { color: var(--ice); border-color: rgba(150, 200, 240, 0.45); }
+.arch2-regions button.is-on { color: var(--ink); background: var(--cyan); border-color: var(--cyan); }
+.arch2-regions button.is-on b { color: rgba(6, 16, 25, 0.7); }
+.arch2-themes button.is-on { color: var(--saffron); border-color: rgba(255, 153, 51, 0.6); background: rgba(255, 153, 51, 0.12); }
+
+.arch2-found {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--ice-faint);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+}
+
+@media (max-width: 720px) {
+  .arch2-find { gap: 0.45rem; padding: 0.7rem 0.75rem 0.8rem; }
+  .arch2-search { padding: 0.55rem 0.8rem; }
+  .arch2-search input { font-size: 0.85rem; }
+  /* Science keywords are a long row on a phone; the region toggle is the
+     one that has to stay visible. */
+  .arch2-themes { max-height: 4.6rem; overflow: hidden; }
+}
+
+/* ── region and science on a record ──────────────────────────────────── */
+.arch2-region {
+  padding: 0.15rem 0.5rem;
+  border-radius: 5px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.arch2-region.is-antarctic { color: #5fd9ff; background: rgba(95, 217, 255, 0.14); }
+.arch2-region.is-arctic    { color: #4fe0c0; background: rgba(79, 224, 192, 0.14); }
+
+.arch2-pill--theme {
+  border: 1px solid rgba(255, 153, 51, 0.45);
+  background: rgba(255, 153, 51, 0.1);
+  color: var(--saffron);
+  cursor: pointer;
+  font: inherit;
+}
+.arch2-pill--theme:hover { background: rgba(255, 153, 51, 0.2); }
+
+/* The dataset's own facts, the way a data centre lists them. */
+.arch2-datafacts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 0.6rem 1.5rem;
+  margin: 1rem 0 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(13, 32, 51, 0.5);
+}
+.arch2-datafact dt {
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+}
+.arch2-datafact dd {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--ice);
 }

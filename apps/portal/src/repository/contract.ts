@@ -17,10 +17,12 @@ import type { License } from '../types';
 
 /* ───────────────────────────────────────────────── canonical vocabulary ── */
 
-/** The only stations that exist in India's Antarctic programme. Maitri and
- *  Bharati are operational; Dakshin Gangotri was abandoned to ice in 1990 and
- *  survives as a supply base, so it stays in the list for historical records. */
-export const CANONICAL_STATIONS = ['Maitri', 'Bharati', 'Dakshin Gangotri', 'Other'] as const;
+/** The only stations that exist in India's polar programme. Maitri and
+ *  Bharati are operational in Antarctica; Dakshin Gangotri was abandoned to
+ *  ice in 1990 and survives as a supply base, so it stays in the list for
+ *  historical records; Himadri is the Arctic station, at Ny-Ålesund on
+ *  Svalbard, and is the reason this list is no longer Antarctic-only. */
+export const CANONICAL_STATIONS = ['Maitri', 'Bharati', 'Dakshin Gangotri', 'Himadri', 'Other'] as const;
 export type Station = (typeof CANONICAL_STATIONS)[number];
 
 /** Station names the Flutter app shipped before the vocabularies were aligned.
@@ -178,7 +180,12 @@ export interface RecordMetadata {
     datum: 'WGS84';
     accuracyM: number | null;
   };
-  temporal: { observedAt: number };
+  temporal: { observedAt: number }
+  /** Which pole. NCPOR's own data centre splits its holdings this way, and
+   *  so does the public repository's region toggle. Absent on records
+   *  published before this existed — repository/taxonomy.ts derives those
+   *  from the station, then from the record's own words. */
+  region?: 'antarctic' | 'arctic';
 
   license: License;
   rights: string;
@@ -205,7 +212,8 @@ export interface RecordMetadata {
  * archive UI renders it without being rewritten.                            */
 
 export type CoverCategory = 'expedition' | 'dataset' | 'publication' | 'media' | 'institution';
-export type CoverStation = 'maitri' | 'bharati' | 'dakshin' | 'ship' | 'ncpor';
+/** Himadri is India's Arctic station, at Ny-Ålesund on Svalbard. */
+export type CoverStation = 'maitri' | 'bharati' | 'dakshin' | 'ship' | 'ncpor' | 'himadri';
 
 export interface RecordFact { label: string; value: string }
 
@@ -378,7 +386,10 @@ export interface RepositoryRecord {
    *  published abstract into something a reader can navigate. */
   sections?: ReportSection[];
   /** Present on dataset records that published a schema and sample rows. */
-  dataset?: DatasetPreview;
+  dataset?: DatasetPreview
+  /** Science keywords, in NCPOR's vocabulary — see repository/taxonomy.ts.
+   *  Derived from the record's own text when absent. */
+  themes?: string[];
   references?: Reference[];
 
   sources?: RecordSource[];
@@ -419,6 +430,7 @@ export const STATION_COVER_KEY: Record<string, CoverStation> = {
   'Maitri': 'maitri',
   'Bharati': 'bharati',
   'Dakshin Gangotri': 'dakshin',
+  'Himadri': 'himadri',
   'Other': 'ncpor',
 };
 

@@ -23,6 +23,7 @@ import { CATEGORIES } from '../types';
 import type { DocumentStatus, ResearchDocument } from '../types';
 import type { RepositoryRecord } from '../repository/contract';
 import { HISTORICAL_RECORDS } from '../repository/historicalRecords';
+import { ARCTIC_RECORDS } from '../repository/arcticRecords';
 import { publishRecord } from '../repository/publish';
 import { RecordEditor } from '../components/RecordEditor';
 import { DepositEditor } from '../components/DepositEditor';
@@ -627,12 +628,15 @@ function HistoricalImportAction() {
     setMessage('');
     try {
       let n = 0;
-      for (const rec of HISTORICAL_RECORDS) {
+      /* The Antarctic historical set and the Arctic reference set. NCPOR
+       * works at both poles, and the repository's region filter is only
+       * honest if both halves are actually in it. */
+      for (const rec of [...HISTORICAL_RECORDS, ...ARCTIC_RECORDS]) {
         await publishRecord(rec);
         n++;
       }
       setState('done');
-      setMessage(`Refreshed ${n} historical records.`);
+      setMessage(`Refreshed ${n} reference records — ${HISTORICAL_RECORDS.length} Antarctic, ${ARCTIC_RECORDS.length} Arctic.`);
     } catch (err) {
       setState('error');
       setMessage(err instanceof Error ? err.message : 'Import failed.');

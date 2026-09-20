@@ -10,7 +10,10 @@ export const CATEGORIES = [
   'Institutional'
 ] as const;
 
-export const STATIONS = ['Maitri', 'Bharati', 'Dakshin Gangotri', 'Other'] as const;
+/* NCPOR is a polar institute, not an Antarctic one: Himadri, at Ny-Ålesund
+ * on Svalbard, is India's Arctic station and files reports like any other.
+ * Mirrored in the field app's field_vocabulary.dart. */
+export const STATIONS = ['Maitri', 'Bharati', 'Dakshin Gangotri', 'Himadri', 'Other'] as const;
 
 export const LICENSES = ['CC BY 4.0', 'CC0', 'CC BY-NC 4.0'] as const;
 

@@ -12,12 +12,14 @@
 /// iia-portal/src/types.ts. Change one, change the others.
 library;
 
-/// India's Antarctic stations. Maitri and Bharati are operational; Dakshin
-/// Gangotri was abandoned to the ice in 1990 and survives as a supply base.
+/// India's polar stations. Maitri and Bharati are operational in Antarctica;
+/// Dakshin Gangotri was abandoned to the ice in 1990 and survives as a supply
+/// base; Himadri is the Arctic station, at Ny-Ålesund on Svalbard.
 const kStations = <String>[
   'Maitri',
   'Bharati',
   'Dakshin Gangotri',
+  'Himadri',
   'Other',
 ];
 

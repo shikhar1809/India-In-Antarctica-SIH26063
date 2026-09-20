@@ -34,7 +34,7 @@ export type CoverCategory =
   | 'media'
   | 'institution'
 
-export type CoverStation = 'maitri' | 'bharati' | 'dakshin' | 'ship' | 'ncpor'
+export type CoverStation = 'maitri' | 'bharati' | 'dakshin' | 'ship' | 'ncpor' | 'himadri'
 
 interface Palette {
   /** Deep field colour, top of the gradient. */
@@ -65,6 +65,10 @@ const PALETTES: Record<CoverStation, Palette> = {
   // its own. The one deliberately institutional palette: indigo and gold,
   // a seal rather than a landscape.
   ncpor: { a: '#0c0a1c', b: '#221a3a', line: '#ece6ff', accent: '#c9a227', grade: '#4a3d7a' },
+  // Himadri, Ny-Ålesund — the Arctic station. Green-white, for the only
+  // one of these places where the sun sets in winter and the fjord is open
+  // water for half the year.
+  himadri: { a: '#03161a', b: '#0b3138', line: '#d9fbf4', accent: '#4fe0c0', grade: '#2a7f76' },
 }
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;')

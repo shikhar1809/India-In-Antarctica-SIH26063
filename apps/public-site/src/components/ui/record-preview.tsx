@@ -38,6 +38,7 @@ const STATION_BG: Record<CoverStation, string> = {
   dakshin:  '#100e06',
   ship:     '#010810',
   ncpor:    '#08061a',
+  himadri:  '#03161a',
 }
 
 interface RecordPreviewProps {

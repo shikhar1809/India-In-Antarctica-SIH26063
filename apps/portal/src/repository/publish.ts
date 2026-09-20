@@ -22,6 +22,7 @@ import { STATION_COVER_KEY, CATEGORY_COVER, ACTIVITY_RESOURCE_TYPE } from './con
 import type { PublicSummary } from './summarise';
 import { draftSections } from './summarise';
 import { citeDispatchBody, citeDocumentBody } from './citations';
+import { STATION_REGION, themesOf } from './taxonomy';
 
 export const PUBLIC_COLLECTION = 'publicArchive';
 
@@ -127,6 +128,10 @@ export function toRepositoryRecord(
       accuracyM: null,
     },
     temporal: { observedAt: d.observedAt },
+    /* Which pole. Stored at publication rather than left for the public
+     * site to infer — a published record should carry its own filing.
+     * See repository/taxonomy.ts. */
+    region: STATION_REGION[STATION_COVER_KEY[d.station] ?? 'ncpor'] ?? 'antarctic',
     license: 'CC BY 4.0',
     rights: 'Creative Commons Attribution 4.0 International',
     instrument: measurements.find((m) => m.fieldId === 'instrument')?.value ?? null,
@@ -139,7 +144,7 @@ export function toRepositoryRecord(
     },
   };
 
-  return {
+  const record: RepositoryRecord = {
     id: d.id,
     cat: cover.cat,
     kind: cover.kind,
@@ -160,6 +165,10 @@ export function toRepositoryRecord(
     metadata,
     publishedAt: now,
   };
+  /* Science keywords, read off the finished record — see
+   * repository/taxonomy.ts. Stored so the public repository filters on a
+   * recorded fact rather than re-deriving one on every keystroke. */
+  return { ...record, themes: themesOf(record) };
 }
 
 /** The same projection for a Knowledge Repository document (a dataset,
@@ -246,6 +255,7 @@ export function documentToRepositoryRecord(
       station: docRec.station,
       spatial: { lat: docRec.lat, lon: docRec.lon, elevationM: null, datum: 'WGS84', accuracyM: null },
       temporal: { observedAt: docRec.observedAt },
+      region: STATION_REGION[docRec.station] ?? 'antarctic',
       license: docRec.license,
       rights: docRec.license === 'CC0' ? 'Public domain dedication' : 'Creative Commons Attribution',
       instrument: docRec.instrument || null,

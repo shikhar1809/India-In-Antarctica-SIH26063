@@ -152,6 +152,7 @@ export const STATION_LABELS: Record<string, string> = {
   dakshin: 'Dakshin Gangotri',
   ship: 'At sea',
   ncpor: 'NCPOR',
+  himadri: 'Himadri, Ny-Ålesund',
 }
 
 export interface TrendPoint {

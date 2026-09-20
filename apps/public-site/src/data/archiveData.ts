@@ -935,4 +935,5 @@ export const STATION_LABELS: Record<CoverStation, string> = {
   dakshin: 'Dakshin Gangotri',
   ship: 'Resupply Vessel',
   ncpor: 'NCPOR',
+  himadri: 'Himadri, Ny-Ålesund',
 }
