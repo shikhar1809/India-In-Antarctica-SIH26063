@@ -515,3 +515,52 @@
 .chart-header { margin-bottom: 2rem; text-align: center; }
 .chart-header h3 { font-size: 1.2rem; color: var(--ice); margin-bottom: 0.25rem; }
 .chart-header p { font-size: 0.85rem; color: var(--ice-dim); }
+
+/* ── editor previews of blocks whose real rendering lives in the public
+      site: close enough to arrange a page by, and honest about what fills
+      them in. ─────────────────────────────────────────────────────────── */
+.block-frontpage {
+  padding: 2.5rem clamp(1.5rem, 4vw, 3rem) 3rem;
+  background: linear-gradient(180deg, #0b2036 0%, #061019 100%);
+  color: var(--ice, #e6f2fb);
+}
+.bf-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; border-bottom: 1px solid rgba(150, 200, 240, 0.25); padding-bottom: 0.6rem; }
+.bf-head h2 { margin: 0; font-family: var(--font-disp, inherit); font-size: clamp(1.8rem, 4vw, 2.8rem); text-transform: uppercase; letter-spacing: 0.01em; }
+.bf-live { display: inline-flex; align-items: center; gap: 0.45rem; font-size: 0.66rem; letter-spacing: 0.16em; text-transform: uppercase; color: #6c8399; }
+.bf-live i { width: 6px; height: 6px; border-radius: 50%; background: #5edc96; }
+
+.bf-btn {
+  display: inline-block; margin: 0.9rem 0 1.5rem; padding: 0.55rem 1.1rem;
+  border: 1px solid rgba(95, 217, 255, 0.5); border-radius: 999px;
+  background: rgba(95, 217, 255, 0.1); color: #5fd9ff; font-size: 0.78rem; font-weight: 700;
+}
+
+.bf-grid { display: grid; grid-template-columns: 0.9fr 2fr 0.95fr; gap: 1.5rem; }
+.bf-col { display: grid; gap: 0.45rem; align-content: start; }
+.bf-col--main { gap: 0.6rem; }
+.bf-side { display: grid; gap: 0.4rem; margin-bottom: 1rem; }
+.bf-kicker { font-size: 0.64rem; letter-spacing: 0.14em; text-transform: uppercase; color: #5fd9ff; }
+.bf-line { height: 9px; border-radius: 3px; background: rgba(159, 189, 214, 0.22); }
+.bf-line--title { height: 18px; background: rgba(230, 242, 251, 0.5); }
+.bf-line--short { width: 62%; }
+.bf-photo { aspect-ratio: 16 / 10; border-radius: 4px; background: rgba(159, 189, 214, 0.16); }
+.bf-photo--small { aspect-ratio: 16 / 9; }
+.bf-note { margin: 1.5rem 0 0; font-size: 0.78rem; color: #6c8399; }
+
+.block-legacy { position: relative; }
+.block-legacy > img { display: block; width: 100%; height: clamp(320px, 55vh, 560px); object-fit: cover; }
+.bl-copy {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center; padding: 2rem;
+  background: radial-gradient(62% 62% at 50% 50%, rgba(3, 8, 16, 0.42), transparent 76%);
+}
+.bl-eyebrow { font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase; color: #ff9933; }
+.bl-copy h2 { margin: 0.5rem 0; font-family: var(--font-disp, inherit); font-size: clamp(2rem, 6vw, 4rem); text-transform: uppercase; color: #eaf4ff; text-shadow: 0 1px 2px rgba(3, 10, 18, 0.9); }
+.bl-copy p { max-width: 56ch; margin: 0; color: #e6f2fb; line-height: 1.7; text-shadow: 0 1px 2px rgba(3, 10, 18, 0.9); }
+.bl-tag { position: absolute; left: 1rem; bottom: 1rem; font-size: 0.7rem; color: rgba(230, 242, 251, 0.75); background: rgba(6, 16, 25, 0.6); padding: 0.3rem 0.6rem; border-radius: 6px; }
+
+.block-gallerystrip { padding: 2rem clamp(1rem, 3vw, 2.5rem); background: #000; }
+.bg-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.5rem; }
+.bg-row img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 6px; }
+.bg-note { margin: 1rem 0 0; font-size: 0.78rem; color: #8da9c4; }
+.bg-note b { color: #e6f2fb; }

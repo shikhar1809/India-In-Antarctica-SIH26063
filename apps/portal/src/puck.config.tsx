@@ -1,14 +1,14 @@
 import { type Config, DropZone } from '@measured/puck';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar } from 'recharts';
-import MorphSlider from './components/MorphSlider';
 import './blocks.css';
 
+/** The editor previews borrow the public site's own photographs rather than
+ *  keeping a second copy of them in this app. */
+const PUBLIC_SITE = 'https://iia-public.web.app';
+
 type Props = {
-  HeroBlock: {
-    badge: string; titleLine1: string; titleLine2Accent: string;
-    subtitle: string; ctaLabel: string; ctaUrl: string;
-    ctaSecondaryLabel: string; ctaSecondaryUrl: string;
-  };
+  /* No settings: the front page is the archive, live. */
+  HeroBlock: {};
   StatsBlock: {
     stat1Number: string; stat1Label: string; stat2Number: string; stat2Label: string;
     stat3Number: string; stat3Label: string; stat4Number: string; stat4Label: string;
@@ -21,6 +21,8 @@ type Props = {
     area4Icon: string; area4Title: string; area4Desc: string;
   };
   TextBlock: { label: string; heading: string; body: string; };
+  ParallaxLegacyBlock: { label: string; heading: string; body: string; };
+  GalleryBlock: {};
   LibraryBlock: { heading: string; limit: number; };
   AnnouncementsBlock: { heading: string; items: string; };
   BannerBlock: { heading: string; body: string; ctaLabel: string; ctaUrl: string; };
@@ -35,52 +37,51 @@ type Props = {
 export const config: Config<Props> = {
   components: {
 
+    /* The front page. It has no settings on purpose: what it shows is the
+     * Knowledge Repository itself — the latest published records, ordered by
+     * what was most recently published or posted about. The old hero's badge,
+     * headline and buttons are gone with the slideshow they belonged to.
+     *
+     * The editor cannot run the public site's own component (it lives in the
+     * other app, with its data and its photographs), so this is a faithful
+     * skeleton of it: a lead story, a photograph, two down the side. */
     HeroBlock: {
-      label: 'Hero',
-      fields: {
-        badge:               { type: 'text',     label: 'Badge text' },
-        titleLine1:          { type: 'text',     label: 'Title â€” Line 1' },
-        titleLine2Accent:    { type: 'text',     label: 'Title â€” Line 2 (cyan accent)' },
-        subtitle:            { type: 'textarea', label: 'Subtitle' },
-        ctaLabel:            { type: 'text',     label: 'Primary button label' },
-        ctaUrl:              { type: 'text',     label: 'Primary button URL' },
-        ctaSecondaryLabel:   { type: 'text',     label: 'Secondary button label' },
-        ctaSecondaryUrl:     { type: 'text',     label: 'Secondary button URL' },
-      },
-      defaultProps: {
-        badge: 'Ministry of Earth Sciences Â· NCPOR',
-        titleLine1: 'India in',
-        titleLine2Accent: 'Antarctica',
-        subtitle: "Explore India's Antarctic research programme. Walk the ice, run the science, and discover data from Maitri and Bharati stations.",
-        ctaLabel: 'Begin Expedition',     ctaUrl: 'https://iia-game.web.app',
-        ctaSecondaryLabel: 'Browse Archive', ctaSecondaryUrl: '#archive',
-      },
+      label: 'Front page — latest stories',
+      fields: {},
+      defaultProps: {},
       render: () => (
-        <div className="block-hero" style={{ position: 'relative', height: '100vh', width: '100vw' }}>
-          <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-            <MorphSlider
-              items={[
-                { image: 'https://upload.wikimedia.org/wikipedia/commons/4/4d/An_aerial_view_of_the_Indian_Station_Maitri%2C_Antarctica_on_February_2%2C_2005.jpg', caption: 'Maitri Research Station' },
-                { image: 'https://upload.wikimedia.org/wikipedia/commons/3/3a/Bharati_permanent_Antarctic_research_station.jpg', caption: 'Bharati Research Station' },
-                { image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/22/%E0%A4%A6%E0%A4%95%E0%A5%8D%E0%A4%B7%E0%A4%BF%E0%A4%A3_%E0%A4%97%E0%A4%82%E0%A4%97%E0%A5%8B%E0%A4%A4%E0%A5%8D%E0%A4%B0%E0%A5%80%2C_%E0%A4%85%E0%A4%82%E0%A4%9F%E0%A4%BE%E0%A4%B0%E0%A5%8D%E0%A4%95%E0%A4%9F%E0%A4%BF%E0%A4%95%E0%A4%BE.jpg/1280px-%E0%A4%A6%E0%A4%95%E0%A5%8D%E0%A4%B7%E0%A4%BF%E0%A4%A3_%E0%A4%97%E0%A4%82%E0%A4%97%E0%A5%8B%E0%A4%A4%E0%A5%8D%E0%A4%B0%E0%A5%80%2C_%E0%A4%85%E0%A4%82%E0%A4%9F%E0%A4%BE%E0%A4%B0%E0%A5%8D%E0%A4%95%E0%A4%9F%E0%A4%BF%E0%A4%95%E0%A4%BE.jpg', caption: 'Dakshin Gangotri' }
-              ]}
-              transition="melt"
-              intensity={0.55}
-              aberration={0.35}
-              drift={0.4}
-              autoplay={true}
-              overlayColor="#05060a"
-              duration={1.1}
-              ease="power2.inOut"
-              scale={2.4}
-              autoplayDelay={4}
-              loop
-              radius={0}
-              showCaptions
-              showControls={true}
-              showIndicators={true}
-            />
+        <div className="block-frontpage">
+          <div className="bf-head">
+            <h2>Latest from the Ice</h2>
+            <span className="bf-live"><i /> Live from the Knowledge Repository</span>
           </div>
+          <span className="bf-btn">Access Knowledge Repository →</span>
+          <div className="bf-grid">
+            <div className="bf-col">
+              <span className="bf-kicker">Lead story</span>
+              <div className="bf-line bf-line--title" />
+              <div className="bf-line" /><div className="bf-line" /><div className="bf-line bf-line--short" />
+            </div>
+            <div className="bf-col bf-col--main">
+              <div className="bf-photo" />
+              <span className="bf-kicker">Main story</span>
+              <div className="bf-line bf-line--title" />
+              <div className="bf-line" /><div className="bf-line bf-line--short" />
+            </div>
+            <div className="bf-col">
+              {[0, 1].map((i) => (
+                <div key={i} className="bf-side">
+                  <div className="bf-photo bf-photo--small" />
+                  <div className="bf-line bf-line--title" />
+                  <div className="bf-line bf-line--short" />
+                </div>
+              ))}
+            </div>
+          </div>
+          <p className="bf-note">
+            Filled from the published records — nothing here is typed in. Approve a post and it
+            appears at the top.
+          </p>
         </div>
       ),
     },
@@ -180,6 +181,55 @@ export const config: Config<Props> = {
             <h2>{heading}</h2>
             <p>{body}</p>
           </div>
+        </div>
+      ),
+    },
+
+    /* The live legacy section: three station photographs in layers that
+     * slide past each other as the reader scrolls, with the words over them.
+     * The editor shows the settled state and the photographs themselves. */
+    ParallaxLegacyBlock: {
+      label: 'Legacy — parallax section',
+      fields: {
+        label:   { type: 'text',     label: 'Section label (mono)' },
+        heading: { type: 'text',     label: 'Heading' },
+        body:    { type: 'textarea', label: 'Body text' },
+      },
+      defaultProps: {
+        label: 'About',
+        heading: "India's Polar Legacy",
+        body: "India began its Antarctic journey in 1981 and has since conducted 43 scientific expeditions. The National Centre for Polar and Ocean Research (NCPOR) under the Ministry of Earth Sciences coordinates India's Antarctic activities, maintaining two research stations — Maitri in the Schirmacher Oasis and Bharati in the Larsemann Hills.",
+      },
+      render: ({ label, heading, body }) => (
+        <div className="block-legacy">
+          <img src={`${PUBLIC_SITE}/photos/maitri-flag.jpg`} alt="" />
+          <div className="bl-copy">
+            <span className="bl-eyebrow">{label}</span>
+            <h2>{heading}</h2>
+            <p>{body}</p>
+          </div>
+          <span className="bl-tag">Scroll-driven · three photographs in layers</span>
+        </div>
+      ),
+    },
+
+    /* The station gallery. Its pictures are not page content — they are
+     * managed on their own page, which is where this points. */
+    GalleryBlock: {
+      label: 'Station gallery',
+      fields: {},
+      defaultProps: {},
+      render: () => (
+        <div className="block-gallerystrip">
+          <div className="bg-row">
+            {['maitri-aerial', 'bharati-station', 'dakshin-station', 'aurora', 'field-camp'].map((n) => (
+              <img key={n} src={`${PUBLIC_SITE}/photos/${n}.jpg`} alt="" />
+            ))}
+          </div>
+          <p className="bg-note">
+            The station gallery, as it appears under the legacy section. Its photographs and films
+            are managed on <b>Site → Edit gallery</b>, not here.
+          </p>
         </div>
       ),
     },

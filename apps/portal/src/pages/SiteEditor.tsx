@@ -4,43 +4,25 @@ import { db } from '../firebase';
 import { Puck } from '@measured/puck';
 import '@measured/puck/puck.css';
 import { config } from '../puck.config';
+import { asPublished } from './homeLayout';
 import { Globe, HardHat, Smartphone, Tablet, Monitor } from 'lucide-react';
 import './SiteEditor.css';
 
+/** A fresh site, laid out the way the live one is: the front page, the
+ *  numbers, the legacy section, the station gallery, then PolarQuest. Only
+ *  used when `publicSiteData/home_puck` does not exist yet. */
 const DEFAULT_DATA = {
   content: [
-    {
-      type: 'HeroBlock',
-      props: { id: 'hero-1', badge: 'Ministry of Earth Sciences · NCPOR', titleLine1: 'India in', titleLine2Accent: 'Antarctica', subtitle: "Explore India's Antarctic research programme. Walk the ice, run the science, and discover data from Maitri and Bharati stations.", ctaLabel: 'Begin Expedition', ctaUrl: 'https://iia-game.web.app', ctaSecondaryLabel: 'Browse Archive', ctaSecondaryUrl: '#archive' }
-    },
+    { type: 'HeroBlock', props: { id: 'hero-1' } },
     {
       type: 'StatsBlock',
       props: { id: 'stats-1', stat1Number: '43+', stat1Label: 'Expeditions', stat2Number: '2', stat2Label: 'Research Stations', stat3Number: '1981', stat3Label: 'First Expedition', stat4Number: '800+', stat4Label: 'Datasets Published' }
     },
     {
-      type: 'MissionBlock',
-      props: { id: 'mission-1', label: 'Our Mission', heading: 'Advancing Polar Science', body: "India's Antarctic programme conducts multi-disciplinary research across glaciology, meteorology, oceanography and environmental monitoring. The data collected by Indian scientists contributes to global climate science and informs policy at the ATCM.", area1Icon: '🧊', area1Title: 'Glaciology', area1Desc: 'Ice cores, thickness surveys and mass balance studies', area2Icon: '🌤', area2Title: 'Meteorology', area2Desc: 'Atmospheric sounding, ozone monitoring, radiation', area3Icon: '🌊', area3Title: 'Oceanography', area3Desc: 'CTD casts, water sampling and current profiling', area4Icon: '🐧', area4Title: 'Wildlife Biology', area4Desc: 'Species counts, breeding surveys and marine ecosystems' }
+      type: 'ParallaxLegacyBlock',
+      props: { id: 'text-1', label: 'About', heading: "India's Polar Legacy", body: "India began its Antarctic journey in 1981 and has since conducted 43 scientific expeditions. The National Centre for Polar and Ocean Research (NCPOR) under the Ministry of Earth Sciences coordinates India's Antarctic activities, maintaining two research stations — Maitri in the Schirmacher Oasis and Bharati in the Larsemann Hills." }
     },
-    {
-      type: 'WeatherBlock',
-      props: { id: 'weather-1', station: 'Bharati', temp: '-12.4', wind: '45', status: 'Blizzard Conditions', statusIcon: '🌨️' }
-    },
-    {
-      type: 'ChartBlock',
-      props: { id: 'chart-1', title: 'Surface Mass Balance', subtitle: 'Annual accumulation vs ablation (Gt)', type: 'bar', color: '#5fd9ff', yAxisLabel: 'Gigatonnes', dataJson: '[\n  {"name": "2021", "val": 120},\n  {"name": "2022", "val": 95},\n  {"name": "2023", "val": 110},\n  {"name": "2024", "val": 80},\n  {"name": "2025", "val": 105}\n]' }
-    },
-    {
-      type: 'AnnouncementsBlock',
-      props: { id: 'ann-1', heading: 'Latest Updates', items: JSON.stringify([{ date: '2026-09-01', title: '44th Expedition Departs', content: 'The 44th Indian Scientific Expedition to Antarctica departs from Goa, carrying 23 researchers across 12 scientific disciplines.' }, { date: '2026-08-14', title: 'New Glaciology Dataset Published', content: 'Ice thickness and surface velocity data from Schirmacher Oasis is now publicly available in the Knowledge Repository.' }, { date: '2026-07-30', title: 'Bharati Station Operations Resume', content: 'Summer operations at Bharati station have commenced for the 2026-27 season.' }]) }
-    },
-    {
-      type: 'LibraryBlock',
-      props: { id: 'lib-1', heading: 'Knowledge Repository', limit: 6 }
-    },
-    {
-      type: 'DatasetBlock',
-      props: { id: 'dataset-1', title: 'Ice Core Stratigraphy 2026', doi: '10.1594/PANGAEA.12345', format: 'NetCDF / CSV', size: '1.2 GB', downloadUrl: '#' }
-    },
+    { type: 'GalleryBlock', props: { id: 'gallery-station-photos' } },
     {
       type: 'BannerBlock',
       props: { id: 'banner-1', heading: 'Experience the Expedition', body: "Step into an immersive 3D environment and walk the ice of Maitri and Bharati stations. Collect field data, fill the Knowledge Repository.", ctaLabel: 'Launch PolarQuest 3D', ctaUrl: 'https://iia-game.web.app' }
@@ -73,14 +55,14 @@ export function SiteEditor() {
         }
 
         if (snap.exists() && snap.data()?.content?.length > 0) {
-          setInitialData(snap.data());
+          setInitialData(asPublished(snap.data() as never));
         } else {
           await setDoc(docRef, DEFAULT_DATA);
-          setInitialData(DEFAULT_DATA);
+          setInitialData(asPublished(DEFAULT_DATA as never));
         }
       } catch (err) {
         console.error(err);
-        setInitialData(DEFAULT_DATA);
+        setInitialData(asPublished(DEFAULT_DATA as never));
       } finally {
         setLoading(false);
       }
@@ -112,7 +94,7 @@ export function SiteEditor() {
 
   const handleReset = async () => {
     if (confirm("Reset to the SIH default template? This will overwrite your current draft.")) {
-      setInitialData(DEFAULT_DATA);
+      setInitialData(asPublished(DEFAULT_DATA as never));
       await handlePublish(DEFAULT_DATA);
       window.location.reload();
     }
