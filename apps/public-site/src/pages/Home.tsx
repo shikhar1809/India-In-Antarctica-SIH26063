@@ -6,6 +6,7 @@ import { Render } from '@measured/puck';
 import { config } from '../puck.config';
 import RouteLoading from '../components/RouteLoading';
 import BookShelf from '../components/ui/book-shelf';
+import { AskScientistBanner } from '../components/AskScientistBanner';
 import './Home.css';
 import '../blocks.css';
 
@@ -130,7 +131,7 @@ export default function Home() {
             Archive takes too long to open" actually was. */}
         <nav className="home-header-nav">
           <Link to="/">Home</Link>
-          <Link to="/archive">Archive</Link>
+          <Link to="/archive">Knowledge Repository</Link>
           <Link to="/gallery">Gallery</Link>
           <Link to="/ask">Ask a Scientist</Link>
           <a href="https://iia-game.web.app" target="_blank" rel="noreferrer">PolarQuest</a>
@@ -151,7 +152,7 @@ export default function Home() {
       <nav className={`home-mobile-nav ${menuOpen ? 'open' : ''}`}>
         {[
           { label: 'Home', href: '/', internal: true },
-          { label: 'Archive', href: '/archive', internal: true },
+          { label: 'Knowledge Repository', href: '/archive', internal: true },
           { label: 'Gallery', href: '/gallery', internal: true },
           { label: 'Ask a Scientist', href: '/ask', internal: true },
           { label: 'PolarQuest', href: 'https://iia-game.web.app', internal: false },
@@ -185,6 +186,11 @@ export default function Home() {
         * page — no need to open the picker there and find it again. */}
       <BookShelf onOpenRecord={(id) => navigate(`/archive/${id}`)} />
 
+      {/* ── Ask a scientist ──
+        * Under the shelf on purpose: the shelf is what has been published,
+        * this is how a student starts something new. */}
+      <AskScientistBanner />
+
       {/* ── Footer ── */}
       <footer className="home-footer">
         <div className="footer-brand">
@@ -195,7 +201,7 @@ export default function Home() {
         <div className="footer-links">
           <h4>Quick Links</h4>
           <ul>
-            <li><Link to="/archive">Archive</Link></li>
+            <li><Link to="/archive">Knowledge Repository</Link></li>
             <li><Link to="/gallery">Gallery</Link></li>
             <li><Link to="/ask">Ask a Scientist</Link></li>
             <li><a href="https://iia-portal.web.app">Outreach Portal</a></li>

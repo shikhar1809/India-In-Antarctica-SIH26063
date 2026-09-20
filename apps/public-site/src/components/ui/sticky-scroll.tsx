@@ -132,6 +132,12 @@ export function StickyScrollGallery({ center, left, right, className }: StickySc
  *  row taller than the pinned centre, giving the pin-and-scroll-past
  *  effect actual distance to happen over. */
 export function ArchiveGallerySection() {
+  /* Ten photographs exist (public/photos, credited in lib/galleryArt.ts)
+   * and every one appears exactly once. The columns used to ask for
+   * fifteen frames between them, so five were repeats — the same station
+   * and the same icebreaker twice in one view, which reads as a bug
+   * rather than a gallery. Fewer frames, all different, is the honest
+   * version of this section. */
   const center: GalleryImage[] = [
     { src: '/photos/maitri-aerial.jpg', alt: 'Maitri research station', caption: 'Maitri — Schirmacher Oasis' },
     { src: '/photos/bharati-station.jpg', alt: 'Bharati research station', caption: 'Bharati — Larsemann Hills' },
@@ -141,16 +147,11 @@ export function ArchiveGallerySection() {
     { src: '/photos/maitri-flag.jpg', alt: 'Indian flag over Maitri', caption: 'Flag over Maitri, 2005' },
     { src: '/photos/dakshin-aerial.jpg', alt: 'Dakshin Gangotri under construction', caption: 'Dakshin Gangotri — under construction, 1983' },
     { src: '/photos/aurora.jpg', alt: 'Aurora australis over Antarctica', caption: 'Aurora australis, from the ISS' },
-    { src: '/photos/icebreaker.jpg', alt: 'Icebreaker in Antarctic waters', caption: 'Resupply icebreaker' },
     { src: '/photos/lake-priyadarshini.jpg', alt: 'Lake Priyadarshini', caption: 'Lake Priyadarshini, near Maitri' },
-    { src: '/photos/field-camp.jpg', alt: 'Tent field camp, Union Glacier', caption: 'Field camp, Union Glacier' },
   ]
   const right: GalleryImage[] = [
     { src: '/photos/aurora-panorama.jpg', alt: 'Aurora australis panorama', caption: 'Aurora, wide panorama' },
-    { src: '/photos/bharati-station.jpg', alt: 'Bharati research station', caption: 'Bharati — Larsemann Hills' },
-    { src: '/photos/maitri-aerial.jpg', alt: 'Maitri research station', caption: 'Maitri — Schirmacher Oasis' },
     { src: '/photos/icebreaker.jpg', alt: 'Icebreaker in Antarctic waters', caption: 'Resupply icebreaker' },
-    { src: '/photos/dakshin-station.jpg', alt: 'Dakshin Gangotri station', caption: 'Dakshin Gangotri — 1984–1990' },
     { src: '/photos/field-camp.jpg', alt: 'Tent field camp, Union Glacier', caption: 'Field camp, Union Glacier' },
   ]
 

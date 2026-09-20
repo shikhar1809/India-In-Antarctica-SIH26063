@@ -16,12 +16,11 @@ import {
   effectiveStatus,
   adapterFor,
   confirmManualPost,
-  sendPost,
   cancelPost,
   type ScheduledPost,
   type PostStatus,
 } from './queue';
-import { refreshAdapters, type PublishCapability } from './uploadPostAdapter';
+import { refreshAdapters, sendNow, type PublishCapability } from './uploadPostAdapter';
 
 import './QueueTab.css';
 
@@ -59,20 +58,15 @@ function QueueRow({ post }: { post: ScheduledPost }) {
    * registered does not remove a publisher's ability to post it themselves
    * and paste the link, which is what they will do the first time an
    * automatic send fails. */
-  const canSendNow = status === 'ready' && adapter.automatic;
+  const canSendNow = (status === 'ready' || status === 'failed' || status === 'queued') && adapter.automatic;
 
-  /** Posts it for real, through the adapter. `sendScheduledPost` owns the
-   *  state transition, so a failure lands as a 'failed' row carrying the
-   *  platform's own reason rather than a silent no-op. */
+  /** Posts it for real. The server records the outcome on the row — a
+   *  failure lands as a 'failed' row carrying the platform's own reason. */
   const postNow = async () => {
     setBusy(true); setErr(null);
     try {
-      const next = await sendPost(post);
-      await updateScheduledPost(next);
-      if (next.status === 'posted' && post.status !== 'posted') {
-        await recordSocialPost(next);
-      }
-      if (next.status === 'failed') setErr(next.error ?? 'The platform rejected the post.');
+      const r = await sendNow(post.id);
+      if (!r.ok) setErr(r.error ?? 'The platform rejected the post.');
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Could not send the post.');
     } finally { setBusy(false); }

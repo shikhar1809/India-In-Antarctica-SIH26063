@@ -19,6 +19,7 @@
  * that is certain to fail.
  */
 
+import { auth } from '../firebase';
 import {
   registerAdapter,
   type PlatformAdapter,
@@ -69,25 +70,27 @@ export async function publishCapability(): Promise<PublishCapability> {
  * audit trail, which is worse than a failure a publisher can retry.
  */
 async function send(post: ScheduledPost): Promise<PostResult> {
+  return sendNow(post.id);
+}
+
+/**
+ * Sends one queue row now. The server claims the row, posts it, and writes
+ * the outcome — the permalink, or the platform's reason — onto the row itself
+ * (functions/socialsender.js), so the queue updates through its listener and
+ * nothing here writes the result a second time.
+ */
+export async function sendNow(postId: string): Promise<PostResult> {
+  const user = auth.currentUser;
+  if (!user) return { ok: false, error: 'Sign in to post.' };
   try {
-    const res = await fetch(`${BASE}/publish`, {
+    const res = await fetch(`${BASE}/send`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        platform: post.platform,
-        caption: post.caption,
-        imageUrl: post.imageUrl ?? undefined,
-        // Lets a retry be recognised upstream as the same post rather than a
-        // second one, and maps the published post back to this queue row.
-        externalId: post.id,
-      }),
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await user.getIdToken()}` },
+      body: JSON.stringify({ postId }),
     });
 
     const body = await res.json().catch(() => ({}));
 
-    if (res.status === 503) {
-      return { ok: false, error: 'No publishing credential is configured on the server.' };
-    }
     if (!res.ok || !body.ok) {
       return { ok: false, error: body.error || `The platform rejected the post (${res.status}).` };
     }

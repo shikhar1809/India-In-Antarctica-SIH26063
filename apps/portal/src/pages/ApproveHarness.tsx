@@ -28,6 +28,7 @@ const DRAFTED = [
     measurements: { species: 'Pygoscelis adeliae', count: '340' },
     notes: 'Adélie colony near the Larsemann Hills field camp, first count of the season.',
     caption: 'First Adélie count of the season at Bharati: 340 birds.', publisherName: 'Publisher',
+    platformCaptions: { x: 'First Adélie count of the season at Bharati: 340 birds.', linkedin: 'Our first Adélie count of the season.', instagram: '' },
     publicSummary: { title: 'Adélie penguins counted near Bharati', body: ['A first count of the season found 340 Adélie penguins.'], table: [], chart: null },
   }),
   d('dr2', {

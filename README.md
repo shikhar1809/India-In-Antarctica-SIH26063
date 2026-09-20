@@ -22,21 +22,22 @@ field report never leaves the authenticated side.
 ## The pipeline
 
 ```
-  Scientist                Publisher                 Admin              Public
-  ─────────                ─────────                 ─────              ──────
-  Field app         →      Portal            →       Portal        →    Public site
-  (Flutter,                post studio               approve            live archive
-   offline-first)          + SOP checklist           + review           + charts
-      │                         │                       │                   ▲
-      │  dispatches             │  publicSummary        │  publicArchive    │
-      └────────────────────────►└──────────────────────►└─────────┬─────────┘
-                                                        (projection)
-                                                                  │
-                                                                  ▼
-                                                          Dissemination queue
-                                                          → X / LinkedIn / Instagram
-                                                            (posted via Upload-Post,
-                                                             engagement read back)
+  Scientist            Admin                Publisher            Admin            Public
+  ─────────            ─────                ─────────            ─────            ──────
+  Field app      →     AI screening   →     Post studio    →     Approve     →    Public site
+  (Flutter,            + redaction          + SOP checklist      + review         live archive
+   offline-first,      (admin only)         (agentic)            + marks up       + charts
+   satellite sync)         │                     │                   │                ▲
+      │  dispatches        │  cleared            │  publicSummary    │ publicArchive  │
+      └───────────────────►└────────────────────►└──────────────────►└───────┬────────┘
+         status: raw          status: cleared       status: drafted   (projection)
+                                                                              │
+                                                                              ▼
+                                                                    Dissemination queue
+                                                                    → X / LinkedIn / Instagram
+                                                                      (sent automatically when
+                                                                       due; engagement and
+                                                                       deletions read back)
 
   Anyone           →      Knowledge Repository  →  Admin review  →  Public site
   (deposit a file)        (documents)              (Moderation)     (published)
@@ -159,6 +160,40 @@ approval promotes the linked archive record instead of copying it.
 and a typo still lands — a local, instant, domain-vocabulary ranker rather than
 substring matching.
 
+**Nothing from the ice reaches the public unscreened.** A field report
+arrives as `raw`, visible to admins and its author and nobody else. On the
+admin's desk a screening pass — rules plus a model, each finding quoted from
+the text it came from — flags names, contact details, health information,
+exact positions and anything else a government account should not publish.
+The admin redacts what it found, in place, and only then does the report go
+to the public site and to the publishers. Findings the model cannot quote
+verbatim from the field notes are dropped rather than shown, so a
+hallucinated finding cannot become a redaction. See
+[docs/SCREENING.md](docs/SCREENING.md).
+
+**The field app is built for a satellite link.** Indian stations reach the
+world over a link that is slow, metered and drops. So reports are written and
+stored offline; photographs are shrunk (2048 px, EXIF stripped) before
+sending; every file goes up resumably in 512 KB pieces, so a dropped link
+resumes instead of starting over; and the app retries on reconnection and
+every two minutes while anything is queued. Each report shows QUEUED →
+SENDING (with progress) → SYNCED, or the reason it did not go. Windows and
+Android builds come from the same codebase.
+
+**Approved posts go out by themselves.** Approving a post publishes the
+record *and* posts it to every platform the publisher wrote a caption for,
+each with its own caption and its own finished graphic. Anything scheduled
+for later is sent by a function that runs every five minutes, so a post timed
+for 06:00 does not wait for someone to open the queue. A send records the
+platform's own permalink or its refusal; the endpoint that posts is
+restricted to signed-in publishers and admins.
+
+**The front page is the archive, live.** The home page opens as a section
+front — a lead story, a photograph-led centre, two stories down the right and
+a strip of more underneath — built from published records, ordered by latest
+activity, so a record posted about yesterday leads today. Nothing on it is
+hand-curated.
+
 **An outreach game.** PolarQuest is a 3D walkthrough of Maitri, Bharati and
 Dakshin Gangotri built from published sources, with coordinates and founding
 dates traced in `docs/REFERENCES.md`.
@@ -182,8 +217,9 @@ dates traced in `docs/REFERENCES.md`.
 │   ├── public-site/     Public outreach site and Knowledge Repository (React)
 │   └── scientist-app/   Field data capture, offline-first (Flutter + SQLite)
 ├── functions/           Cloud Functions (Node 22, asia-south1):
-│                          api (public read API) · studio (copy, refs, research, review, publish)
-│                          engagement (analytics) · access (sign-in check)
+│                          api (public read API) · studio (copy, refs, research, review,
+│                            screen, publish, send) · sendDuePosts (scheduled sender)
+│                          engagement (analytics, liveness) · access (sign-in check)
 ├── scripts/             Ingestion, verification and seeding
 │   └── lib/             Shared REST + credential helpers
 ├── docs/                Architecture, data model, API, testing, deployment
@@ -201,8 +237,15 @@ npm run dev:portal         # or dev:site / dev:game
 The Flutter app is separate:
 
 ```bash
-cd apps/scientist-app && flutter pub get && flutter run
+cd apps/scientist-app
+flutter pub get
+flutter run                     # or:
+flutter build windows --release # Windows desktop
+flutter build apk --release     # Android
 ```
+
+A ready-to-run Windows build and the Android APK are published at
+[Scientist_App_Sih](https://github.com/shikhar1809/Scientist_App_Sih).
 
 Roles are stored in `roles/{uid}`. To grant one from the command line:
 
@@ -277,7 +320,8 @@ API:
 
 | Function | Routes | Documented in |
 |---|---|---|
-| `studio` | `/copy`, `/refs`, `/abtest`, `/revise`, `/moderate`, `/review`, `/trends`, `/sources`, `/publish`, `/publish-status` | [STUDIO.md](docs/STUDIO.md), [SOCIAL.md](docs/SOCIAL.md) |
+| `studio` | `/copy`, `/refs`, `/abtest`, `/revise`, `/moderate`, `/review`, `/screen`, `/trends`, `/sources`, `/publish`, `/send`, `/publish-status` | [STUDIO.md](docs/STUDIO.md), [SCREENING.md](docs/SCREENING.md), [SOCIAL.md](docs/SOCIAL.md) |
+| `sendDuePosts` | Scheduled (every 5 minutes) — sends queued posts whose time has come | [SOCIAL.md](docs/SOCIAL.md) |
 | `engagement` | `GET` account analytics · `POST` per-post engagement refresh | [SOCIAL.md](docs/SOCIAL.md) |
 | `access` | `GET` caller's IP · `POST` sign-in check and log entry | [ACCESS.md](docs/ACCESS.md) |
 | `auditTrail` | Firestore trigger (us-central1) — every write, logged with a diff | [ACCESS.md](docs/ACCESS.md) |
@@ -296,7 +340,8 @@ still works on a fresh clone with no credentials.
 | [STUDIO.md](docs/STUDIO.md) | The agentic post studio: the eleven steps, research, explainability and when it asks, the image providers, markup, A/B, the photograph check |
 | [SOCIAL.md](docs/SOCIAL.md) | Posting to X, LinkedIn and Instagram, reading analytics back, the outreach dashboard |
 | [ACCESS.md](docs/ACCESS.md) | Roles, Site Manager, revoking, the sign-in security check, the activity log and what its rules guarantee |
-| [SCIENTIST-APP.md](docs/SCIENTIST-APP.md) | The Flutter field app: capture, offline sync, validation |
+| [SCREENING.md](docs/SCREENING.md) | Screening a field report for personal and sensitive content, and how redaction is recorded |
+| [SCIENTIST-APP.md](docs/SCIENTIST-APP.md) | The Flutter field app: capture, offline and satellite sync, validation |
 | [TESTING.md](docs/TESTING.md) | What is tested, what isn't, and why |
 | [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Deploying each target, and seeding |
 | [WORKFLOW.md](docs/WORKFLOW.md) | Research into how real Antarctic programmes handle data |
@@ -319,6 +364,10 @@ Stated plainly, because a reviewer will find them anyway:
   production system should use a licensed news API.
 - **Uptime history on the Site page is mocked** until a real monitor is
   connected, and says so.
+- **Student questions do not round-trip yet.** The Ask a Scientist page
+  collects a question, but `student_questions` has no Firestore rule, so the
+  write is refused; the public site and the moderation queue also label a new
+  question differently. Both are known and unfixed.
 
 ## Licence and attribution
 

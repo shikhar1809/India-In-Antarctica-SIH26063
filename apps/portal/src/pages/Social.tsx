@@ -19,6 +19,7 @@ import { useSocialQueue } from '../hooks/useSocialQueue';
 import { isRemoved, type ScheduledPost } from '../social/queue';
 import { checkLiveness } from '../social/engagementClient';
 import { ScheduleDialog } from '../social/ScheduleDialog';
+import { platformsOf, postToPlatforms, type PostOutcome } from '../social/postNow';
 import { Studio } from '../studio/Studio';
 import { PostCanvas } from '../studio/PostCanvas';
 import { TraceView } from '../studio/TraceView';
@@ -48,19 +49,9 @@ const PRIORITY_LABEL: Record<DispatchPriority, string> = {
   urgent: 'Urgent'
 };
 
-const PLATFORMS = [
-  { id: 'x',        label: 'X',        share: (t: string, u: string) => `https://twitter.com/intent/tweet?text=${encodeURIComponent(t)}&url=${encodeURIComponent(u)}` },
-  { id: 'linkedin', label: 'LinkedIn', share: (_: string, u: string) => `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(u)}` },
-  { id: 'whatsapp', label: 'WhatsApp', share: (t: string, u: string) => `https://wa.me/?text=${encodeURIComponent(`${t} ${u}`)}` },
-];
-
-const PORTAL_URL = 'https://iia-portal.web.app';
 const PUBLIC_SITE_URL = 'https://iia-public.web.app';
 
-// Instagram has no share-intent URL scheme at all — Meta doesn't support
-// cross-app posting from a web link, unlike X/LinkedIn/WhatsApp above.
-// "Copy caption, download the photo, post from the app" is the honest tool
-// for that platform, not a fake share button that would go nowhere.
+// NCPOR posts to three platforms: X, LinkedIn and Instagram.
 const COMPOSE_PLATFORMS: { id: keyof PlatformCaptions; label: string }[] = [
   { id: 'x', label: 'X' },
   { id: 'linkedin', label: 'LinkedIn' },
@@ -667,9 +658,29 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
    *  record around so the scheduling dialog can open on it — approving and
    *  announcing are the same thought, and making the reviewer go and find the
    *  record again afterwards is how announcements get forgotten. */
-  const approve = async (andSchedule = false) => {
+  /* What "Approve & post" did on each platform — shown until dismissed,
+   * because the approved post leaves the queue the moment it is approved. */
+  const [postReport, setPostReport] = useState<{ title: string; lines: PostOutcome[] } | null>(null);
+  const [busyNote, setBusyNote] = useState<string | null>(null);
+
+  /** After the record is on the website: post it now, open the scheduler,
+   *  or nothing (website only). */
+  const announce = async (mode: ApproveMode, record: RepositoryRecord & { id: string }, d: Dispatch) => {
+    if (mode === 'schedule') { setSchedulePostOf(d); setScheduleFor(record); return; }
+    if (mode !== 'post' || !user) return;
+    const wanted = platformsOf(d);
+    if (!wanted.length) {
+      setPostReport({ title: record.title, lines: [] });
+      return;
+    }
+    setBusyNote(`Posting to ${wanted.map((p) => PLATFORM_NAME[p]).join(', ')}…`);
+    const lines = await postToPlatforms(record, d, user.uid, wanted);
+    setPostReport({ title: record.title, lines });
+  };
+
+  const approve = async (mode: ApproveMode = 'post') => {
     if (!active || !user) return;
-    setBusy(true); setError(null);
+    setBusy(true); setError(null); setPostReport(null); setBusyNote(null);
     try {
       const allowed = canPublishDispatch({ ...active, status: 'approved' });
       if (!allowed.ok) { setError(allowed.reason); return; }
@@ -688,8 +699,8 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
         await updateDoc(doc(db, 'dispatches', active.id), {
           status: 'approved' satisfies DispatchStatus, updatedAt: Date.now(),
         });
-        if (andSchedule) { setSchedulePostOf(active); setScheduleFor(existing); }
         setActiveId(null); setAi(null);
+        await announce(mode, existing, active);
         return;
       }
 
@@ -707,8 +718,8 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
           publicIdentifier: existing.metadata?.identifier ?? null,
           updatedAt: Date.now(),
         });
-        if (andSchedule) { setSchedulePostOf(active); setScheduleFor(existing); }
         setActiveId(null); setAi(null);
+        await announce(mode, existing, active);
         return;
       }
 
@@ -728,11 +739,11 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
         publicIdentifier: identifier,
         updatedAt: Date.now(),
       });
-      if (andSchedule) { setSchedulePostOf(active); setScheduleFor(record); }
       setActiveId(null); setAi(null);
+      await announce(mode, record, active);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not publish this record. Nothing was changed.');
-    } finally { setBusy(false); }
+    } finally { setBusy(false); setBusyNote(null); }
   };
 
   const flag = async () => {
@@ -752,6 +763,7 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
   if (items.length === 0 || !active) {
     return (
       <div className="ad-empty-wrap">
+        {postReport && <PostReport report={postReport} onClose={() => setPostReport(null)} />}
         <IncomingGroup items={incoming} />
         <p className="fld-empty">Nothing waiting on approval.</p>
         {incoming.length === 0 && <DemoSeedButton />}
@@ -794,8 +806,11 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
     : worst === 'caution' ? 'Publishable, worth a look'
     : 'Nothing flagged';
 
+  const wanted = platformsOf(active);
+
   return (
     <>
+    {postReport && <PostReport report={postReport} onClose={() => setPostReport(null)} />}
     <div className="ad-desk">
       {/* ── queue ───────────────────────────────────────────────── */}
       <div className="ad-col ad-col--queue">
@@ -1095,14 +1110,22 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
         <div className="ad-actions">
           {!flagging ? (
             <>
-              <button className="ph-btn primary" onClick={() => approve(false)} disabled={busy || blocked}>
-                {busy ? 'Publishing…' : blocked ? 'Blocked — cannot publish' : 'Approve — publish it'}
+              {/* Approving publishes to the website and posts to every
+                  platform the publisher wrote a caption for, straight away. */}
+              <button className="ph-btn primary" onClick={() => approve('post')} disabled={busy || blocked}>
+                {busy
+                  ? (busyNote ?? 'Publishing…')
+                  : blocked ? 'Blocked — cannot publish'
+                  : wanted.length ? `Approve & post to ${wanted.map((p) => PLATFORM_NAME[p]).join(', ')}` : 'Approve — publish to the website'}
               </button>
-              {/* Publishing and announcing are one decision. This does both,
-                  then opens the scheduler on the record it just created. */}
-              <button className="ph-btn ghost" onClick={() => approve(true)} disabled={busy || blocked}>
-                Approve &amp; schedule a post
+              <button className="ph-btn ghost" onClick={() => approve('schedule')} disabled={busy || blocked}>
+                Approve &amp; schedule for later
               </button>
+              {wanted.length > 0 && (
+                <button className="ph-btn ghost" onClick={() => approve('site')} disabled={busy || blocked}>
+                  Approve — website only
+                </button>
+              )}
               <button className="ph-btn ghost" onClick={() => setFlagging(true)} disabled={busy}>
                 Send back with a note
               </button>
@@ -1255,9 +1278,7 @@ export function FeedTab({ items, posts: given, preview }: { items: Dispatch[]; p
                 className="ph-btn primary small"
               >View on main site</a>
             )}
-            {!dim && PLATFORMS.map((p) => (
-              <a key={p.id} href={p.share(d.caption, PORTAL_URL)} target="_blank" rel="noreferrer" className="ph-btn ghost small">{p.label}</a>
-            ))}
+            {!dim && !preview && <PostNowButton d={d} postedTo={posts.filter((p) => p.recordId === d.publicRecordId && (p.status === 'posted' || p.status === 'queued')).map((p) => p.platform)} />}
           </div>
         </div>
       </article>
@@ -1294,6 +1315,71 @@ export function FeedTab({ items, posts: given, preview }: { items: Dispatch[]; p
         </details>
       )}
     </div>
+  );
+}
+
+type ApproveMode = 'post' | 'schedule' | 'site';
+
+/** What happened on each platform after "Approve & post". */
+function PostReport({ report, onClose }: { report: { title: string; lines: PostOutcome[] }; onClose: () => void }) {
+  const failed = report.lines.filter((l) => !l.ok);
+  return (
+    <div className={'ad-postreport' + (failed.length ? ' has-failed' : '')} role="status">
+      <div className="ad-postreport-head">
+        <strong>“{report.title}” is on the website.</strong>
+        <button type="button" className="ph-btn ghost small" onClick={onClose}>Dismiss</button>
+      </div>
+      {report.lines.length === 0 ? (
+        <p>No captions were written for X, LinkedIn or Instagram, so nothing was posted to social media.</p>
+      ) : (
+        <ul>
+          {report.lines.map((l) => (
+            <li key={l.platform} className={l.ok ? 'is-ok' : 'is-bad'}>
+              {l.ok ? <CheckCircle2 size={13} strokeWidth={2.5} /> : <TriangleAlert size={13} strokeWidth={2.5} />}
+              <b>{l.label}</b>
+              {l.ok
+                ? (l.url ? <a href={l.url} target="_blank" rel="noreferrer">posted — view it</a> : <span>posted</span>)
+                : <span>not posted — {l.note ?? 'the platform refused it'}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {failed.length > 0 && <p className="ad-postreport-foot">Failed posts wait in the Queue tab, where they can be retried.</p>}
+    </div>
+  );
+}
+
+/** On the live feed: post an approved post to the platforms it was written
+ *  for and has not gone out on yet. */
+function PostNowButton({ d, postedTo }: { d: Dispatch; postedTo: string[] }) {
+  const { user } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [lines, setLines] = useState<PostOutcome[] | null>(null);
+  const left = platformsOf(d).filter((p) => !postedTo.includes(p));
+  if (!user || !d.publicRecordId || (!left.length && !lines)) return null;
+
+  const go = async () => {
+    setBusy(true);
+    try {
+      const snap = await getDoc(doc(db, 'publicArchive', d.publicRecordId!));
+      if (!snap.exists()) { setLines([{ platform: left[0], label: 'Post', ok: false, note: 'The public record no longer exists.' }]); return; }
+      setLines(await postToPlatforms({ id: snap.id, ...snap.data() } as RepositoryRecord & { id: string }, d, user.uid, left));
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <>
+      {left.length > 0 && (
+        <button type="button" className="ph-btn ghost small" onClick={go} disabled={busy}>
+          <Send size={12} strokeWidth={2.5} /> {busy ? 'Posting…' : `Post to ${left.map((p) => PLATFORM_NAME[p]).join(', ')}`}
+        </button>
+      )}
+      {lines?.map((l) => (
+        <span key={l.platform} className={'fld-live-chip ' + (l.ok ? 'is-live' : 'is-removed')} title={l.note}>
+          {l.label} · {l.ok ? 'posted' : `failed: ${l.note ?? ''}`}
+        </span>
+      ))}
+    </>
   );
 }
 

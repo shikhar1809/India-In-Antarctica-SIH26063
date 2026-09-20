@@ -1168,7 +1168,7 @@ export default function BookShelf({ records: recordsProp, onOpenRecord, variant 
               <p>{open.sub}</p>
               <p className="shelf-hint">Drag to turn · pinch or scroll to zoom</p>
               <button className="shelf-open" onClick={openBook}>
-                {onOpenRecord && !isPadding(open.id) ? 'Open record' : 'Open in Archive'}
+                {onOpenRecord && !isPadding(open.id) ? 'Open record' : 'Open in the Knowledge Repository'}
                 <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
                   <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="1.8"
                         strokeLinecap="round" strokeLinejoin="round" />

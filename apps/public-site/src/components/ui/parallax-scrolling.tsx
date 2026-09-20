@@ -155,10 +155,15 @@ export function ParallaxComponent({
         },
       });
 
+      /* Layer 3 is the title, and it used to travel 40% — further than the
+       * photograph behind it (10%), while the photographs in front of it
+       * slid down across it. The result was a headline chopped in half by
+       * a band of sky for most of the section. It now moves least of all,
+       * so it stays put and readable while the photographs move past. */
       const layers: { layer: string; yPercent: number }[] = [
         { layer: '1', yPercent: 70 },
         { layer: '2', yPercent: 55 },
-        { layer: '3', yPercent: 40 },
+        { layer: '3', yPercent: 6 },
         { layer: '4', yPercent: 10 },
       ];
 
@@ -171,7 +176,32 @@ export function ParallaxComponent({
       });
     }, root);
 
-    return () => ctx.revert();
+    /* ScrollTrigger measures the document once, on mount. Everything above
+     * this section is live content — the front page reads the repository
+     * and then loads its photographs — so the page gets taller a second or
+     * two after this runs, and every start/end offset computed here is
+     * suddenly pointing at the wrong scroll position: the layers slide
+     * apart and the title lands mid-photo. Watching the document's own
+     * height and re-measuring is the fix, and it holds for any future
+     * section above this one too. */
+    let frame = 0;
+    const remeasure = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => ScrollTrigger.refresh());
+    };
+    const ro = new ResizeObserver(remeasure);
+    ro.observe(document.body);
+    // Images finishing after their container has already been measured
+    // change nothing about body height in some layouts but plenty in
+    // others; a load anywhere on the page is worth one re-measure.
+    window.addEventListener('load', remeasure);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('load', remeasure);
+      cancelAnimationFrame(frame);
+      ctx.revert();
+    };
   }, [reducedMotion]);
 
   // Under reduced motion the layered stack never animates, which means the

@@ -33,6 +33,7 @@ const agent = require('./studioagent');
 const publisher = require('./publishpost');
 const research = require('./research');
 const screen = require('./screen');
+const sender = require('./socialsender');
 
 const MODEL = 'gemini-2.5-flash';
 const ENDPOINT = (model) =>
@@ -304,6 +305,9 @@ exports.studio = onRequest(
      * credential — the social publishing key — and has nothing to do with
      * the generator beyond sharing this deployment. */
     if (path === '/publish') return publisher.handle(req, res);
+    /* Sending a row of the socialPosts queue now, recorded server side —
+     * "Post now" and the approve desk's "Approve & post". See socialsender.js. */
+    if (path === '/send') return sender.handleSend(req, res);
 
     /* The agent's research — public interest, recent coverage, background
      * and papers. No model and no key; see research.js. */

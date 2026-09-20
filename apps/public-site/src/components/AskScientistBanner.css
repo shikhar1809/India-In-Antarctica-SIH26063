@@ -1,0 +1,239 @@
+/* The "ask a scientist" invitation under the Knowledge Repository shelf.
+   One card, three parts: a turning globe, the words, and the students. */
+
+.ask-banner-wrap {
+  padding: 0 1.5rem 5rem;
+  background: var(--ink);
+}
+
+.ask-banner {
+  display: grid;
+  grid-template-columns: minmax(200px, 300px) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: clamp(1.5rem, 5vw, 4rem);
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: clamp(1.75rem, 4vw, 3rem) clamp(1.5rem, 4vw, 3.5rem);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background:
+    radial-gradient(90% 120% at 8% 40%, rgba(95, 217, 255, 0.13), transparent 55%),
+    radial-gradient(70% 120% at 100% 100%, rgba(255, 153, 51, 0.07), transparent 60%),
+    linear-gradient(160deg, rgba(16, 38, 59, 0.9), rgba(6, 16, 25, 0.96));
+  color: inherit;
+  text-decoration: none;
+  overflow: hidden;
+  transition: border-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.ask-banner:hover,
+.ask-banner:focus-visible {
+  border-color: rgba(95, 217, 255, 0.45);
+  transform: translateY(-3px);
+  box-shadow: 0 24px 60px -30px rgba(95, 217, 255, 0.5);
+}
+
+/* ── globe (cobe canvas) ────────────────────────────────────────────── */
+/* A soft halo behind the sphere so a white globe doesn't sit on the dark
+   card like a cut-out. */
+.ask-globe {
+  position: relative;
+  width: 100%;
+}
+.ask-globe::before {
+  content: '';
+  position: absolute;
+  inset: -18%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(120, 180, 230, 0.13), transparent 58%);
+  pointer-events: none;
+}
+.ask-globe canvas { display: block; position: relative; }
+
+/* ── words ──────────────────────────────────────────────────────────── */
+.ask-banner-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--cyan);
+}
+.ask-banner-eyebrow::before {
+  content: '';
+  width: 26px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.6;
+}
+
+.ask-banner-copy h2 {
+  margin: 0 0 0.85rem;
+  font-size: clamp(1.4rem, 2.4vw, 2.05rem);
+  line-height: 1.22;
+  letter-spacing: -0.01em;
+  color: var(--ice);
+}
+.ask-banner-copy h2 span { color: var(--saffron); }
+
+.ask-banner-sub {
+  margin: 0 0 1.5rem;
+  max-width: 48ch;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: var(--ice-dim);
+}
+
+/* ── the button, filling with water ─────────────────────────────────
+   A dark shell with sea in the bottom half and a lit surface line rolling
+   across it. Everything is one <span> inside the card's link, so the button
+   is a picture, not a second clickable thing inside a clickable card. */
+.ask-banner-cta {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 232px;
+  padding: 1.05rem 2rem;
+  border: 1px solid rgba(120, 200, 245, 0.28);
+  border-radius: 16px;
+  overflow: hidden;
+  isolation: isolate;
+  background: linear-gradient(180deg, #0c1b2b 0%, #10263c 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 16px 34px -20px rgba(10, 99, 180, 0.9);
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.lq-liquid {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  /* The sea sits in the lower half; hovering the card raises it. */
+  transform: translateY(34%);
+  transition: transform 0.55s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.ask-banner:hover .lq-liquid { transform: translateY(18%); }
+
+.lq-wave { display: block; width: 200%; height: 100%; }
+
+.lq-roll {
+  animation: lq-roll 7s linear infinite;
+}
+@keyframes lq-roll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-240px); }
+}
+
+/* The bright line where air meets water. Drawn as the same path with no
+   fill, so the light always follows the exact crest. */
+.lq-crest {
+  fill: none;
+  stroke: #eafcff;
+  stroke-width: 2.2;
+  filter: drop-shadow(0 0 5px rgba(150, 240, 255, 0.95)) drop-shadow(0 0 14px rgba(70, 200, 255, 0.65));
+}
+
+.lq-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: #ffffff;
+  /* Readable over both halves: a dark rim under the light water and a
+     glow over the dark shell. */
+  text-shadow: 0 1px 3px rgba(4, 26, 45, 0.85), 0 0 14px rgba(0, 0, 0, 0.45);
+}
+
+.ask-banner:hover .ask-banner-cta {
+  border-color: rgba(150, 225, 255, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 20px 40px -18px rgba(35, 167, 232, 0.95);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lq-roll { animation: none; }
+  .lq-liquid { transition: none; }
+}
+
+/* ── the students asking ────────────────────────────────────────────── */
+.ask-student {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.7rem;
+  padding-top: 0.5rem;
+}
+
+/* A stack, so it reads as "students", plural, at a glance. */
+.ask-avatars { display: flex; }
+.ask-avatars > * + * { margin-left: -1.1rem; }
+
+.ask-avatar {
+  height: clamp(54px, 5.6vw, 68px);
+  width: clamp(54px, 5.6vw, 68px);
+  border: 2px solid rgba(230, 242, 251, 0.9);
+  box-shadow: 0 6px 18px -8px rgba(0, 0, 0, 0.9);
+  background: #eceff1;
+  transition: transform 0.25s ease;
+}
+.ask-avatars .ask-avatar:nth-child(2) { transform: translateY(-6px); }
+.ask-avatars .ask-avatar:nth-child(3) { transform: translateY(2px); }
+.ask-banner:hover .ask-avatars > * + * { margin-left: -0.75rem; }
+
+.ask-bubble {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(95, 217, 255, 0.7);
+  border-radius: 50%;
+  background: rgba(95, 217, 255, 0.14);
+  color: var(--cyan);
+  font-size: 1.1rem;
+  font-weight: 700;
+  animation: ask-float 4.5s ease-in-out infinite;
+}
+@keyframes ask-float {
+  0%, 100% { transform: translateY(0); opacity: 0.85; }
+  50%      { transform: translateY(-6px); opacity: 1; }
+}
+
+.ask-student-label {
+  margin: 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ice-faint);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ask-bubble { animation: none; }
+}
+
+/* ── narrow screens: words first, then the globe and the students ──── */
+@media (max-width: 900px) {
+  .ask-banner {
+    grid-template-columns: 1fr auto;
+    gap: 1.75rem;
+  }
+  .ask-banner-copy { grid-column: 1 / -1; order: -1; }
+  .ask-globe { max-width: 220px; justify-self: center; }
+  .ask-student { padding-top: 0; }
+}
+
+@media (max-width: 560px) {
+  .ask-banner { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  .ask-banner-sub { margin-inline: auto; }
+  .ask-banner-eyebrow::before { display: none; }
+  .ask-globe { max-width: 200px; }
+}

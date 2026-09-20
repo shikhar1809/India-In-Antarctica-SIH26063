@@ -103,7 +103,9 @@
 .parallax__layer-title {
   position: absolute;
   inset: 0;
-  z-index: 3;
+  /* Above every photograph: the words are the point of the section, and a
+     layer sliding over them mid-scroll reads as a rendering fault. */
+  z-index: 5;
   display: flex;
   flex-direction: column;
   align-items: center;

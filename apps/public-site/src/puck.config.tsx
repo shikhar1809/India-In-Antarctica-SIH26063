@@ -1,8 +1,6 @@
 import { type Config, DropZone } from '@measured/puck';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar } from 'recharts';
-import MorphSlider from './components/MorphSlider';
-import { useHeroSlides } from './components/useHeroSlides';
-import { SocialBadge } from './components/SocialBadge';
+import { FrontPage } from './components/FrontPage';
 import './components/SocialBadge.css';
 import { ArchiveGallerySection } from './components/ui/sticky-scroll';
 import { ParallaxComponent } from './components/ui/parallax-scrolling';
@@ -41,77 +39,22 @@ type Props = {
   ChartBlock: { title: string; subtitle: string; type: 'line' | 'bar'; dataJson: string; color: string; yAxisLabel: string };
 };
 
-/** The hero's slideshow. A named function component rather than an inline arrow in HeroBlock's `render` field, because it calls useHeroSlides() — a hook needs a real component to live in, and Puck's per-block config object is not one on its own.
+/** The front page: the newsroom desk that replaced the full-screen
+ *  slideshow. A named component because it reads the repository through a
+ *  hook — see components/FrontPage.tsx for what it shows and why.
  *
- *  This used to be three fixed Wikimedia photos, then the archive's most
- *  recent published work regardless of reach. It now specifically features
- *  what has been *disseminated* — a record only earns a slide once a real
- *  post about it is confirmed sent, on named platforms — see
- *  useHeroSlides.ts for the selection rule and its fallback. This is the
- *  literal mechanism behind "content generated on the portal appears on the
- *  public site": nothing here is hand-curated. */
+ *  The block keeps its old name and fields so existing saved pages still
+ *  load; the fields are no longer read, because nothing on this block is
+ *  hand-written any more — it is the archive, live. */
 function HeroBlockRender() {
-  const { slides } = useHeroSlides();
-
-  // MorphSlider's own item shape is just { image, caption, href } — caption
-  // renders as whatever ReactNode it's given (see MorphSlider.tsx's caption
-  // block), so the richer card (title, platform icons, a "View in archive"
-  // button) is composed here rather than by changing that component.
-  //
-  // Icon-only badges (not the full text pill used on the archive page's
-  // "Shared on social media" section) — the hero already carries a title
-  // and a button in the same small strip, and a platform's mark alone is
-  // recognisable enough without spelling out the name again.
-  const items = slides.map((s) => ({
-    image: s.image,
-    href: s.href,
-    caption: (
-      <span className="hero-card">
-        <span className="hero-card-title">{[s.title, s.station].filter(Boolean).join(' — ')}</span>
-        {s.href && (
-          <span className="hero-card-row">
-            {s.platforms.map((p) => <SocialBadge key={p} platform={p} iconOnly />)}
-            {/* Same destination as clicking the caption itself — the whole
-                card is already one <a>, so this reads as a button without
-                being a second, nested link. */}
-            <span className="hero-card-viewpost">View in archive</span>
-          </span>
-        )}
-      </span>
-    ),
-  }));
-
-  return (
-    <div className="block-hero" style={{ position: 'relative', height: '100vh', width: '100vw' }}>
-      <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-        <MorphSlider
-          items={items}
-          transition="melt"
-          intensity={0.55}
-          aberration={0.35}
-          drift={0.4}
-          autoplay={true}
-          overlayColor="#05060a"
-          duration={1.1}
-          ease="power2.inOut"
-          scale={2.4}
-          autoplayDelay={4}
-          loop
-          radius={0}
-          showCaptions
-          showControls={true}
-          showIndicators={true}
-        />
-      </div>
-    </div>
-  );
+  return <FrontPage />;
 }
 
 export const config: Config<Props> = {
   components: {
 
     HeroBlock: {
-      label: 'Hero',
+      label: 'Front page — latest stories',
       fields: {
         badge:               { type: 'text',     label: 'Badge text' },
         titleLine1:          { type: 'text',     label: 'Title â€” Line 1' },

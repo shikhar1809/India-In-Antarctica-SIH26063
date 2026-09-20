@@ -161,7 +161,26 @@ async function publishOne({ key, profile, platform, caption, imageUrl, externalI
  * Body: { platform, caption, imageUrl?, externalId?, profile? }
  * Returns: { ok, url, postId } or { ok: false, error }
  */
+async function requireStaff(req) {
+  const { getAuth } = require('firebase-admin/auth');
+  const { getFirestore } = require('firebase-admin/firestore');
+  const match = (req.get('Authorization') || '').match(/^Bearer (.+)$/);
+  if (!match) return 'Sign in first.';
+  try {
+    const decoded = await getAuth().verifyIdToken(match[1]);
+    const role = ((await getFirestore().collection('roles').doc(decoded.uid).get()).data() || {}).role;
+    return role === 'admin' || role === 'publisher' ? null : 'Publishers and admins only.';
+  } catch {
+    return 'Your sign-in could not be verified.';
+  }
+}
+
 async function handle(req, res) {
+  /* This posts to the institution's real accounts, so it checks who is
+   * asking. It used to be open to anyone who found the URL. */
+  const refused = await requireStaff(req);
+  if (refused) return json(res, 403, { error: refused });
+
   const key = process.env.UPLOAD_POST_API_KEY || '';
   if (!key) {
     // The queue treats this as "no automatic adapter", which is its normal

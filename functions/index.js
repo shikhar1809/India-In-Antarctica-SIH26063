@@ -159,3 +159,8 @@ exports.access = require('./access').access;
 /* The audit trail — one Firestore trigger that records every create, edit and
  * delete, by whom, with a field-level diff and a category. See audit.js. */
 exports.auditTrail = require('./audit').auditTrail;
+
+/* Sends queued social posts when their time comes, every five minutes —
+ * a scheduled post no longer waits for someone to open the queue. See
+ * socialsender.js. */
+exports.sendDuePosts = require('./socialsender').sendDuePosts;
