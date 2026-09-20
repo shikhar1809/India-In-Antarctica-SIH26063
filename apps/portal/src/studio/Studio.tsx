@@ -762,7 +762,7 @@ export function Studio({ dispatch: d, onSubmitted }: { dispatch: Dispatch; onSub
       {/* What the admin said when they handed this over. First thing on the
           page, because it is the only context the publisher has. */}
       {d.adminBrief && (
-        <p className="stu-brief">
+        <p className="stu-adminbrief">
           <b>From the admin</b> {d.adminBrief}
         </p>
       )}

@@ -1026,8 +1026,11 @@
 .stu-submit-why { font-size: 12.5px; color: var(--warn); }
 .stu-submitbar .stu-primary[data-blocked] { opacity: .55; }
 
-/* The admin's brief, at the top of the studio. */
-.stu-brief {
+/* The admin's brief, at the top of the studio.
+   Named for itself: `.stu-brief` is the Basic step's own panel, and is
+   `height: 100%` in the fitted layout — borrowing that class made this
+   one paragraph fill the studio and hide everything under it. */
+.stu-adminbrief {
   margin: 0 0 12px;
   padding: 10px 14px;
   border: 1px solid rgba(255, 196, 92, 0.4);
@@ -1038,7 +1041,7 @@
   line-height: 1.6;
   color: var(--ice);
 }
-.stu-brief b {
+.stu-adminbrief b {
   display: block;
   margin-bottom: 2px;
   font-size: 10.5px;

@@ -22,6 +22,8 @@ import type { Dispatch } from '../types';
  * activity from the portal's vocabulary, weather in WMO terms, and notes
  * carrying the stake ids and QC flags that must not reach public copy. */
 const MOCK: Dispatch = {
+  // The admin's hand-off note, so the studio can be checked with one.
+  adminBrief: 'A new discovery post is to be made for this. Lead on the ice thickness figure; leave the team names out.',
   id: '__harness__',
   authorUid: 'harness-uid',
   authorName: 'Dr A. Rao',
