@@ -98,20 +98,6 @@ function ParallaxCopy({
   );
 }
 
-/** A photo's own caption — the station name, plainly, plus a short line
- *  of real info about it printed right there on the photo. Sits inside
- *  the same translating layer as its photo, so it travels with it rather
- *  than staying pinned to the viewport. */
-function ParallaxCaption({ label, info }: { label?: string; info?: string }) {
-  if (!label) return null;
-  return (
-    <div className="parallax__layer-caption">
-      <span className="parallax__layer-caption-label">{label}</span>
-      {info ? <span className="parallax__layer-caption-info">{info}</span> : null}
-    </div>
-  );
-}
-
 function useReducedMotion() {
   const ref = useRef(
     typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -216,7 +202,6 @@ export function ParallaxComponent({
         <section className="parallax__header">
           <div className="parallax__visuals">
             <img src={backImage.src} alt={backImage.alt} loading="eager" className="parallax__static-img" />
-            <ParallaxCaption label={backImage.label} info={backImage.info} />
             <div className="parallax__layer-title parallax__layer-title--static">
               <ParallaxCopy eyebrow={eyebrow} title={title} subtitle={subtitle} body={body} />
             </div>
@@ -234,18 +219,15 @@ export function ParallaxComponent({
           <div data-parallax-layers className="parallax__layers">
             <div data-parallax-layer="1" className="parallax__layer parallax__layer--front">
               <img src={frontImage.src} alt={frontImage.alt} loading="eager" />
-              <ParallaxCaption label={frontImage.label} info={frontImage.info} />
             </div>
             <div data-parallax-layer="2" className="parallax__layer parallax__layer--mid">
               <img src={midImage.src} alt={midImage.alt} loading="eager" />
-              <ParallaxCaption label={midImage.label} info={midImage.info} />
             </div>
             <div data-parallax-layer="3" className="parallax__layer-title">
               <ParallaxCopy eyebrow={eyebrow} title={title} subtitle={subtitle} body={body} />
             </div>
             <div data-parallax-layer="4" className="parallax__layer parallax__layer--back">
               <img src={backImage.src} alt={backImage.alt} loading="eager" />
-              <ParallaxCaption label={backImage.label} info={backImage.info} />
             </div>
           </div>
           <div className="parallax__fade" />
