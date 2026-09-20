@@ -109,3 +109,15 @@
 .mod-doc-facts span { display: inline-flex; align-items: center; }
 .mod-doc-embargo { color: var(--saffron); }
 .mod-card--error { border-color: var(--danger); color: var(--danger); }
+
+/* A queue that could not be read. Better than a page that quietly says none. */
+.mod-queue-error {
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid rgba(255, 138, 128, 0.5);
+  border-radius: 10px;
+  background: rgba(255, 138, 128, 0.1);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #ffc9c4;
+}

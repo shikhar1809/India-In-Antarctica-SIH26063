@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useRole } from '../hooks/useRole';
@@ -13,6 +13,8 @@ import './Moderation.css';
 export function Moderation() {
   const [pendingQuestions, setPendingQuestions] = useState<any[]>([]);
   const [pendingAnswers, setPendingAnswers] = useState<any[]>([]);
+  /** A queue that cannot be read must say so — an empty page is a lie. */
+  const [queueError, setQueueError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'questions' | 'answers' | 'repository'>('questions');
   const [pendingDocs, setPendingDocs] = useState<ResearchDocument[]>([]);
   const [docBusy, setDocBusy] = useState<string | null>(null);
@@ -59,6 +61,15 @@ export function Moderation() {
     } finally { setDocBusy(null); }
   };
 
+  /* Both queues filter on status and sort by a timestamp — which Firestore
+   * will not do without a composite index, and refused with a 400 that this
+   * page then swallowed: a moderator saw "Incoming Questions (0)" while
+   * questions sat in the database. Sorting here instead needs no index, and
+   * a moderation queue is small by definition. Any other failure is shown
+   * rather than left as an empty page. */
+  const byTime = (field: string) => (a: any, b: any) =>
+    (a[field]?.toMillis?.() ?? 0) - (b[field]?.toMillis?.() ?? 0);
+
   // Load Pending Questions
   useEffect(() => {
     /* 'UNAPPROVED' is what the public site wrote before the two ends were
@@ -67,13 +78,13 @@ export function Moderation() {
     const q = query(
       collection(db, 'student_questions'),
       where('status', 'in', ['PENDING_QUESTION', 'UNAPPROVED']),
-      orderBy('submittedAt', 'asc')
     );
     return onSnapshot(q, (snapshot) => {
       const data: any[] = [];
       snapshot.forEach(d => data.push({ id: d.id, ...d.data() }));
-      setPendingQuestions(data);
-    });
+      setPendingQuestions(data.sort(byTime('submittedAt')));
+      setQueueError(null);
+    }, (e) => setQueueError(`Could not read the question queue — ${e.message}`));
   }, []);
 
   // Load Pending Answers
@@ -81,13 +92,13 @@ export function Moderation() {
     const q = query(
       collection(db, 'student_questions'),
       where('status', '==', 'PENDING_ANSWER'),
-      orderBy('answeredAt', 'asc')
     );
     return onSnapshot(q, (snapshot) => {
       const data: any[] = [];
       snapshot.forEach(d => data.push({ id: d.id, ...d.data() }));
-      setPendingAnswers(data);
-    });
+      setPendingAnswers(data.sort(byTime('answeredAt')));
+      setQueueError(null);
+    }, (e) => setQueueError(`Could not read the answer queue — ${e.message}`));
   }, []);
 
   const handleApproveQuestion = async (id: string) => {
@@ -143,6 +154,10 @@ export function Moderation() {
             : 'Approve student questions and review scientist answers before they go live.'}
         </p>
       </div>
+
+      {queueError && (
+        <p className="mod-queue-error" role="alert">{queueError}</p>
+      )}
 
       <div className="mod-tabs">
         <button
