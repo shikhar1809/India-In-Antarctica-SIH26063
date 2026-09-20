@@ -20,11 +20,27 @@ import type { PlatformId } from './brand';
 let fontCssCache: string | null = null;
 const imageCache = new Map<string, string>();
 
+/** The function that hands back a Storage object with CORS headers on it.
+ *  The bucket itself has none, so a direct fetch of a photograph is refused
+ *  by the browser and the export comes out with everything except the
+ *  picture. See functions/imageproxy.js. */
+const IMAGE_PROXY = 'https://asia-south1-indiainantartica.cloudfunctions.net/studio/image';
+
+async function fetchImage(url: string): Promise<Response> {
+  try {
+    const direct = await fetch(url, { mode: 'cors' });
+    if (direct.ok) return direct;
+  } catch {
+    /* CORS refusal lands here, not in `ok` — fall through to the proxy. */
+  }
+  return fetch(`${IMAGE_PROXY}?url=${encodeURIComponent(url)}`);
+}
+
 async function toDataUri(url: string): Promise<string> {
   const hit = imageCache.get(url);
   if (hit) return hit;
 
-  const res = await fetch(url, { mode: 'cors' });
+  const res = await fetchImage(url);
   if (!res.ok) throw new Error(`Could not read image (${res.status})`);
   const blob = await res.blob();
 

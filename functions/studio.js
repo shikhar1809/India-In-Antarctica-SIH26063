@@ -34,6 +34,7 @@ const publisher = require('./publishpost');
 const research = require('./research');
 const screen = require('./screen');
 const sender = require('./socialsender');
+const imageproxy = require('./imageproxy');
 
 const MODEL = 'gemini-2.5-flash';
 const ENDPOINT = (model) =>
@@ -280,6 +281,12 @@ exports.studio = onRequest(
      * connected account both exist. */
     if (req.method === 'GET' && path === '/publish-status') {
       return publisher.handleStatus(req, res);
+    }
+
+    /* Reading a Storage image from a canvas — the bucket has no CORS
+     * configuration, so the browser cannot. See imageproxy.js. */
+    if (req.method === 'GET' && path === '/image') {
+      return imageproxy.handle(req, res);
     }
 
     if (req.method !== 'POST') return res.status(405).json({ error: 'Only POST is supported.' });
