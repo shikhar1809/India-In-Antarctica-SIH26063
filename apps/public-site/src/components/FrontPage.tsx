@@ -178,12 +178,19 @@ export function FrontPage() {
             <i /> Live from the Knowledge Repository
           </span>
         </div>
-        <nav className="fp-sections">
-          <Link to="/archive">Knowledge Repository</Link>
-          <Link to="/gallery">Gallery</Link>
-          <Link to="/ask">Ask a Scientist</Link>
-          <a href="https://iia-game.web.app" target="_blank" rel="noreferrer">PolarQuest</a>
-        </nav>
+        {/* One way on from here, not a second copy of the site's own
+            navigation: everything on this page is a record, and the
+            repository is where all of them live. */}
+        <Link to="/archive" className="fp-repo-btn">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M3 3.2h4.2a1.8 1.8 0 0 1 1.8 1.8v8a1.4 1.4 0 0 0-1.4-1.4H3V3.2Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+            <path d="M13 3.2H8.8A1.8 1.8 0 0 0 7 5v8a1.4 1.4 0 0 1 1.4-1.4H13V3.2Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+          </svg>
+          Access Knowledge Repository
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </Link>
       </header>
 
       <div className="fp-grid">
