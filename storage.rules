@@ -22,10 +22,17 @@ service firebase.storage {
       allow read: if false;
     }
 
-    // Voice notes and photos uploaded by a scientist for a dispatch.
-    // The scientist writes to their own uid-prefixed path; any signed-in
-    // user can read (publishers and admins need the URLs to preview).
-    match /dispatches/{uid}/{dispatchId}/{fileName} {
+    // Voice notes, photographs and attachments uploaded by a scientist for
+    // a dispatch. The scientist writes to their own uid-prefixed path; any
+    // signed-in user can read (publishers and admins need the URLs to
+    // preview).
+    //
+    // `{allPaths=**}` rather than a single `{fileName}`: the field app puts
+    // attachments in a `docs/` folder under the dispatch, and a rule that
+    // matched exactly one segment silently refused every one of them — the
+    // photographs went up and the documents came back 403, which is what a
+    // scientist saw as "Storage refused the upload".
+    match /dispatches/{uid}/{dispatchId}/{allPaths=**} {
       allow read: if request.auth != null;
       allow write: if request.auth != null
         && request.auth.uid == uid
