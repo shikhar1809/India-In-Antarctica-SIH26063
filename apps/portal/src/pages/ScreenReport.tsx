@@ -87,6 +87,10 @@ function Screen({ d, preview }: { d: Dispatch; preview: boolean }) {
   const allowed = canPublishDispatch({ ...d, status: 'approved' });
   const [publish, setPublish] = useState(allowed.ok);
   const [send, setSend] = useState(true);
+  /* The publisher did not screen this and has never seen the field report.
+   * A line or two from the person who did is the difference between a post
+   * written from the material and one guessed at. */
+  const [brief, setBrief] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -191,6 +195,7 @@ function Screen({ d, preview }: { d: Dispatch; preview: boolean }) {
         ...(published ?? {}),
         screening,
         status,
+        ...(send ? { adminBrief: brief.trim() || null } : {}),
         updatedAt: Date.now(),
       });
       navigate('/social?tab=approve', { replace: true, state: { screened: `${d.station} · ${d.activity}`, outcome: send && published ? 'published and sent to the publishers' : send ? 'sent to the publishers' : published ? 'published' : 'saved' } });
@@ -327,6 +332,17 @@ function Screen({ d, preview }: { d: Dispatch; preview: boolean }) {
               <input type="checkbox" checked={send} onChange={(e) => setSend(e.target.checked)} />
               <span><Send size={13} /> Send to the publisher queue <em>— so they can make media from it</em></span>
             </label>
+            {send && (
+              <label className="scr-brief">
+                <span>Brief for the publisher</span>
+                <textarea
+                  rows={3}
+                  value={brief}
+                  placeholder="What this is, what matters in it, anything to leave out. They have not read the field report."
+                  onChange={(e) => setBrief(e.target.value)}
+                />
+              </label>
+            )}
             {open.length > 0 && <p className="scr-warn"><AlertTriangle size={12} /> {open.length} finding{open.length === 1 ? '' : 's'} still open — redact or keep each before it goes.</p>}
             {err && <p className="scr-err">{err}</p>}
             <button type="button" className="stu-primary scr-confirm" onClick={confirm} disabled={busy || open.length > 0}>

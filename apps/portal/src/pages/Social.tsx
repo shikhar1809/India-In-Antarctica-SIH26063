@@ -10,13 +10,13 @@ import type { Dispatch, DispatchStatus, DispatchPriority, WeatherObs, PlatformCa
 import { MEASUREMENT_SCHEMA } from '../types';
 import { normaliseDispatch } from '../repository/normalise';
 import { draftPublicSummary } from '../repository/summarise';
-import { canPublishDispatch, mintIdentifier, publishRecord, unpublishRecord, toRepositoryRecord, updatePublishedRecord } from '../repository/publish';
+import { canPublishDispatch, publishObjections, mintIdentifier, publishRecord, unpublishRecord, toRepositoryRecord, updatePublishedRecord } from '../repository/publish';
 import { redactionOf } from '../repository/redaction';
 import type { RepositoryRecord } from '../repository/contract';
 import { RedactionPreview } from '../components/RedactionPreview';
 import { QueueTab } from '../social/QueueTab';
 import { useSocialQueue } from '../hooks/useSocialQueue';
-import { isRemoved, type ScheduledPost } from '../social/queue';
+import { isRemoved, type ScheduledPost, type SocialPlatform } from '../social/queue';
 import { checkLiveness } from '../social/engagementClient';
 import { ScheduleDialog } from '../social/ScheduleDialog';
 import { platformsOf, postToPlatforms, type PostOutcome } from '../social/postNow';
@@ -40,7 +40,8 @@ const STATUS_LABEL: Record<DispatchStatus, string> = {
   cleared: 'Awaiting draft',
   drafted: 'Awaiting approval',
   flagged: 'Sent back — needs revision',
-  approved: 'Live'
+  approved: 'Live',
+  discarded: 'Discarded'
 };
 
 const PRIORITY_LABEL: Record<DispatchPriority, string> = {
@@ -472,9 +473,22 @@ const QUEUE_FILTERS: { id: QueueFilter; label: string; hint: string }[] = [
 function IncomingGroup({ items, compact = false, title = 'Incoming — not screened' }: { items: Dispatch[]; compact?: boolean; title?: string }) {
   const navigate = useNavigate();
   const [sending, setSending] = useState<string | null>(null);
-  const passOn = async (id: string) => {
+  /* A publisher who did not screen the report knows nothing about it — not
+   * where it came from, not what matters in it, not what to leave out. So
+   * handing it on asks for a line or two first. */
+  const [briefFor, setBriefFor] = useState<string | null>(null);
+  const [brief, setBrief] = useState('');
+
+  const passOn = async (id: string, text: string) => {
     setSending(id);
-    try { await updateDoc(doc(db, 'dispatches', id), { status: 'cleared' satisfies DispatchStatus, updatedAt: Date.now() }); } finally { setSending(null); }
+    try {
+      await updateDoc(doc(db, 'dispatches', id), {
+        status: 'cleared' satisfies DispatchStatus,
+        adminBrief: text.trim() || null,
+        updatedAt: Date.now(),
+      });
+      setBriefFor(null); setBrief('');
+    } finally { setSending(null); }
   };
   if (!items.length) return null;
   return (
@@ -499,9 +513,30 @@ function IncomingGroup({ items, compact = false, title = 'Incoming — not scree
               {incident && <em className="ad-incoming-flag"><ShieldAlert size={10} /> incident</em>}
             </span>
             {isRequest ? (
-              <button type="button" className="ad-incoming-btn" onClick={() => void passOn(d.id)} disabled={sending === d.id}>
-                <Send size={12} /> {sending === d.id ? 'Sending…' : 'Send to publishers'}
-              </button>
+              briefFor === d.id ? (
+                <div className="ad-brief" onClick={(e) => e.stopPropagation()}>
+                  <label>
+                    Brief for the publisher
+                    <textarea
+                      rows={3}
+                      autoFocus
+                      value={brief}
+                      placeholder="What this is, what matters in it, anything to leave out."
+                      onChange={(e) => setBrief(e.target.value)}
+                    />
+                  </label>
+                  <div className="ad-brief-actions">
+                    <button type="button" className="ad-incoming-btn is-primary" onClick={() => void passOn(d.id, brief)} disabled={sending === d.id}>
+                      <Send size={12} /> {sending === d.id ? 'Sending…' : 'Send to publishers'}
+                    </button>
+                    <button type="button" className="ad-incoming-btn" onClick={() => { setBriefFor(null); setBrief(''); }}>Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <button type="button" className="ad-incoming-btn" onClick={() => { setBriefFor(d.id); setBrief(''); }}>
+                  <Send size={12} /> Send to publishers…
+                </button>
+              )
             ) : (
               <button type="button" className="ad-incoming-btn is-primary" onClick={(e) => { e.stopPropagation(); navigate(`/media/screen/${d.id}`); }}>
                 <Sparkles size={12} /> AI screening
@@ -640,6 +675,9 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
   const worst = worstSeverity(checks);
   const blockers = checks.filter((c) => c.severity === 'blocker');
   const blocked = blockers.length > 0;
+  /* What publishing would be overruling, in the words the publish guard
+   * uses — the admin has to be told exactly that before they overrule it. */
+  const objections = active ? publishObjections(active) : [];
 
   /* The reviewer costs a call, so it is asked for rather than automatic. */
   const runAi = async () => {
@@ -667,13 +705,20 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
    * because the approved post leaves the queue the moment it is approved. */
   const [postReport, setPostReport] = useState<{ title: string; lines: PostOutcome[] } | null>(null);
   const [busyNote, setBusyNote] = useState<string | null>(null);
+  /* "Approve — particular": which destinations, chosen before anything is
+   * published. Null when the dialog is closed. */
+  const [picking, setPicking] = useState<Set<Destination> | null>(null);
+  /* An approval the checks object to, held until the admin confirms it. */
+  const [confirmOverride, setConfirmOverride] = useState<{ run: () => void; what: string } | null>(null);
+  const [discarding, setDiscarding] = useState(false);
+  const [discardReason, setDiscardReason] = useState('');
 
   /** After the record is on the website: post it now, open the scheduler,
    *  or nothing (website only). */
-  const announce = async (mode: ApproveMode, record: RepositoryRecord & { id: string }, d: Dispatch) => {
+  const announce = async (mode: ApproveMode, record: RepositoryRecord & { id: string }, d: Dispatch, only?: SocialPlatform[]) => {
     if (mode === 'schedule') { setSchedulePostOf(d); setScheduleFor(record); return; }
     if (mode !== 'post' || !user) return;
-    const wanted = platformsOf(d);
+    const wanted = only ?? platformsOf(d);
     if (!wanted.length) {
       setPostReport({ title: record.title, lines: [] });
       return;
@@ -683,12 +728,19 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
     setPostReport({ title: record.title, lines });
   };
 
-  const approve = async (mode: ApproveMode = 'post') => {
+  const approve = async (mode: ApproveMode = 'post', opts: { only?: SocialPlatform[]; override?: boolean } = {}) => {
     if (!active || !user) return;
     setBusy(true); setError(null); setPostReport(null); setBusyNote(null);
+    const override = !!opts.override;
     try {
-      const allowed = canPublishDispatch({ ...active, status: 'approved' });
+      const allowed = canPublishDispatch({ ...active, status: 'approved' }, { override });
       if (!allowed.ok) { setError(allowed.reason); return; }
+
+      /* An admin publishing over the checks' objections. Recorded on the
+       * dispatch, so the decision has a name and a time against it. */
+      const overrideField = override && objections.length
+        ? { publishOverride: { reasons: objections, by: user.uid, byName: user.displayName ?? user.email ?? 'Admin', at: Date.now() } }
+        : {};
 
       /* A report the admin published at screening is already on the public
        * site. Approving the publisher's post must not mint a second copy:
@@ -702,10 +754,10 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
           await updatePublishedRecord(existing.id, { title: active.publicSummary.title, body: active.publicSummary.body, table: active.publicSummary.table });
         }
         await updateDoc(doc(db, 'dispatches', active.id), {
-          status: 'approved' satisfies DispatchStatus, updatedAt: Date.now(),
+          status: 'approved' satisfies DispatchStatus, ...overrideField, updatedAt: Date.now(),
         });
         setActiveId(null); setAi(null);
-        await announce(mode, existing, active);
+        await announce(mode, existing, active, opts.only);
         return;
       }
 
@@ -721,10 +773,11 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
           status: 'approved' satisfies DispatchStatus,
           publicRecordId: existing.id,
           publicIdentifier: existing.metadata?.identifier ?? null,
+          ...overrideField,
           updatedAt: Date.now(),
         });
         setActiveId(null); setAi(null);
-        await announce(mode, existing, active);
+        await announce(mode, existing, active, opts.only);
         return;
       }
 
@@ -742,13 +795,38 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
         status: 'approved' satisfies DispatchStatus,
         publicRecordId: record.id,
         publicIdentifier: identifier,
+        ...overrideField,
         updatedAt: Date.now(),
       });
       setActiveId(null); setAi(null);
-      await announce(mode, record, active);
+      await announce(mode, record, active, opts.only);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not publish this record. Nothing was changed.');
     } finally { setBusy(false); setBusyNote(null); }
+  };
+
+  /** Dropped: not published, not sent back, just off the desk. The post
+   *  and its reason stay in the database — a discarded post is a decision,
+   *  and decisions are part of the record. */
+  /** Runs an approval, stopping first if the checks object to it. */
+  const guard = (run: () => void, what: string) => {
+    if (objections.length) setConfirmOverride({ run, what });
+    else run();
+  };
+
+  const discard = async () => {
+    if (!active) return;
+    setBusy(true); setError(null);
+    try {
+      await updateDoc(doc(db, 'dispatches', active.id), {
+        status: 'discarded' satisfies DispatchStatus,
+        discardedReason: discardReason.trim() || null,
+        updatedAt: Date.now(),
+      });
+      setDiscarding(false); setDiscardReason(''); setActiveId(null); setAi(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not discard this post.');
+    } finally { setBusy(false); }
   };
 
   const flag = async () => {
@@ -1118,35 +1196,33 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
               listed on the desk, but not next to the thing they disable. */}
           {!flagging && blocked && (
             <div className="ad-blocked" role="status">
-              <strong><ShieldAlert size={13} strokeWidth={2.5} /> This cannot be published</strong>
+              <strong><ShieldAlert size={13} strokeWidth={2.5} /> Normally kept internal</strong>
               <ul>
                 {blockers.map((b) => (
                   <li key={b.id}><b>{b.label}</b>{b.detail ? ` — ${b.detail}` : ''}</li>
                 ))}
               </ul>
-              <span>Send it back with a note, or clear it at the station first.</span>
+              <span>You can publish it anyway — you will be asked to confirm, and the decision is recorded against your name.</span>
             </div>
           )}
           {!flagging ? (
             <>
-              {/* Approving publishes to the website and posts to every
-                  platform the publisher wrote a caption for, straight away. */}
-              <button className="ph-btn primary" onClick={() => approve('post')} disabled={busy || blocked}>
-                {busy
-                  ? (busyNote ?? 'Publishing…')
-                  : blocked ? 'Blocked — cannot publish'
-                  : wanted.length ? `Approve & post to ${wanted.map((p) => PLATFORM_NAME[p]).join(', ')}` : 'Approve — publish to the website'}
+              {/* Everywhere: the website, and every platform the publisher
+                  wrote a caption for. */}
+              <button className="ph-btn primary" onClick={() => guard(() => approve('post', { override: objections.length > 0 }), 'publish this everywhere')} disabled={busy}>
+                {busy ? (busyNote ?? 'Publishing…') : 'Approve — post everywhere'}
               </button>
-              <button className="ph-btn ghost" onClick={() => approve('schedule')} disabled={busy || blocked}>
-                Approve &amp; schedule for later
+              <button className="ph-btn ghost" onClick={() => setPicking(new Set<Destination>(['site', ...wanted]))} disabled={busy}>
+                Approve — particular…
               </button>
-              {wanted.length > 0 && (
-                <button className="ph-btn ghost" onClick={() => approve('site')} disabled={busy || blocked}>
-                  Approve — website only
-                </button>
-              )}
+              <button className="ph-btn ghost" onClick={() => guard(() => approve('schedule', { override: objections.length > 0 }), 'publish this and schedule a post')} disabled={busy}>
+                Schedule
+              </button>
               <button className="ph-btn ghost" onClick={() => setFlagging(true)} disabled={busy}>
                 Send back with a note
+              </button>
+              <button className="ph-btn ghost ad-discard" onClick={() => setDiscarding(true)} disabled={busy}>
+                Discard
               </button>
             </>
           ) : (
@@ -1175,7 +1251,98 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
       blockedReason={publishBlocked}
     />
 
-    {/* Opened by "Approve & schedule". The record exists by this point — it
+    {/* Publishing something the checks object to. Not a block — a decision
+        an admin is entitled to make, made deliberately. */}
+    {confirmOverride && (
+      <div className="ad-modal-back" role="dialog" aria-modal="true" aria-label="Confirm">
+        <div className="ad-modal">
+          <h3><ShieldAlert size={15} strokeWidth={2.5} /> Publish anyway?</h3>
+          <p>You are about to {confirmOverride.what}, and the checks object:</p>
+          <ul className="ad-modal-list">
+            {objections.map((o) => <li key={o}>{o}</li>)}
+          </ul>
+          <p className="ad-modal-note">
+            This is your call to make. It will be recorded against your name on the dispatch and in
+            the activity log.
+          </p>
+          <div className="ad-modal-actions">
+            <button className="ph-btn primary" onClick={() => { const run = confirmOverride.run; setConfirmOverride(null); run(); }}>
+              Publish anyway
+            </button>
+            <button className="ph-btn ghost" onClick={() => setConfirmOverride(null)}>Cancel</button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* "Approve — particular": which destinations, before anything goes. */}
+    {picking && (
+      <div className="ad-modal-back" role="dialog" aria-modal="true" aria-label="Choose where this goes">
+        <div className="ad-modal">
+          <h3>Where should this go?</h3>
+          <ul className="ad-pick">
+            {DESTINATIONS.map((dest) => {
+              const noCaption = dest.id !== 'site' && !wanted.includes(dest.id as SocialPlatform);
+              return (
+                <li key={dest.id}>
+                  <label className={noCaption ? 'is-off' : undefined}>
+                    <input
+                      type="checkbox"
+                      checked={picking.has(dest.id)}
+                      disabled={noCaption}
+                      onChange={(e) => {
+                        const next = new Set(picking);
+                        if (e.target.checked) next.add(dest.id); else next.delete(dest.id);
+                        setPicking(next);
+                      }}
+                    />
+                    {dest.label}
+                    {noCaption && <em>no caption was written for it</em>}
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="ad-modal-note">
+            The public record is published either way — unticking the website only keeps it off the
+            front page and the repository listing… it does not unpublish anything already there.
+          </p>
+          <div className="ad-modal-actions">
+            <button
+              className="ph-btn primary"
+              disabled={picking.size === 0}
+              onClick={() => {
+                const only = [...picking].filter((p): p is SocialPlatform => p !== 'site');
+                const mode: ApproveMode = only.length ? 'post' : 'site';
+                setPicking(null);
+                guard(() => approve(mode, { only, override: objections.length > 0 }), 'publish this');
+              }}
+            >Approve &amp; send</button>
+            <button className="ph-btn ghost" onClick={() => setPicking(null)}>Cancel</button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Discard: off the desk, with the reason kept. */}
+    {discarding && (
+      <div className="ad-modal-back" role="dialog" aria-modal="true" aria-label="Discard this post">
+        <div className="ad-modal">
+          <h3>Discard this post?</h3>
+          <p>It leaves the queue without being published or sent back. The field report itself is untouched.</p>
+          <label className="fld-caption-label">
+            Why? (optional, kept on the record)
+            <textarea rows={3} value={discardReason} onChange={(e) => setDiscardReason(e.target.value)} />
+          </label>
+          <div className="ad-modal-actions">
+            <button className="ph-btn primary" onClick={() => void discard()} disabled={busy}>Discard</button>
+            <button className="ph-btn ghost" onClick={() => { setDiscarding(false); setDiscardReason(''); }}>Keep it</button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Opened by "Schedule". The record exists by this point — it
         was published a moment ago — so the dialog needs no picker. */}
     {scheduleFor && user && (
       <ScheduleDialog
@@ -1338,6 +1505,16 @@ export function FeedTab({ items, posts: given, preview }: { items: Dispatch[]; p
 }
 
 type ApproveMode = 'post' | 'schedule' | 'site';
+
+/** Where a post can go. The website is a destination like any other — an
+ *  admin choosing "particular" is choosing among these four. */
+type Destination = 'site' | SocialPlatform;
+const DESTINATIONS: { id: Destination; label: string }[] = [
+  { id: 'site', label: 'Public website' },
+  { id: 'x', label: 'X' },
+  { id: 'linkedin', label: 'LinkedIn' },
+  { id: 'instagram', label: 'Instagram' },
+];
 
 /** What happened on each platform after "Approve & post". */
 function PostReport({ report, onClose }: { report: { title: string; lines: PostOutcome[] }; onClose: () => void }) {

@@ -237,7 +237,7 @@ service cloud.firestore {
           // Admin: screen (redact, keep raw, or clear to the publishers), approve or flag
           (
             isAdmin()
-            && request.resource.data.status in ['raw', 'cleared', 'approved', 'flagged']
+            && request.resource.data.status in ['raw', 'cleared', 'approved', 'flagged', 'discarded']
           )
           ||
           // Admin: mark up the post graphic for the publisher — pins, drawn

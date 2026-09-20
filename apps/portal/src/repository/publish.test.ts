@@ -4,7 +4,7 @@ import { describe, it, expect, vi } from 'vitest';
 // projection itself is pure, so the handle is stubbed rather than connected.
 vi.mock('../firebase', () => ({ db: {} }));
 
-import { toRepositoryRecord, documentToRepositoryRecord, canPublishDispatch, formatIdentifier } from './publish';
+import { toRepositoryRecord, documentToRepositoryRecord, canPublishDispatch, publishObjections, formatIdentifier } from './publish';
 import type { Dispatch, ResearchDocument } from '../types';
 import type { Measurement } from './contract';
 import { draftPublicSummary } from './summarise';
@@ -99,12 +99,30 @@ describe('publishing guards', () => {
   it('refuses to publish anything flagged for the station leader', () => {
     const check = canPublishDispatch(approvedDispatch({ safetyFlag: true }));
     expect(check.ok).toBe(false);
-    expect(check.ok === false && check.reason).toMatch(/not published to the public site/);
+    expect(check.ok === false && check.reason).toMatch(/flagged for the station leader/i);
   });
 
   it('refuses to publish incident reports even when they are not flagged', () => {
     const check = canPublishDispatch(approvedDispatch({ activity: 'Emergency / incident', safetyFlag: false }));
     expect(check.ok).toBe(false);
+  });
+
+  /* Those two are editorial judgements, and an admin is who they belong
+   * to: they can be overruled deliberately, and the desk records who did
+   * it. What cannot be overruled is publishing something unapproved. */
+  it('lets an admin overrule a flag or an incident, knowingly', () => {
+    expect(canPublishDispatch(approvedDispatch({ safetyFlag: true }), { override: true }).ok).toBe(true);
+    expect(canPublishDispatch(approvedDispatch({ activity: 'Emergency / incident' }), { override: true }).ok).toBe(true);
+  });
+
+  it('never lets an override publish something unapproved', () => {
+    expect(canPublishDispatch(approvedDispatch({ status: 'drafted' }), { override: true }).ok).toBe(false);
+  });
+
+  it('names every objection, so an override is made knowing what it overrides', () => {
+    const both = publishObjections(approvedDispatch({ safetyFlag: true, activity: 'Emergency / incident' }));
+    expect(both).toHaveLength(2);
+    expect(publishObjections(approvedDispatch({}))).toEqual([]);
   });
 
   it('refuses anything that has not been approved', () => {

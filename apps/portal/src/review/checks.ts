@@ -59,18 +59,21 @@ export function runChecks(d: Dispatch): Check[] {
   const text = publicText(d);
   const summary = d.publicSummary;
 
-  /* ── blockers: publishing is refused, not merely discouraged ── */
+  /* ── blockers: publishing is refused by default. An admin can overrule
+     either of these deliberately (repository/publish.ts's publishObjections
+     and the approve desk's confirmation), and the override is recorded —
+     so the wording says "normally", because that is what is true. ── */
 
   if (d.safetyFlag) {
     add({ id: 'safety-flag', severity: 'blocker',
       label: 'Flagged for the station leader',
-      detail: 'Safety-flagged dispatches are never published. Clear it at the station first.' });
+      detail: 'Safety-flagged dispatches are normally kept internal. Clear it at the station, or publish it over this objection.' });
   }
 
   if (/emergency|incident/i.test(d.activity)) {
     add({ id: 'incident', severity: 'blocker',
       label: 'Incident report',
-      detail: 'Incidents are internal records and cannot go to the public site.' });
+      detail: 'Incidents are normally internal records. Publishing one is an admin’s call, on the record.' });
   }
 
   /* ── missing: publishable, but something a reader would expect is absent ── */

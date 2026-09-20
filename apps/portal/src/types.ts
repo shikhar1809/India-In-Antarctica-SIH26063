@@ -88,7 +88,7 @@ export interface ResearchDocument {
  *  drafted — the publisher's post, waiting for approval.
  *  flagged — sent back to the publisher with a note.
  *  approved — published. */
-export type DispatchStatus = 'raw' | 'cleared' | 'drafted' | 'flagged' | 'approved';
+export type DispatchStatus = 'raw' | 'cleared' | 'drafted' | 'flagged' | 'approved' | 'discarded';
 
 /** An admin's screening of a raw field report: what was found and what was
  *  decided. The words removed are deliberately not here — they sit in the
@@ -317,6 +317,17 @@ export interface Dispatch {
   /** How many times the publisher has resubmitted this post after an admin
    *  sent it back. 0 or absent for a first submission. */
   revision?: number;
+  /** What the admin told the publisher when handing this report on. A
+   *  publisher who did not screen it knows nothing about it otherwise —
+   *  where it came from, what matters in it, what to leave out. */
+  adminBrief?: string | null;
+  /** An admin publishing something the checks refuse — a safety-flagged
+   *  report, an incident — on their own authority. The reasons they
+   *  overrode are kept with it, so the decision is on the record rather
+   *  than invisible. */
+  publishOverride?: { reasons: string[]; by: string; byName: string; at: number } | null;
+  /** Why a post was discarded, when the admin gave a reason. */
+  discardedReason?: string | null;
   /** An admin's screening of the raw report — see ScreeningRecord. */
   screening?: ScreeningRecord;
   createdAt: number;

@@ -56,12 +56,33 @@ export async function mintIdentifier(year = new Date().getUTCFullYear()): Promis
 export interface PublishRefusal { ok: false; reason: string }
 export type PublishCheck = { ok: true } | PublishRefusal;
 
-export function canPublishDispatch(d: Dispatch): PublishCheck {
-  if (d.safetyFlag) {
-    return { ok: false, reason: 'This dispatch is flagged for the station leader. Safety and incident reports are not published to the public site.' };
-  }
-  if (d.activity === 'Emergency / incident') {
-    return { ok: false, reason: 'Incident reports are internal records and are never published publicly.' };
+/** What this dispatch would be refused for. Empty when nothing stands in
+ *  the way. Separate from the check itself because an admin is allowed to
+ *  publish anyway, and to do that they have to be told exactly what they
+ *  are overriding. */
+export function publishObjections(d: Dispatch): string[] {
+  const out: string[] = [];
+  if (d.safetyFlag) out.push('Flagged for the station leader — safety reports are normally kept internal.');
+  if (d.activity === 'Emergency / incident') out.push('Filed as an incident — incident reports are normally internal records.');
+  return out;
+}
+
+/**
+ * Whether this dispatch can be published.
+ *
+ * Two of the three refusals are editorial judgements — a safety flag, an
+ * incident — and an admin is the person those judgements belong to. They
+ * used to be absolute, which left the desk with every action greyed out and
+ * no way forward; now they are objections an admin can overrule knowingly,
+ * with `override`, and the override is recorded on the dispatch.
+ *
+ * The third is not a judgement: an unapproved dispatch has no business on
+ * the public site, and no button offers that, so it stays absolute.
+ */
+export function canPublishDispatch(d: Dispatch, { override = false } = {}): PublishCheck {
+  if (!override) {
+    const [first] = publishObjections(d);
+    if (first) return { ok: false, reason: first };
   }
   if (d.status !== 'approved') {
     return { ok: false, reason: 'Only approved dispatches can be published.' };

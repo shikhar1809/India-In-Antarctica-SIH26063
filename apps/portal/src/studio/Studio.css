@@ -1025,3 +1025,24 @@
 .stu-submitbar { display: flex; align-items: center; gap: 12px; margin-left: auto; }
 .stu-submit-why { font-size: 12.5px; color: var(--warn); }
 .stu-submitbar .stu-primary[data-blocked] { opacity: .55; }
+
+/* The admin's brief, at the top of the studio. */
+.stu-brief {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 196, 92, 0.4);
+  border-left-width: 3px;
+  border-radius: 10px;
+  background: rgba(255, 196, 92, 0.08);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ice);
+}
+.stu-brief b {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #ffc45c;
+}

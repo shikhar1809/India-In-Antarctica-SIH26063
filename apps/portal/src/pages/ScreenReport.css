@@ -109,3 +109,13 @@
 @media (max-width: 1099px) {
   .scr-grid { grid-template-columns: 1fr; }
 }
+
+/* The brief that travels with a report to the publishers. */
+.scr-brief { display: grid; gap: 0.3rem; margin-top: 0.15rem; }
+.scr-brief span { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ice-faint); }
+.scr-brief textarea {
+  padding: 0.55rem 0.7rem; border: 1px solid var(--line); border-radius: 8px;
+  background: rgba(6, 16, 25, 0.6); color: var(--ice);
+  font: 400 12.5px/1.55 var(--font-ui); resize: vertical;
+}
+.scr-brief textarea:focus { outline: none; border-color: rgba(95, 217, 255, 0.55); }
