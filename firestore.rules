@@ -322,6 +322,73 @@ service cloud.firestore {
       allow write: if canManageSite();
     }
 
+    /* Student questions, and the answers that come back from the ice.
+     *
+     * The loop: the public site writes a question, an admin approves it, the
+     * field app picks it up and a scientist answers, the admin publishes the
+     * answer. Three apps, three different identities — and until now, no rule
+     * at all, so every one of those steps was refused by the default deny and
+     * a student saw "Transmission failed".
+     *
+     * Who can do what here follows from who they are:
+     *
+     * ASKING is open, because the public site has no sign-in and a school
+     * child is not going to make an account to ask about penguins. It is
+     * constrained instead: the shape is checked field by field, the text is
+     * capped, and a question can only be created in its opening state.
+     *
+     * READING is deliberately split. `get` is open — the tracking id IS the
+     * capability, and the only person who has it is the student who just
+     * submitted it. `list` is staff-only, so nobody can enumerate the
+     * collection and walk off with a list of children's names, ages and
+     * schools. That distinction is the whole privacy design here.
+     *
+     * ANSWERING is any signed-in account (the field app signs in
+     * anonymously, like every other thing it does), but only on a question an
+     * admin has already released, and only over the four fields an answer
+     * consists of. A scientist cannot edit the question, or publish their own
+     * answer.
+     *
+     * MODERATING — releasing a question, publishing or rejecting an answer —
+     * is for whoever manages the site, the same people who run the Q&A page.
+     */
+    match /student_questions/{questionId} {
+      function q() { return request.resource.data; }
+
+      // One question, by its tracking id. Enumeration is staff-only.
+      allow get: if true;
+      allow list: if canManageSite() || isPublisher();
+
+      allow create: if q().question is string
+        && q().question.size() > 0
+        && q().question.size() <= 1000
+        && q().status == 'PENDING_QUESTION'
+        && q().answer == null
+        && q().submittedAt == request.time
+        && q().get('firstName', '').size() <= 80
+        && q().get('age', '').size() <= 10
+        && q().get('institute', '').size() <= 120
+        && q().keys().hasOnly(['firstName', 'age', 'institute', 'question', 'status', 'submittedAt', 'answer', 'answeredBy']);
+
+      // A scientist answering a released question, from the field app.
+      allow update: if request.auth != null
+        && resource.data.status == 'READY_FOR_SCIENTIST'
+        && q().status == 'PENDING_ANSWER'
+        && q().question == resource.data.question
+        && q().answer is string
+        && q().answer.size() > 0
+        && q().answer.size() <= 4000
+        && q().diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'answer', 'answeredByStation', 'answeredAt']);
+
+      // Moderation: release, publish, reject.
+      allow update: if canManageSite()
+        && q().question == resource.data.question
+        && q().status in ['PENDING_QUESTION', 'READY_FOR_SCIENTIST', 'PENDING_ANSWER', 'PUBLISHED', 'REJECTED_Q', 'REJECTED_A'];
+
+      allow delete: if isAdmin();
+    }
+
     // No other collection exists yet — default deny.
     match /{document=**} {
       allow read, write: if false;

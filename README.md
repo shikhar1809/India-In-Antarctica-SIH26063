@@ -364,10 +364,9 @@ Stated plainly, because a reviewer will find them anyway:
   production system should use a licensed news API.
 - **Uptime history on the Site page is mocked** until a real monitor is
   connected, and says so.
-- **Student questions do not round-trip yet.** The Ask a Scientist page
-  collects a question, but `student_questions` has no Firestore rule, so the
-  write is refused; the public site and the moderation queue also label a new
-  question differently. Both are known and unfixed.
+- **Student questions are answered by hand, in the portal.** The loop works
+  end to end — ask, moderate, answer from the field app, publish — but there
+  is no notification anywhere in it: a moderator has to look.
 
 ## Licence and attribution
 

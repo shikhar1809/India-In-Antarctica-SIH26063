@@ -46,12 +46,16 @@ export default function Ask() {
 
     setSubmitting(true);
     try {
+      /* PENDING_QUESTION, not 'UNAPPROVED': the portal's moderation queue
+         asks for exactly this state, and for months this wrote a word
+         nothing else in the system knew — so every question submitted here
+         sat in a queue nobody was looking at. */
       const docRef = await addDoc(collection(db, 'student_questions'), {
-        firstName: form.name.trim(), // keeping field name compatible if needed, or change to name
+        firstName: form.name.trim(),
         age: form.age.trim(),
         institute: form.institute.trim(),
         question: form.question.trim(),
-        status: 'UNAPPROVED',
+        status: 'PENDING_QUESTION',
         submittedAt: serverTimestamp(),
         answer: null,
         answeredBy: null,
@@ -61,7 +65,11 @@ export default function Ask() {
       setForm({ name: '', age: '', institute: '', question: '' });
     } catch (err: any) {
       console.error(err);
-      setError('Transmission failed. Please try again.');
+      setError(
+        err?.code === 'permission-denied'
+          ? 'The portal would not accept that. If the question is very long, try shortening it.'
+          : 'Could not reach the portal. Check your connection and try again.',
+      );
     } finally {
       setSubmitting(false);
     }

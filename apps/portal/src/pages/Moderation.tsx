@@ -61,9 +61,12 @@ export function Moderation() {
 
   // Load Pending Questions
   useEffect(() => {
+    /* 'UNAPPROVED' is what the public site wrote before the two ends were
+       put back in step — still accepted here so nothing already submitted
+       is stranded. */
     const q = query(
       collection(db, 'student_questions'),
-      where('status', '==', 'PENDING_QUESTION'),
+      where('status', 'in', ['PENDING_QUESTION', 'UNAPPROVED']),
       orderBy('submittedAt', 'asc')
     );
     return onSnapshot(q, (snapshot) => {
