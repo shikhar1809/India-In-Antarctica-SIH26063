@@ -493,3 +493,29 @@
 .ad-postreport a { color: var(--cyan); }
 .ad-postreport p { margin: 4px 0 0; color: var(--ice-dim); }
 .ad-postreport-foot { font-size: 11.5px; }
+
+/* ── why approving is refused ────────────────────────────────────────── */
+.ad-blocked {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.25rem;
+  border: 1px solid rgba(255, 138, 128, 0.45);
+  border-radius: 12px;
+  background: rgba(255, 138, 128, 0.08);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ice);
+}
+.ad-blocked strong { display: inline-flex; align-items: center; gap: 0.45rem; color: #ff8a80; }
+.ad-blocked ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 0.25rem; }
+.ad-blocked li b { color: var(--ice); }
+.ad-blocked span { color: var(--ice-dim); }
+
+/* A disabled action should look disabled. These were indistinguishable from
+   the live ones, so a click that did nothing looked like a fault. */
+.ad-actions .ph-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: saturate(0.6);
+}

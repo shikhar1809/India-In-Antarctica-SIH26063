@@ -37,6 +37,15 @@ const DRAFTED = [
     publicSummary: { title: 'Sea ice at Maitri measured at 182 cm', body: ['Stake readings along the MAI-S12 transect.'], table: [], chart: null },
   }),
 ];
+/* A post that cannot be published, so the desk's refusal — and the reason
+   for it — can be looked at without one arriving from the ice. */
+DRAFTED.push(d('dr3', {
+  status: 'drafted', authorName: 'K. Nair', station: 'Dakshin Gangotri', activity: 'Emergency / incident',
+  priority: 'urgent', safetyFlag: true, notes: 'Minor slip near the generator shed during whiteout conditions.',
+  caption: 'A note from the generator shed.', publisherName: 'Publisher',
+  publicSummary: { title: 'Incident near the generator shed', body: ['A short account of the incident.'], table: [], chart: null },
+}));
+
 INCOMING.push(d('rq1', { status: 'raw', authorName: 'Admin', activity: 'Outreach', notes: 'A post for Antarctica Day on the Maitri winter crew.',
   request: { kind: 'post-request', goal: 'awareness', platforms: ['instagram'], audience: 'public', tone: 'warm', deadline: null, recordId: null, recordIdentifier: null, recordTitle: null, instructions: null, requestedBy: 'a', requestedByName: 'Admin' } }));
 

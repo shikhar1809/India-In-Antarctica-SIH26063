@@ -638,7 +638,8 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
 
   const checks = active ? checksById.get(active.id) ?? [] : [];
   const worst = worstSeverity(checks);
-  const blocked = checks.some((c) => c.severity === 'blocker');
+  const blockers = checks.filter((c) => c.severity === 'blocker');
+  const blocked = blockers.length > 0;
 
   /* The reviewer costs a call, so it is asked for rather than automatic. */
   const runAi = async () => {
@@ -1112,6 +1113,20 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
         </div>
 
         <div className="ad-actions">
+          {/* Why the buttons are dead. A disabled row with no explanation
+              reads as a broken page — the checks that refuse publication are
+              listed on the desk, but not next to the thing they disable. */}
+          {!flagging && blocked && (
+            <div className="ad-blocked" role="status">
+              <strong><ShieldAlert size={13} strokeWidth={2.5} /> This cannot be published</strong>
+              <ul>
+                {blockers.map((b) => (
+                  <li key={b.id}><b>{b.label}</b>{b.detail ? ` — ${b.detail}` : ''}</li>
+                ))}
+              </ul>
+              <span>Send it back with a note, or clear it at the station first.</span>
+            </div>
+          )}
           {!flagging ? (
             <>
               {/* Approving publishes to the website and posts to every
