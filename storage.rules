@@ -32,6 +32,20 @@ service firebase.storage {
         && request.resource.size < 50 * 1024 * 1024;
     }
 
+    // Photographs and films a site manager put on the public Gallery page
+    // (portal: Site → Edit gallery). World-readable, because that is the
+    // whole point of them; written only into the uploader's own folder, the
+    // same shape as every other upload here. Firestore's publicSiteData rule
+    // is what decides whose additions actually appear on the page.
+    match /siteGallery/{uid}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 200 * 1024 * 1024
+        && (request.resource.contentType.matches('image/.*') || request.resource.contentType.matches('video/.*'));
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

@@ -5,22 +5,18 @@ import InfiniteGallery from '../components/ui/3d-gallery-photography'
 import { CoverflowCarousel, type CoverflowSlide } from '../components/ui/coverflow-carousel'
 import VideoPlayer from '../components/ui/video-player'
 import { buildGallery } from '../lib/galleryArt'
+import { useSiteGallery } from '../api/siteGallery'
 import { useRepository, STATION_LABELS } from '../api/repository'
 import type { RepositoryRecord } from '../repository/contract'
 import './Gallery.css'
 
-const SCENES = buildGallery()
-
-const SWIPE_SLIDES: CoverflowSlide[] = SCENES.map((scene) => ({
-  src: scene.src,
-  alt: scene.title,
-  title: scene.title,
-  subtitle: scene.caption,
-}))
+const BUILT_IN_SCENES = buildGallery()
 
 /* Curated Antarctic stock footage — free Pexels licence, hotlinked from their
-   CDN. Every URL here was checked to actually resolve; Pexels ids are not
-   guessable, so if one ever 404s it needs re-sourcing, not editing by hand. */
+   CDN. These are fill behind whatever a site manager has added in the portal
+   (Site → Edit gallery), which is now the way to put a film on this page.
+   One entry has already gone 403 upstream and was removed rather than left to
+   fail in the player; if another does, remove it the same way. */
 const STATIC_VIDEOS = [
   {
     id: 'px-15924008',
@@ -35,13 +31,6 @@ const STATIC_VIDEOS = [
     station: 'bharati',
     year: '2024',
     videoUrl: 'https://videos.pexels.com/video-files/6299731/6299731-hd_1920_1080_30fps.mp4',
-  },
-  {
-    id: 'px-36560252',
-    title: 'Icebreaker under way through frozen sea',
-    station: 'himadri',
-    year: '2023',
-    videoUrl: 'https://videos.pexels.com/video-files/36560252/15501274_1920_1080_30fps.mp4',
   },
   {
     id: 'px-35075239',
@@ -84,6 +73,25 @@ export default function Gallery() {
   const [media, setMedia] = useState<Media>('photos')
   const [vidIndex, setVidIndex] = useState(0)
 
+  /* What a site manager added in the portal, live. It leads; the built-in
+     set follows, so the page is never emptier than it was. */
+  const curated = useSiteGallery()
+
+  const scenes = useMemo(() => [
+    ...curated.photos.map((p) => ({
+      id: p.id,
+      title: p.title || 'Untitled',
+      caption: [p.caption, p.credit].filter(Boolean).join(' · '),
+      src: p.url,
+    })),
+    ...BUILT_IN_SCENES,
+  ], [curated.photos])
+
+  const swipeSlides: CoverflowSlide[] = useMemo(
+    () => scenes.map((scene) => ({ src: scene.src, alt: scene.title, title: scene.title, subtitle: scene.caption })),
+    [scenes],
+  )
+
   const { records } = useRepository()
   const liveVideos = useMemo(
     () => records.filter((r): r is RepositoryRecord & { videoUrl: string } => !!r.videoUrl),
@@ -99,8 +107,15 @@ export default function Gallery() {
       year: r.year,
       videoUrl: r.videoUrl,
     }))
-    return [...live, ...STATIC_VIDEOS]
-  }, [liveVideos])
+    const added: VideoItem[] = curated.videos.map((v) => ({
+      id: v.id,
+      title: v.title || 'Untitled film',
+      station: 'ncpor',
+      year: new Date(v.addedAt).getFullYear().toString(),
+      videoUrl: v.url,
+    }))
+    return [...added, ...live, ...STATIC_VIDEOS]
+  }, [liveVideos, curated.videos])
 
   const current = allVideos[vidIndex] ?? null
   const prev = () => setVidIndex((i) => (i - 1 + allVideos.length) % allVideos.length)
@@ -118,7 +133,7 @@ export default function Gallery() {
         </div>
         <span className="gal-count">
           {media === 'photos'
-            ? `${SCENES.length} scenes`
+            ? `${scenes.length} scenes`
             : `${allVideos.length} video${allVideos.length === 1 ? '' : 's'}`}
         </span>
 
@@ -173,11 +188,11 @@ export default function Gallery() {
 
       {media === 'photos' ? (
         mode === 'scroll' ? (
-          <InfiniteGallery images={SCENES} speed={1.2} className="gal-canvas" />
+          <InfiniteGallery images={scenes} speed={1.2} className="gal-canvas" />
         ) : (
           <div className="gal-swipe">
             <CoverflowCarousel
-              slides={SWIPE_SLIDES}
+              slides={swipeSlides}
               showCaption
               showNavigation
               showPagination

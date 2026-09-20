@@ -16,7 +16,7 @@
  */
 
 import { Link, useLocation } from 'react-router-dom';
-import { BarChart3, CheckCircle2, Plus, Sparkles } from 'lucide-react';
+import { ArrowRight, BarChart3, CheckCircle2, Plus, ShieldAlert, Sparkles } from 'lucide-react';
 import { useRole } from '../hooks/useRole';
 import { useDispatches } from '../hooks/useDispatches';
 import './MediaHub.css';
@@ -50,7 +50,7 @@ export function MediaHub() {
       icon: <Sparkles className="w-6 h-6" />,
       title: 'Manage media',
       body: role === 'admin'
-        ? `Screen incoming field reports, approve drafted posts, review what has published, and track the dissemination queue — all on one page.${unscreened ? ` ${unscreened} report${unscreened === 1 ? '' : 's'} waiting to be screened.` : ''}`
+        ? 'Screen incoming field reports, approve drafted posts, review what has published, and track the dissemination queue — all on one page.'
         : 'Draft the public-facing post for each field report, and track what is scheduled to go out.',
     },
   ];
@@ -71,6 +71,16 @@ export function MediaHub() {
 
         {justRequested && (
           <p className="mh-notice"><CheckCircle2 size={15} /> Sent to the publisher queue: “{justRequested.slice(0, 90)}{justRequested.length > 90 ? '…' : ''}”</p>
+        )}
+
+        {/* The backlog used to be the tail of a paragraph. A count nobody can
+            click is a fact; this is the way in. */}
+        {isAdmin && unscreened > 0 && (
+          <Link to="/social?tab=approve&filter=field" className="mh-screen">
+            <ShieldAlert size={16} strokeWidth={2.5} />
+            See {unscreened} report{unscreened === 1 ? '' : 's'} waiting to be screened
+            <ArrowRight size={15} strokeWidth={2.5} />
+          </Link>
         )}
 
         <div className="mh-grid">

@@ -559,6 +559,10 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
     requests: postRequests.length, all: items.length + incoming.length,
   };
   const [filter, setFilter] = useState<QueueFilter>(() => {
+    /* The Media page links straight to a filter — "see the reports waiting
+     * to be screened" should arrive showing exactly those. */
+    const asked = new URLSearchParams(window.location.search).get('filter') as QueueFilter | null;
+    if (asked && QUEUE_FILTERS.some((f) => f.id === asked)) return asked;
     try {
       const saved = localStorage.getItem('iia-portal:approve-filter') as QueueFilter | null;
       if (saved && QUEUE_FILTERS.some((f) => f.id === saved)) return saved;

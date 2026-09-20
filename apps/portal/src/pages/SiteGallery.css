@@ -1,0 +1,102 @@
+/* The gallery manager: a list of what the public sees, in its own order. */
+
+.sg-page { max-width: 1040px; }
+
+.sg-head { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem; }
+.sg-back {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-size: 0.78rem; color: var(--ice-dim); text-decoration: none; width: max-content;
+}
+.sg-back:hover { color: var(--cyan); }
+.sg-head h1 { margin: 0 0 0.35rem; }
+.sg-head p { margin: 0; max-width: 70ch; color: var(--ice-dim); font-size: 0.9rem; line-height: 1.6; }
+.sg-head a { color: var(--cyan); }
+
+/* ── photos / videos ─────────────────────────────────────────────────── */
+.sg-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+.sg-tabs button {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  padding: 0.5rem 0.9rem; border-radius: 999px;
+  border: 1px solid var(--line); background: none; cursor: pointer;
+  color: var(--ice-dim); font: 600 0.8rem/1 var(--font-ui);
+}
+.sg-tabs button b { font-family: var(--font-mono); color: var(--ice-faint); }
+.sg-tabs button.is-on { color: var(--cyan); border-color: rgba(95, 217, 255, 0.5); background: rgba(95, 217, 255, 0.1); }
+.sg-tabs button.is-on b { color: var(--cyan); }
+
+/* ── adding something ────────────────────────────────────────────────── */
+.sg-add {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 0.75rem; margin-bottom: 1rem;
+}
+@media (max-width: 760px) { .sg-add { grid-template-columns: 1fr; } }
+
+.sg-upload {
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+  padding: 0.85rem 1rem; border: 1px dashed var(--line-strong); border-radius: 12px;
+  color: var(--ice-dim); font-size: 0.82rem; cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+.sg-upload:hover { border-color: rgba(95, 217, 255, 0.6); color: var(--cyan); background: rgba(95, 217, 255, 0.06); }
+.sg-upload input { display: none; }
+
+.sg-link {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.4rem 0.4rem 0.4rem 0.85rem;
+  border: 1px solid var(--line); border-radius: 12px; color: var(--ice-faint);
+}
+.sg-link input {
+  flex: 1; min-width: 0; border: 0; background: none;
+  color: var(--ice); font: 400 0.85rem/1.4 var(--font-ui);
+}
+.sg-link input:focus { outline: none; }
+
+.sg-progress { margin: 0 0 0.75rem; font-size: 0.82rem; color: var(--cyan); }
+.sg-error { margin: 0 0 0.75rem; }
+
+/* ── the list ────────────────────────────────────────────────────────── */
+.sg-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+
+.sg-item {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) auto;
+  gap: 1rem;
+  padding: 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel);
+}
+@media (max-width: 860px) { .sg-item { grid-template-columns: 140px minmax(0, 1fr); } .sg-actions { grid-column: 1 / -1; } }
+
+.sg-media { border-radius: 10px; overflow: hidden; background: #08131f; }
+.sg-media img, .sg-media video {
+  display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover;
+}
+
+.sg-fields { display: grid; gap: 0.5rem; align-content: start; }
+.sg-fields label { display: grid; gap: 0.25rem; }
+.sg-fields span {
+  font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ice-faint);
+}
+.sg-fields input {
+  padding: 0.45rem 0.6rem; border: 1px solid var(--line); border-radius: 8px;
+  background: rgba(6, 16, 25, 0.6); color: var(--ice); font: 400 0.85rem/1.4 var(--font-ui);
+}
+.sg-fields input:focus { outline: none; border-color: rgba(95, 217, 255, 0.55); }
+.sg-meta { margin: 0.15rem 0 0; font-size: 0.72rem; color: var(--ice-faint); }
+
+.sg-actions { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 0.5rem; }
+.sg-order { display: inline-flex; align-items: center; gap: 0.2rem; color: var(--ice-faint); }
+.sg-order button {
+  width: 26px; height: 26px; border-radius: 7px;
+  border: 1px solid var(--line); background: none; color: var(--ice-dim); cursor: pointer;
+}
+.sg-order button:hover { color: var(--cyan); border-color: rgba(95, 217, 255, 0.5); }
+
+.sg-remove {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.4rem 0.7rem; border-radius: 8px;
+  border: 1px solid rgba(255, 120, 120, 0.35); background: none;
+  color: #ff9a9a; font: 600 0.75rem/1 var(--font-ui); cursor: pointer;
+}
+.sg-remove:hover { background: rgba(255, 120, 120, 0.12); }

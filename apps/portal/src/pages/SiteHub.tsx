@@ -23,7 +23,7 @@
 import { useEffect, useState } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Link } from 'react-router-dom';
-import { Activity, Flame, MessageCircleQuestion, PenSquare } from 'lucide-react';
+import { Activity, Flame, Images, MessageCircleQuestion, PenSquare } from 'lucide-react';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useRole } from '../hooks/useRole';
@@ -151,10 +151,19 @@ export function SiteHub() {
             <p>A day-by-day view of availability over the last year, and any incidents.</p>
           </Link>
 
+          {/* Editing the site is two different jobs — the words and blocks
+              of the home page, and the pictures and films in the gallery —
+              so they are two doors rather than one labelled "content". */}
           <Link to="/editor" className="sh-card">
             <span className="sh-icon"><PenSquare className="w-6 h-6" /></span>
-            <strong>Edit site content</strong>
-            <p>The page builder — hero, gallery, announcements and every other block on the public site.</p>
+            <strong>Edit home page</strong>
+            <p>The page builder — the front page, announcements, the legacy section and every other block on the public home page.</p>
+          </Link>
+
+          <Link to="/site/gallery" className="sh-card">
+            <span className="sh-icon"><Images className="w-6 h-6" /></span>
+            <strong>Edit gallery — photos &amp; videos</strong>
+            <p>Add, caption, reorder or remove the photographs and films on the public Gallery page. Upload a file, or point at one already online.</p>
           </Link>
 
           <Link to="/moderation" className="sh-card">

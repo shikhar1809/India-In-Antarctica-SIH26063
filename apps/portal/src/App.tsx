@@ -10,6 +10,7 @@ import { Home } from './pages/Home';
 import { Repository } from './pages/Repository';
 import { Social } from './pages/Social';
 import { SiteEditor } from './pages/SiteEditor';
+import { SiteGallery } from './pages/SiteGallery';
 import { Moderation } from './pages/Moderation';
 import { Analytics } from './pages/Analytics';
 import { MediaHub } from './pages/MediaHub';
@@ -40,6 +41,7 @@ function SiteManagerRoutes({ archive, analytics }: { archive: boolean; analytics
     <Routes>
       <Route path="/site" element={<SiteHub />} />
       <Route path="/site/uptime" element={<UptimePage />} />
+      <Route path="/site/gallery" element={<SiteGallery />} />
       <Route path="/editor" element={<SiteEditor />} />
       <Route path="/moderation" element={<Moderation />} />
       {archive && <Route path="/repository" element={<Repository />} />}
@@ -165,6 +167,8 @@ function Gate() {
         <Route path="/media/screen/:id" element={<ScreenReport />} />
         <Route path="/site" element={<SiteHub />} />
         <Route path="/site/uptime" element={<UptimePage />} />
+        <Route path="/site/gallery" element={<SiteGallery />} />
+      <Route path="/site/gallery" element={<SiteGallery />} />
         <Route path="/roles" element={<RolesPage />} />
         {/* Scientist-facing Upload/MyRecords removed — scientists use the desktop app */}
         <Route path="*" element={<Navigate to="/" replace />} />
