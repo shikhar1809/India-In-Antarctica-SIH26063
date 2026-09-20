@@ -24,5 +24,16 @@ class DispatchProvider extends ChangeNotifier {
     SyncService.instance.flush().then((_) => load());
   }
 
+  /// Deletes a report from this device, with its kept attachments.
+  ///
+  /// A report that already reached the portal is only removed from the
+  /// device — the portal's copy is the record, and this app has no business
+  /// deleting it from there.
+  Future<void> remove(String id) async {
+    await _db.deleteDispatch(id);
+    await dropAttachments(id);
+    await load();
+  }
+
   Future<void> refresh() => load();
 }

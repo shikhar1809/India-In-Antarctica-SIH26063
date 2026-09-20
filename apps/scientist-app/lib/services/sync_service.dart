@@ -64,6 +64,24 @@ class SyncService {
     flush();
   }
 
+  /// Send one report again, now — what the "Try again" button on a failed
+  /// report calls. The automatic retries happen on their own schedule
+  /// (reconnection, every two minutes); this is for the scientist who has
+  /// just fixed whatever was wrong and does not want to wait for one.
+  Future<void> retry(String id) async {
+    _setError(id, null);
+    final pending = await _db.getPending();
+    final one = pending.where((d) => d.id == id).firstOrNull;
+    if (one == null) return;
+    if (_syncing) return;           // a flush already running will take it
+    _syncing = true;
+    try {
+      await _uploadDispatch(one);
+    } finally {
+      _syncing = false;
+    }
+  }
+
   // Flush all pending local dispatches to the portal.
   Future<void> flush() async {
     if (_syncing) return;

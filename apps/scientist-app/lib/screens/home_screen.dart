@@ -329,7 +329,7 @@ class _ReportsPanelState extends State<_ReportsPanel> {
     if (compact && selected != null) {
       return Column(children: [
         _BackBar(label: 'ALL REPORTS', onBack: () => setState(() => _selectedId = null)),
-        Expanded(child: _DispatchDetail(d: selected)),
+        Expanded(child: _DispatchDetail(d: selected, onDeleted: () => setState(() => _selectedId = null))),
       ]);
     }
 
@@ -387,7 +387,7 @@ class _ReportsPanelState extends State<_ReportsPanel> {
                   ),
                 ),
               )
-            : _DispatchDetail(d: selected),
+            : _DispatchDetail(d: selected, onDeleted: () => setState(() => _selectedId = null)),
         ),
       ],
     );
@@ -417,7 +417,37 @@ class _SyncDot extends StatelessWidget {
 // ── Dispatch detail ───────────────────────────────────────────────────────
 class _DispatchDetail extends StatelessWidget {
   final Dispatch d;
-  const _DispatchDetail({required this.d});
+  /// Called after the report is deleted, so the list can drop its selection.
+  final VoidCallback? onDeleted;
+  const _DispatchDetail({required this.d, this.onDeleted});
+
+  Future<void> _delete(BuildContext context) async {
+    final sent = d.synced;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        title: Text(sent ? 'REMOVE FROM THIS DEVICE?' : 'DELETE THIS REPORT?',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: AppTheme.amber, letterSpacing: 0.08)),
+        content: Text(
+          sent
+              ? 'It has already reached the portal. The portal keeps its copy — this only clears it off this device, with its photos and files.'
+              : 'It has not been sent yet. Deleting it here means it is gone: the report, its photos and its files.',
+          style: const TextStyle(fontSize: 13, color: AppTheme.textPri, height: 1.5),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('KEEP IT')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(sent ? 'REMOVE' : 'DELETE', style: const TextStyle(color: AppTheme.danger, fontWeight: FontWeight.w900)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    await context.read<DispatchProvider>().remove(d.id);
+    onDeleted?.call();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -519,7 +549,62 @@ class _DispatchDetail extends StatelessWidget {
                       ),
                     ),
             ),
+
+          /* What a scientist can do about a report: send it again now, or
+             take it off the device. Both were missing — a failed report had
+             to wait for an automatic retry, and nothing could ever be
+             deleted. */
+          const SizedBox(height: 20),
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            children: [
+              if (!d.synced)
+                _DetailAction(
+                  label: 'TRY AGAIN NOW',
+                  icon: Icons.refresh,
+                  onTap: () async {
+                    final messenger = ScaffoldMessenger.of(context);
+                    messenger.showSnackBar(const SnackBar(content: Text('Sending…')));
+                    await SyncService.instance.retry(d.id);
+                    if (context.mounted) await context.read<DispatchProvider>().refresh();
+                  },
+                ),
+              _DetailAction(
+                label: d.synced ? 'REMOVE FROM DEVICE' : 'DELETE REPORT',
+                icon: Icons.delete_outline,
+                danger: true,
+                onTap: () => _delete(context),
+              ),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+}
+
+/// A small outlined button in the report detail — the same shape for every
+/// action so none of them reads as more routine than the others.
+class _DetailAction extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool danger;
+  final Future<void> Function() onTap;
+  const _DetailAction({required this.label, required this.icon, required this.onTap, this.danger = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final colour = danger ? AppTheme.danger : AppTheme.amber;
+    return OutlinedButton.icon(
+      onPressed: () => onTap(),
+      icon: Icon(icon, size: 15, color: colour),
+      label: Text(label,
+          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 0.1, color: colour)),
+      style: OutlinedButton.styleFrom(
+        side: BorderSide(color: colour.withValues(alpha: 0.5)),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       ),
     );
   }

@@ -25,6 +25,8 @@ void main() {
   });
 
   test('stations are India\'s, as the portal lists them', () {
-    expect(kStations, ['Maitri', 'Bharati', 'Dakshin Gangotri', 'Other']);
+    // Himadri is the Arctic station, at Ny-Ålesund — NCPOR works at both
+    // poles, and the portal's CANONICAL_STATIONS says so too.
+    expect(kStations, ['Maitri', 'Bharati', 'Dakshin Gangotri', 'Himadri', 'Other']);
   });
 }

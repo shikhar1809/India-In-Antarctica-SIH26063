@@ -70,3 +70,18 @@ Future<Dispatch> keepAttachments(Dispatch d) async {
     updatedAt: d.updatedAt,
   );
 }
+
+
+/// Removes a report's kept attachments. Called when the report itself is
+/// deleted — leaving the folder behind would keep photographs of something
+/// the scientist has chosen to remove.
+Future<void> dropAttachments(String dispatchId) async {
+  try {
+    final docs = await getApplicationDocumentsDirectory();
+    final dir = Directory(p.join(docs.path, 'iia_scientist_media', dispatchId));
+    if (await dir.exists()) await dir.delete(recursive: true);
+  } catch (_) {
+    // A locked file is not a reason to fail the delete — the report is gone
+    // from the database either way, which is what the scientist asked for.
+  }
+}
