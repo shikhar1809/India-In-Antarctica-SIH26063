@@ -63,7 +63,66 @@ function withGalleryAfterLegacy(data: any) {
   return { ...data, content: next };
 }
 
+/** The top bar. No "Home" — the logo is the way home — and PolarQuest sits
+ *  before Ask a Scientist. `section` is the id of the home-page section each
+ *  one corresponds to, which is what the scroll-spy rings. */
+const NAV = [
+  { label: 'Knowledge Repository', href: '/archive', internal: true, section: 'section-repository' },
+  { label: 'Gallery', href: '/gallery', internal: true, section: 'section-gallery' },
+  { label: 'PolarQuest', href: 'https://iia-game.web.app', internal: false, section: 'section-polarquest' },
+  { label: 'Ask a Scientist', href: '/ask', internal: true, section: 'section-ask' },
+];
+
+/**
+ * Which section the reader is actually in.
+ *
+ * Plainly: the last section whose top has passed a line a third of the way
+ * down the viewport. Read on scroll (and on resize, since section tops move),
+ * throttled to one measurement per frame — scroll handlers that measure
+ * without that are the classic way to make a page feel heavy.
+ */
+function useSectionInView(ids: string[]): string | null {
+  const [here, setHere] = useState<string | null>(null);
+
+  useEffect(() => {
+    let frame = 0;
+    const measure = () => {
+      frame = 0;
+      const line = window.innerHeight * 0.34;
+      let current: string | null = null;
+      for (const id of ids) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        const { top, bottom } = el.getBoundingClientRect();
+        if (top <= line && bottom > line * 0.6) current = id;
+      }
+      setHere(current);
+    };
+    const onScroll = () => { if (!frame) frame = requestAnimationFrame(measure); };
+
+    measure();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    /* Sections arrive after the page does — the front page waits on the
+     * repository, the editor's blocks on Firestore — so watch the document
+     * and re-measure when it grows. */
+    const ro = new ResizeObserver(onScroll);
+    ro.observe(document.body);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+      ro.disconnect();
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [ids]);
+
+  return here;
+}
+
+const NAV_SECTIONS = NAV.map((n) => n.section);
+
 export default function Home() {
+  const here = useSectionInView(NAV_SECTIONS);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -128,11 +187,13 @@ export default function Home() {
             even though it is already sitting in memory, which is what "the
             Archive takes too long to open" actually was. */}
         <nav className="home-header-nav">
-          <Link to="/">Home</Link>
-          <Link to="/archive">Knowledge Repository</Link>
-          <Link to="/gallery">Gallery</Link>
-          <Link to="/ask">Ask a Scientist</Link>
-          <a href="https://iia-game.web.app" target="_blank" rel="noreferrer">PolarQuest</a>
+          {NAV.map((l) =>
+            l.internal ? (
+              <Link key={l.label} to={l.href} className={here === l.section ? 'is-here' : undefined}>{l.label}</Link>
+            ) : (
+              <a key={l.label} href={l.href} target="_blank" rel="noreferrer" className={here === l.section ? 'is-here' : undefined}>{l.label}</a>
+            )
+          )}
           <a href="https://iia-portal.web.app" className="portal-link">Portal Login</a>
         </nav>
 
@@ -148,17 +209,11 @@ export default function Home() {
 
       {/* ── Mobile Nav Drawer ── */}
       <nav className={`home-mobile-nav ${menuOpen ? 'open' : ''}`}>
-        {[
-          { label: 'Home', href: '/', internal: true },
-          { label: 'Knowledge Repository', href: '/archive', internal: true },
-          { label: 'Gallery', href: '/gallery', internal: true },
-          { label: 'Ask a Scientist', href: '/ask', internal: true },
-          { label: 'PolarQuest', href: 'https://iia-game.web.app', internal: false },
-        ].map(link =>
+        {NAV.map(link =>
           link.internal ? (
-            <Link key={link.label} to={link.href} onClick={() => setMenuOpen(false)}>{link.label}</Link>
+            <Link key={link.label} to={link.href} className={here === link.section ? 'is-here' : undefined} onClick={() => setMenuOpen(false)}>{link.label}</Link>
           ) : (
-            <a key={link.label} href={link.href} onClick={() => setMenuOpen(false)}>{link.label}</a>
+            <a key={link.label} href={link.href} className={here === link.section ? 'is-here' : undefined} onClick={() => setMenuOpen(false)}>{link.label}</a>
           )
         )}
         <a href="https://iia-portal.web.app" className="portal-link-mobile" onClick={() => setMenuOpen(false)}>

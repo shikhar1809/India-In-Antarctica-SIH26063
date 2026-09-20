@@ -82,7 +82,7 @@ export function StickyScrollGallery({ center, left, right, className }: StickySc
   // size worth looking at. Faking it (e.g. a short sticky height) reads as a
   // glitch, not an effect, so mobile gets the honest simpler layout instead.
   const body = (
-    <section className={`bg-black py-10 md:py-16 ${className ?? ''}`}>
+    <section id="section-gallery" className={`bg-black py-10 md:py-16 ${className ?? ''}`}>
       <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 md:hidden">
         {[...center, ...left, ...right].map((img, i) => (
           <Frame key={i} img={img} />

@@ -41,7 +41,7 @@ const STUDENTS = [
 
 export function AskScientistBanner() {
   return (
-    <section className="ask-banner-wrap" aria-labelledby="ask-banner-title">
+    <section id="section-ask" className="ask-banner-wrap" aria-labelledby="ask-banner-title">
       <Link to="/ask" className="ask-banner">
         {/* ── the globe, turned to Antarctica ───────────────────────── */}
         <div className="ask-globe">

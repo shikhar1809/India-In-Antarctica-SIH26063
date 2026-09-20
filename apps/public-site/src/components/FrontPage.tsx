@@ -170,7 +170,7 @@ export function FrontPage() {
   }
 
   return (
-    <section className="fp-wrap" aria-labelledby="fp-title">
+    <section id="section-repository" className="fp-wrap" aria-labelledby="fp-title">
       <header className="fp-masthead">
         <div className="fp-masthead-head">
           <h1 id="fp-title">Latest from the Ice</h1>

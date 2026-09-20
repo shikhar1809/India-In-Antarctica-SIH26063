@@ -188,3 +188,24 @@
 
 /* The "Access Knowledge Base" section now lives entirely in
    components/ui/book-shelf.css — see BookShelf. */
+
+
+/* ── which section you are reading ───────────────────────────────────────
+   The nav item for the section currently under the reader is ringed, so the
+   top bar answers "where am I" without a second breadcrumb. */
+.home-header-nav a,
+.home-mobile-nav a {
+  padding: 0.4rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  transition: color 0.2s ease, border-color 0.25s ease, background 0.25s ease;
+}
+.home-header-nav a.is-here,
+.home-mobile-nav a.is-here {
+  color: var(--cyan);
+  border-color: rgba(95, 217, 255, 0.55);
+  background: rgba(95, 217, 255, 0.1);
+}
+/* The sign-in button keeps its own shape. */
+.home-header-nav a.portal-link,
+.home-mobile-nav a.portal-link-mobile { border-radius: inherit; }

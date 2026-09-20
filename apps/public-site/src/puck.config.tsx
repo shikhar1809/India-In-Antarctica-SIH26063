@@ -334,7 +334,7 @@ export const config: Config<Props> = {
         ctaUrl: 'https://iia-game.web.app',
       },
       render: ({ ctaLabel, ctaUrl }) => (
-        <div className="overflow-hidden">
+        <div className="overflow-hidden" id="section-polarquest">
           <ContainerScroll
             titleComponent={
               <div style={{ fontFamily: 'var(--font-ui, system-ui)', textAlign: 'center' }}>
