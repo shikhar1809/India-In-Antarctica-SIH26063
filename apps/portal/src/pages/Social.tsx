@@ -551,6 +551,7 @@ function IncomingGroup({ items, compact = false, title = 'Incoming — not scree
 
 export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incoming?: Dispatch[] }) {
   const { user } = useAuth();
+  const { role } = useRole();
   const [activeId, setActiveId] = useState<string | null>(items[0]?.id ?? null);
   const [flagging, setFlagging] = useState(false);
   const [notes, setNotes] = useState('');
@@ -679,15 +680,29 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
    * uses — the admin has to be told exactly that before they overrule it. */
   const objections = active ? publishObjections(active) : [];
 
-  /* The reviewer costs a call, so it is asked for rather than automatic. */
-  const runAi = async () => {
-    if (!active) return;
+  /* A post written by the agent gets read back by a model before a human
+   * approves it — two passes over generated text rather than one. It runs
+   * once per post (aiFor remembers which), and the button re-runs it. A
+   * post a publisher wrote by hand is still asked for explicitly: the call
+   * costs something, and a human author has already read their own words. */
+  const [aiFor, setAiFor] = useState<string | null>(null);
+
+  const runAi = async (d = active) => {
+    if (!d) return;
+    setAiFor(d.id);
     setAiBusy(true);
     setAi(null);
-    const result = await reviewDispatch(active);
+    const result = await reviewDispatch(d);
     setAi(result);
     setAiBusy(false);
   };
+
+  useEffect(() => {
+    if (!active || !active.agentTrace) return;   // hand-written: ask for it
+    if (aiFor === active.id || aiBusy) return;
+    void runAi(active);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active?.id]);
 
   const select = (id: string) => {
     setActiveId(id);
@@ -695,6 +710,7 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
     setNotes('');
     setError(null);
     setAi(null);          // advice belongs to the dispatch it was asked about
+    setAiFor(null);
   };
 
   /** Publish the active dispatch. `andSchedule` keeps the freshly published
@@ -801,7 +817,7 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
       setActiveId(null); setAi(null);
       await announce(mode, record, active, opts.only);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not publish this record. Nothing was changed.');
+      setError(explainWriteFailure(e, role));
     } finally { setBusy(false); setBusyNote(null); }
   };
 
@@ -883,8 +899,11 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
   }
 
   const verdictClass = worst ?? 'clear';
+  /* "Cannot be published" was true when a flag was absolute. It is not any
+   * more — an admin can overrule it, so the verdict says what the decision
+   * actually is rather than refusing on the desk's behalf. */
   const verdictText = blocked
-    ? 'Cannot be published'
+    ? 'Normally kept internal — your call'
     : worst === 'missing' ? 'Publishable, with gaps'
     : worst === 'caution' ? 'Publishable, worth a look'
     : 'Nothing flagged';
@@ -1136,11 +1155,14 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
           {/* ── the model's read, asked for explicitly ── */}
           <div className="ad-block">
             <div className="ad-ai-head">
-              <span className="ad-label">Editorial review</span>
+              <span className="ad-label">
+                Editorial review
+                {active.agentTrace && <span className="ad-ai-auto"><Sparkles size={10} strokeWidth={2.5} /> second pass</span>}
+              </span>
               <button
                 type="button"
                 className="ph-btn ghost small"
-                onClick={runAi}
+                onClick={() => void runAi()}
                 disabled={aiBusy}
               >
                 <Sparkles size={12} strokeWidth={2.5} />
@@ -1153,6 +1175,10 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
                 Reads the public text against the field notes and flags anything it does not support,
                 or that claims more than one observation can carry.
               </p>
+            )}
+
+            {aiBusy && active.agentTrace && (
+              <p className="ad-ai-note">Reading it back — this post was written by the agent, so a model checks it before you do.</p>
             )}
 
             {ai?.available === false && ai.reason !== 'cancelled' && (
@@ -1191,6 +1217,13 @@ export function ApproveTab({ items, incoming = [] }: { items: Dispatch[]; incomi
         </div>
 
         <div className="ad-actions">
+          {/* What went wrong, next to the button that tried it — the middle
+              of the desk is a long way from where the eye is. */}
+          {error && (
+            <div className="ad-actionerr" role="alert">
+              <TriangleAlert size={13} strokeWidth={2.5} /> {error}
+            </div>
+          )}
           {/* Why the buttons are dead. A disabled row with no explanation
               reads as a broken page — the checks that refuse publication are
               listed on the desk, but not next to the thing they disable. */}
@@ -1502,6 +1535,28 @@ export function FeedTab({ items, posts: given, preview }: { items: Dispatch[]; p
       )}
     </div>
   );
+}
+
+/**
+ * What actually went wrong, in words that say what to do about it.
+ *
+ * Firestore's own message for a refused write is "Missing or insufficient
+ * permissions", which on this desk almost always means one thing: the
+ * person is not currently an admin. The role switcher makes that easy to do
+ * by accident, so the message says it.
+ */
+function explainWriteFailure(e: unknown, role: string | null): string {
+  const code = (e as { code?: string })?.code ?? '';
+  const message = e instanceof Error ? e.message : String(e);
+  if (code === 'permission-denied' || /insufficient permissions/i.test(message)) {
+    return role === 'admin'
+      ? 'The database refused that write. Your admin role may have been revoked — reload and sign in again.'
+      : `Approving is an admin action and you are signed in as ${role ?? 'another role'}. Switch to Admin in the top bar and try again.`;
+  }
+  if (/network|offline|unavailable/i.test(message)) {
+    return 'Could not reach the database. Nothing was changed — check the connection and try again.';
+  }
+  return message || 'Could not publish this record. Nothing was changed.';
 }
 
 type ApproveMode = 'post' | 'schedule' | 'site';
