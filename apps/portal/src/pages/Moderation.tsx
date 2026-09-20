@@ -191,12 +191,15 @@ export function Moderation() {
               pendingQuestions.map(q => (
                 <div key={q.id} className="mod-card">
                   <div className="mod-card-meta">
-                    <strong>{q.firstName}</strong> | Grade {q.grade} | {q.submittedAt?.toDate().toLocaleString()}
+                    <strong>{q.firstName || 'Anonymous'}</strong>
+                    {q.age ? ` · age ${q.age}` : ''}
+                    {q.institute ? ` · ${q.institute}` : ''}
+                    {q.submittedAt ? ` · ${q.submittedAt.toDate().toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}
                   </div>
                   <div className="mod-card-q">"{q.question}"</div>
                   <div className="mod-card-actions">
                     <button className="ph-btn primary" onClick={() => handleApproveQuestion(q.id)}>
-                      Approve (Send to Game)
+                      Approve — send to the scientist app
                     </button>
                     <button className="ph-btn danger" onClick={() => handleReject(q.id, 'question')}>
                       Reject
@@ -216,14 +219,19 @@ export function Moderation() {
               pendingAnswers.map(q => (
                 <div key={q.id} className="mod-card">
                   <div className="mod-card-meta">
-                    <strong>{q.firstName}</strong> | Grade {q.grade}
+                    <strong>{q.firstName || 'Anonymous'}</strong>
+                    {q.age ? ` · age ${q.age}` : ''}
+                    {q.institute ? ` · ${q.institute}` : ''}
                   </div>
                   <div className="mod-card-q">"{q.question}"</div>
-                  <div className="mod-card-a-header">Answered by {q.answeredByStation || 'Scientist'} at {q.answeredAt?.toDate().toLocaleString()}</div>
+                  <div className="mod-card-a-header">
+                    Answered from {q.answeredByStation || 'the field app'}
+                    {q.answeredAt ? ` · ${q.answeredAt.toDate().toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}
+                  </div>
                   <div className="mod-card-a">{q.answer}</div>
                   <div className="mod-card-actions">
                     <button className="ph-btn primary" onClick={() => handlePublishAnswer(q.id, q.answer)}>
-                      Review & Publish
+                      Publish the answer
                     </button>
                     <button className="ph-btn danger" onClick={() => handleReject(q.id, 'answer')}>
                       Reject Answer

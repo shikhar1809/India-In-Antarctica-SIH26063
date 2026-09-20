@@ -1,3 +1,13 @@
+/* This page was written against --ph-* variables that do not exist in this
+   app's stylesheet, so every border resolved to nothing and the selected tab
+   rendered black text on a transparent background — invisible. Mapped onto
+   the portal's own tokens here rather than renamed throughout. */
+:root {
+  --ph-border: var(--line);
+  --ph-dim: var(--ice-dim);
+  --ph-accent: var(--cyan);
+}
+
 .mod-tabs {
   display: flex;
   gap: 1rem;
@@ -23,9 +33,10 @@
 }
 
 .mod-tab.active {
-  background: var(--ph-accent);
-  color: #000;
-  border-color: var(--ph-accent);
+  background: var(--cyan);
+  color: var(--ink);
+  border-color: var(--cyan);
+  font-weight: 700;
 }
 
 .mod-empty {
