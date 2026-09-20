@@ -334,11 +334,11 @@ export function Repository({ preview = false }: { preview?: boolean } = {}) {
    * showing a button that 404s would be worse than showing none. */
   const activePublicUrl = useMemo(() => {
     if (active?.record) {
-      return `${PUBLIC_SITE_URL}/archive/${active.record.metadata?.identifier || active.record.id}`;
+      return `${PUBLIC_SITE_URL}/knowledge-repository/${active.record.metadata?.identifier || active.record.id}`;
     }
     if (active?.deposit) {
       const published = records.find((r) => r.id === active.deposit!.id);
-      return published ? `${PUBLIC_SITE_URL}/archive/${published.metadata?.identifier || published.id}` : null;
+      return published ? `${PUBLIC_SITE_URL}/knowledge-repository/${published.metadata?.identifier || published.id}` : null;
     }
     return null;
   }, [active, records]);

@@ -74,7 +74,7 @@ export function useHeroSlides(): { slides: HeroSlide[]; live: boolean } {
       // Every record-backed slide gets this, and it is what the caption's
       // "View in archive" link and platform badges hang off — a slide with
       // no href renders as a bare photograph.
-      href: `/archive/${recordSlug(r)}`,
+      href: `/knowledge-repository/${recordSlug(r)}`,
       platforms: [...new Set(
         [...(r.socialPosts ?? [])].sort((a, b) => b.postedAt - a.postedAt).map((p) => p.platform),
       )],

@@ -232,12 +232,12 @@ describe('template controls', () => {
 
 
 describe('building a post on an archive record', () => {
-  const source = { identifier: 'IIA-1998-0007', title: 'Total column ozone at Maitri', url: 'https://iia-public.web.app/archive/IIA-1998-0007' };
+  const source = { identifier: 'IIA-1998-0007', title: 'Total column ozone at Maitri', url: 'https://iia-public.web.app/knowledge-repository/IIA-1998-0007' };
   const variant = (captions: { x: string; linkedin: string; instagram: string }) =>
     ({ copy: { kicker: '', headline: '', standfirst: '', stat: null, statLabel: null, captions } });
 
   it('addresses a record by its citable identifier', () => {
-    expect(recordUrl('IIA-1998-0007')).toBe('https://iia-public.web.app/archive/IIA-1998-0007');
+    expect(recordUrl('IIA-1998-0007')).toBe('https://iia-public.web.app/knowledge-repository/IIA-1998-0007');
   });
 
   it('appends the link to X and LinkedIn, and "Link in bio" to Instagram', () => {
@@ -260,7 +260,7 @@ describe('building a post on an archive record', () => {
   it('does not add the link twice', () => {
     const once = withSourceLink([variant({ x: 'Ozone.', linkedin: 'x', instagram: 'y' })], source);
     const twice = withSourceLink(once, source);
-    expect(twice[0].copy.captions.x.match(/archive/g)).toHaveLength(1);
+    expect(twice[0].copy.captions.x.match(/knowledge-repository/g)).toHaveLength(1);
   });
 
   it('is a no-op with no source', () => {
@@ -300,7 +300,7 @@ describe('shapeCaption', () => {
 });
 
 describe('links on LinkedIn', () => {
-  const source = { identifier: 'IIA-1998-0007', title: 'Total column ozone at Maitri', url: 'https://iia-public.web.app/archive/IIA-1998-0007' };
+  const source = { identifier: 'IIA-1998-0007', title: 'Total column ozone at Maitri', url: 'https://iia-public.web.app/knowledge-repository/IIA-1998-0007' };
   const variant = (captions: { x: string; linkedin: string; instagram: string }) =>
     ({ copy: { kicker: '', headline: '', standfirst: '', stat: null, statLabel: null, captions } });
 

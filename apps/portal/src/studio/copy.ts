@@ -59,10 +59,10 @@ export interface PostSource {
 }
 
 /** The public address of a published record. The citable identifier is the
- *  handle, matching recordSlug() on the public site — /archive/IIA-2026-0001
+ *  handle, matching recordSlug() on the public site — /knowledge-repository/IIA-2026-0001
  *  is the address of the thing a citation names, not a database key. */
 export function recordUrl(identifier: string, origin = 'https://iia-public.web.app'): string {
-  return `${origin}/archive/${identifier}`;
+  return `${origin}/knowledge-repository/${identifier}`;
 }
 
 /**

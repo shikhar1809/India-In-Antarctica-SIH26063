@@ -138,7 +138,7 @@ export default function Archive() {
 
   const trend = useMemo(() => temperatureSeries(records), [records])
 
-  // The URL says which record is open. /archive/IIA-2026-0001 (or the
+  // The URL says which record is open. /knowledge-repository/IIA-2026-0001 (or the
   // record's own id) opens that record, and opening one from the shelf
   // pushes the matching URL — which is what makes a record linkable,
   // bookmarkable and reachable with the browser's Back button, instead of
@@ -199,10 +199,10 @@ export default function Archive() {
   const openRecordById = (id: string) => {
     const i = records.findIndex((r) => r.id === id)
     if (i < 0) return
-    transition('detail', i, `/archive/${recordSlug(records[i])}`)
+    transition('detail', i, `/knowledge-repository/${recordSlug(records[i])}`)
   }
   const backToSelector = () => {
-    transition('selector', undefined, '/archive')
+    transition('selector', undefined, '/knowledge-repository')
   }
 
   return (
@@ -486,8 +486,8 @@ export default function Archive() {
                       only useful if the thing it names can be reached. */}
                   <dt>Permalink</dt>
                   <dd>
-                    <Link className="arch2-permalink" to={`/archive/${recordSlug(active)}`}>
-                      {`${window.location.origin}/archive/${recordSlug(active)}`}
+                    <Link className="arch2-permalink" to={`/knowledge-repository/${recordSlug(active)}`}>
+                      {`${window.location.origin}/knowledge-repository/${recordSlug(active)}`}
                     </Link>
                   </dd>
                   <dt>Collected by</dt><dd>{active.metadata.creators?.map((c) => c.name).join(', ')}</dd>

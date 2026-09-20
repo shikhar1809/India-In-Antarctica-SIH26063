@@ -1276,7 +1276,7 @@ export function FeedTab({ items, posts: given, preview }: { items: Dispatch[]; p
           <div className="fld-feed-share">
             {d.publicIdentifier && (
               <a
-                href={`${PUBLIC_SITE_URL}/archive/${d.publicIdentifier}`}
+                href={`${PUBLIC_SITE_URL}/knowledge-repository/${d.publicIdentifier}`}
                 target="_blank"
                 rel="noreferrer"
                 className="ph-btn primary small"

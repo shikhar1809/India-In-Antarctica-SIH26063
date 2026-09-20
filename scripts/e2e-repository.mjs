@@ -41,7 +41,7 @@ try {
   // Not 'networkidle': the page holds an open Firestore listener for live
   // updates, so the network never actually goes idle. Waiting for the rows
   // themselves is both faster and the thing we actually care about.
-  await page.goto(`${BASE}/archive`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.goto(`${BASE}/knowledge-repository`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   // The archive is a two-screen PS5-style flow: a carousel that SELECTS a
   // record, then a detail screen for the one chosen. There is no list, so the
   // page is driven through the same affordances a player uses.
@@ -63,10 +63,10 @@ try {
 
   /** Open a record by its own address. The shelf is a 3D scene whose books
    *  are picked by clicking the model, which is not something a test should
-   *  be aiming a cursor at; every record is addressable at /archive/<id>,
+   *  be aiming a cursor at; every record is addressable at /knowledge-repository/<id>,
    *  so the test opens them the way a shared link does. */
   const openRecord = async (record) => {
-    await page.goto(`${BASE}/archive/${record.metadata?.identifier ?? record.id}`,
+    await page.goto(`${BASE}/knowledge-repository/${record.metadata?.identifier ?? record.id}`,
       { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForSelector('.arch2-page[data-view="detail"]', { timeout: 20000 });
   };
@@ -96,7 +96,7 @@ try {
 
   // The citable identifier is the address, and case is not part of it.
   if (sample.metadata?.identifier) {
-    await page.goto(`${BASE}/archive/${sample.metadata.identifier.toLowerCase()}`,
+    await page.goto(`${BASE}/knowledge-repository/${sample.metadata.identifier.toLowerCase()}`,
       { waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForSelector('.arch2-page[data-view="detail"]', { timeout: 20000 });
     const lower = await page.$eval('.arch2-detail-title', (e) => e.textContent.trim());
@@ -105,7 +105,7 @@ try {
 
   // An address that names nothing must not fall through to whatever record
   // happens to sit at that position.
-  await page.goto(`${BASE}/archive/not-a-real-record`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.goto(`${BASE}/knowledge-repository/not-a-real-record`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.waitForSelector('.arch2-page[data-view="selector"]', { timeout: 20000 });
   check('an unknown record id falls back to the shelf', true);
 
@@ -114,7 +114,7 @@ try {
   await page.waitForSelector('.arch2-page[data-view="selector"]', { timeout: 10000 });
   check('the back control returns to the selector', true);
   check('going back drops the record from the URL',
-    new URL(page.url()).pathname.replace(/\/$/, '') === '/archive', page.url());
+    new URL(page.url()).pathname.replace(/\/$/, '') === '/knowledge-repository', page.url());
 
   /* ── 3. Charts ──────────────────────────────────────────────────────── */
   console.log('\nCharts');

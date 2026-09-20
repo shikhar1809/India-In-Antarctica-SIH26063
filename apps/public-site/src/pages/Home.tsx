@@ -67,7 +67,7 @@ function withGalleryAfterLegacy(data: any) {
  *  before Ask a Scientist. `section` is the id of the home-page section each
  *  one corresponds to, which is what the scroll-spy rings. */
 const NAV = [
-  { label: 'Knowledge Repository', href: '/archive', internal: true, section: 'section-repository' },
+  { label: 'Knowledge Repository', href: '/knowledge-repository', internal: true, section: 'section-repository' },
   { label: 'Gallery', href: '/gallery', internal: true, section: 'section-gallery' },
   { label: 'PolarQuest', href: 'https://iia-game.web.app', internal: false, section: 'section-polarquest' },
   { label: 'Ask a Scientist', href: '/ask', internal: true, section: 'section-ask' },
@@ -249,7 +249,7 @@ export default function Home() {
         <div className="footer-links">
           <h4>Quick Links</h4>
           <ul>
-            <li><Link to="/archive">Knowledge Repository</Link></li>
+            <li><Link to="/knowledge-repository">Knowledge Repository</Link></li>
             <li><Link to="/gallery">Gallery</Link></li>
             <li><Link to="/ask">Ask a Scientist</Link></li>
             <li><a href="https://iia-portal.web.app">Outreach Portal</a></li>

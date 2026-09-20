@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { checkAlignment, corrections, keyStems, slotByDeadline, summarise, type AlignInput } from './alignment';
 import type { PostRequest } from '../types';
 
-const URL = 'https://iia-public.web.app/archive/IIA-1999-9004';
+const URL = 'https://iia-public.web.app/knowledge-repository/IIA-1999-9004';
 
 const draft = (angle: string, caption: string) => ({
   angle,

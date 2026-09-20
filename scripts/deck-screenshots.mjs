@@ -28,7 +28,7 @@ import { mkdirSync } from 'node:fs';
 const OUT = 'C:/Users/royal/Desktop/Sih_Slides/screenshots';
 const PORTAL = 'http://localhost:5173';
 const PUBLIC = 'https://iia-public.web.app';
-const RECORD = `${PUBLIC}/archive/IIA-1999-9004`;
+const RECORD = `${PUBLIC}/knowledge-repository/IIA-1999-9004`;
 
 const only = (process.argv[2] || 'all').toLowerCase();
 const wants = (group) => only === 'all' || only === group;
@@ -136,7 +136,7 @@ if (wants('public')) {
   // and the spines are textured from live archive records.
   const shelf = await page({ width: 1600, height: 950 });
   try {
-    await shelf.goto(`${PUBLIC}/archive`, { waitUntil: 'domcontentloaded', timeout: 90000 });
+    await shelf.goto(`${PUBLIC}/knowledge-repository`, { waitUntil: 'domcontentloaded', timeout: 90000 });
     await shelf.waitForSelector('canvas', { timeout: 90000 });
     await sleep(12000);
     await shot(shelf, '03-archive-shelf');

@@ -88,7 +88,7 @@ function Posted({ record }: { record: RepositoryRecord }) {
  *  runs text against the centre photograph. */
 function LeadStory({ record }: { record: RepositoryRecord }) {
   return (
-    <Link to={`/archive/${recordSlug(record)}`} className="fp-lead">
+    <Link to={`/knowledge-repository/${recordSlug(record)}`} className="fp-lead">
       <Kicker record={record} />
       <h3>{record.title}</h3>
       <p className="fp-standfirst">{standfirst(record, 190)}</p>
@@ -100,7 +100,7 @@ function LeadStory({ record }: { record: RepositoryRecord }) {
 /** The centre: one large photograph, story underneath it. */
 function MainStory({ record }: { record: RepositoryRecord }) {
   return (
-    <Link to={`/archive/${recordSlug(record)}`} className="fp-main">
+    <Link to={`/knowledge-repository/${recordSlug(record)}`} className="fp-main">
       <figure className="fp-main-figure">
         <img src={record.photoUrls[0]} alt="" loading="eager" />
         {record.credit && <figcaption>{record.credit}</figcaption>}
@@ -118,7 +118,7 @@ function MainStory({ record }: { record: RepositoryRecord }) {
 /** Right column and the strip below: a small photograph over a headline. */
 function SideStory({ record, compact = false }: { record: RepositoryRecord; compact?: boolean }) {
   return (
-    <Link to={`/archive/${recordSlug(record)}`} className={'fp-side' + (compact ? ' fp-side--compact' : '')}>
+    <Link to={`/knowledge-repository/${recordSlug(record)}`} className={'fp-side' + (compact ? ' fp-side--compact' : '')}>
       {record.photoUrls?.[0] && (
         <div className="fp-side-photo"><img src={record.photoUrls[0]} alt="" loading="lazy" /></div>
       )}
@@ -181,7 +181,7 @@ export function FrontPage() {
         {/* One way on from here, not a second copy of the site's own
             navigation: everything on this page is a record, and the
             repository is where all of them live. */}
-        <Link to="/archive" className="fp-repo-btn">
+        <Link to="/knowledge-repository" className="fp-repo-btn">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <path d="M3 3.2h4.2a1.8 1.8 0 0 1 1.8 1.8v8a1.4 1.4 0 0 0-1.4-1.4H3V3.2Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
             <path d="M13 3.2H8.8A1.8 1.8 0 0 0 7 5v8a1.4 1.4 0 0 1 1.4-1.4H13V3.2Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />

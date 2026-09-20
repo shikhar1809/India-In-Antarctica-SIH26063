@@ -62,12 +62,12 @@ const CLOTH: Record<string, { cloth: string; foil: string }> = {
 }
 
 const CATEGORY_VOLUMES: BookSpec[] = [
-  { id: 'v-expedition',  title: 'Expedition Reports',   kind: 'Collected Volume', sub: 'Since 1981',     ...CLOTH.expedition,  href: '/archive' },
-  { id: 'v-dataset',     title: 'Scientific Datasets',  kind: 'Collected Volume', sub: 'Open data',      ...CLOTH.dataset,     href: '/archive' },
-  { id: 'v-publication', title: 'Research Papers',      kind: 'Collected Volume', sub: 'Peer reviewed',  ...CLOTH.publication, href: '/archive' },
-  { id: 'v-media',       title: 'Photographs & Video',  kind: 'Collected Volume', sub: 'Field media',    ...CLOTH.media,       href: '/archive' },
-  { id: 'v-institution', title: 'Institutional Record', kind: 'Collected Volume', sub: 'NCPOR / MoES',   ...CLOTH.institution, href: '/archive' },
-  { id: 'v-atlas',       title: 'Station Atlas',        kind: 'Reference',        sub: 'Maitri / Bharati', ...CLOTH.default,   href: '/archive' },
+  { id: 'v-expedition',  title: 'Expedition Reports',   kind: 'Collected Volume', sub: 'Since 1981',     ...CLOTH.expedition,  href: '/knowledge-repository' },
+  { id: 'v-dataset',     title: 'Scientific Datasets',  kind: 'Collected Volume', sub: 'Open data',      ...CLOTH.dataset,     href: '/knowledge-repository' },
+  { id: 'v-publication', title: 'Research Papers',      kind: 'Collected Volume', sub: 'Peer reviewed',  ...CLOTH.publication, href: '/knowledge-repository' },
+  { id: 'v-media',       title: 'Photographs & Video',  kind: 'Collected Volume', sub: 'Field media',    ...CLOTH.media,       href: '/knowledge-repository' },
+  { id: 'v-institution', title: 'Institutional Record', kind: 'Collected Volume', sub: 'NCPOR / MoES',   ...CLOTH.institution, href: '/knowledge-repository' },
+  { id: 'v-atlas',       title: 'Station Atlas',        kind: 'Reference',        sub: 'Maitri / Bharati', ...CLOTH.default,   href: '/knowledge-repository' },
 ]
 
 const SHELF_SIZE = 19
@@ -81,7 +81,7 @@ function toSpec(r: RepositoryRecord): BookSpec {
     sub: `${STATION_LABELS[r.station] ?? 'NCPOR'} · ${r.year}`,
     cloth: c.cloth,
     foil: c.foil,
-    href: '/archive',
+    href: '/knowledge-repository',
   }
 }
 
