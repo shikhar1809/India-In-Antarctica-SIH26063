@@ -1,0 +1,14 @@
+{
+  "indexes": [
+    {
+      "//": "The field app asks for questions an admin has released, oldest first. Firestore needs this pairing declared; without it the query is refused and the app reports it as an unreachable portal.",
+      "collectionGroup": "student_questions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "questionApprovedAt", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

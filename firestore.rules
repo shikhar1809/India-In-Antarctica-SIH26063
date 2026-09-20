@@ -355,9 +355,14 @@ service cloud.firestore {
     match /student_questions/{questionId} {
       function q() { return request.resource.data; }
 
-      // One question, by its tracking id. Enumeration is staff-only.
+      // One question, by its tracking id. Enumeration is staff-only —
+      // except for the queue a scientist has to be able to read: questions
+      // an admin has already released. Those carry no personal details by
+      // then (releasing one strips them; see the moderation page), so the
+      // field app can list them without a child's name going with it.
       allow get: if true;
-      allow list: if canManageSite() || isPublisher();
+      allow list: if canManageSite() || isPublisher()
+        || (request.auth != null && resource.data.status == 'READY_FOR_SCIENTIST');
 
       allow create: if q().question is string
         && q().question.size() > 0
@@ -381,7 +386,9 @@ service cloud.firestore {
         && q().diff(resource.data).affectedKeys()
              .hasOnly(['status', 'answer', 'answeredByStation', 'answeredAt']);
 
-      // Moderation: release, publish, reject.
+      // Moderation: release, publish, reject. Releasing also drops the
+      // asker's name, age and school — a scientist needs the question, not
+      // the child — which is why this does not pin those fields.
       allow update: if canManageSite()
         && q().question == resource.data.question
         && q().status in ['PENDING_QUESTION', 'READY_FOR_SCIENTIST', 'PENDING_ANSWER', 'PUBLISHED', 'REJECTED_Q', 'REJECTED_A'];

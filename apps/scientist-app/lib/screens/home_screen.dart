@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'dart:async';
+import 'dart:io';
 import '../services/portal_api.dart';
 import '../app_theme.dart';
 import '../services/sync_service.dart';
@@ -665,7 +666,15 @@ class _CommsPanelState extends State<_CommsPanel> {
       final q = await PortalApi.instance.readyQuestions();
       if (mounted) setState(() { _questions = q; _loadError = null; });
     } catch (e) {
-      if (mounted) setState(() => _loadError = 'Cannot reach the portal — questions will appear when the link is back.');
+      /* "Cannot reach the portal" was said for every failure, including the
+       * ones where the portal answered perfectly well and refused. A
+       * scientist staring at an ONLINE badge and that sentence has been
+       * told something untrue. */
+      if (mounted) {
+        setState(() => _loadError = e is SocketException || e is TimeoutException
+            ? 'Cannot reach the portal — questions will appear when the link is back.'
+            : 'The portal refused the question list: $e');
+      }
     }
   }
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, deleteField, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useRole } from '../hooks/useRole';
@@ -103,9 +103,17 @@ export function Moderation() {
 
   const handleApproveQuestion = async (id: string) => {
     try {
+      /* Releasing it to the field app also forgets who asked. A scientist
+       * needs the question, not a child's name, age and school — and once
+       * the queue is readable by every signed-in scientist, the only safe
+       * thing for those fields to be is absent. The moderator saw them
+       * when deciding, which is the moment they were for. */
       await updateDoc(doc(db, 'student_questions', id), {
         status: 'READY_FOR_SCIENTIST',
-        questionApprovedAt: serverTimestamp()
+        questionApprovedAt: serverTimestamp(),
+        firstName: deleteField(),
+        age: deleteField(),
+        institute: deleteField(),
       });
     } catch (e) {
       console.error(e);
